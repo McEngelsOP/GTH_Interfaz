@@ -45,11 +45,12 @@
         </button>
       </div>
 
-      <!-- Navigation Links -->
+      <!-- Navigation Links (Rediseño Estructural por Puesto) -->
       <nav class="sidebar-nav">
-        <div class="nav-section-title">Módulos de Selección</div>
+        <!-- SECCIÓN 1: CONVOCATORIAS -->
+        <div class="nav-section-title">Convocatorias</div>
         
-        <a href="#convocatorias" class="nav-item active" data-target="ranking" data-tooltip="Convocatorias Activas (1)">
+        <a href="#convocatorias" class="nav-item active" data-nav="convocatorias" data-target="ranking" data-tooltip="Convocatorias Activas por Tipo de Puesto">
           <div class="nav-item-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -59,11 +60,61 @@
             </svg>
           </div>
           <span class="nav-item-label">Convocatorias Activas</span>
-          <span class="nav-item-badge">1 activa</span>
+          <span class="nav-item-badge">3 activas</span>
           <span class="nav-indicator-dot dot-crimson"></span>
         </a>
 
-        <a href="#carga-ocr" class="nav-item" data-target="ingestion" id="navIngestionItem" data-tooltip="Carga Masiva & OCR (482 CVs)">
+        <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Crear Convocatoria con Template Inteligente por Puesto">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">+ Nueva Convocatoria</span>
+        </a>
+
+        <!-- SECCIÓN 2: PROCESO (CONVOCATORIA ACTIVA) -->
+        <div class="nav-section-title">Proceso de Selección</div>
+
+        <a href="#ranking" class="nav-item" data-nav="ranking" data-target="ranking" data-tooltip="Ranking Top-N con Podios">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Ranking Top-N</span>
+        </a>
+
+        <a href="#kanban" class="nav-item" data-nav="kanban" data-target="kanban" data-tooltip="Tablero Kanban de 6 Fases">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+              <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+              <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+            </svg>
+          </div>
+          <span class="nav-item-label">Tablero Kanban</span>
+        </a>
+
+        <a href="#comparador" class="nav-item" data-nav="comparison" data-target="comparison" data-tooltip="Comparador Multicandidato Cara a Cara">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+              <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+              <path d="M7 21h10"></path>
+              <path d="M12 3v18"></path>
+              <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path>
+            </svg>
+          </div>
+          <span class="nav-item-label">Comparador (2-5)</span>
+        </a>
+
+        <a href="#carga-ocr" class="nav-item" data-nav="ingestion" data-target="ingestion" id="navIngestionItem" data-tooltip="Carga Masiva & OCR Multi-fuente">
           <div class="nav-item-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -76,39 +127,65 @@
           <span class="nav-indicator-dot dot-emerald"></span>
         </a>
 
-        <a href="#ranking" class="nav-item" data-target="ranking" data-tooltip="Ranking & Evaluación">
+        <!-- SECCIÓN 3: TALENTO INSTITUCIONAL -->
+        <div class="nav-section-title">Talento Institucional</div>
+
+        <a href="#banco-talento" class="nav-item" data-nav="talentPool" data-target="talentPool" data-tooltip="Banco de Talento & Movilidad Interna">
           <div class="nav-item-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
           </div>
-          <span class="nav-item-label">Ranking & Evaluación</span>
+          <span class="nav-item-label">Banco de Talento</span>
         </a>
 
-        <a href="#auditoria" class="nav-item" data-target="audit" data-tooltip="Auditoría & Efectividad">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">Auditoría & Efectividad</span>
-        </a>
+        <!-- SECCIÓN 4: GOBERNANZA & CONFIGURACIÓN -->
+        <div class="nav-section-title">Gobernanza & Calidad</div>
 
-        <div class="nav-section-title">Gobernanza</div>
-
-        <a href="#configuracion" class="nav-item" data-target="criteria" data-tooltip="Criterios & Pesos (v2.4)">
+        <a href="#configuracion" class="nav-item" data-nav="criteria" data-target="criteria" data-tooltip="Criterios y Pesos por Tipo de Puesto">
           <div class="nav-item-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </div>
-          <span class="nav-item-label">Criterios & Pesos (v2.4)</span>
+          <span class="nav-item-label">Criterios & Pesos</span>
+        </a>
+
+        <a href="#efectividad" class="nav-item" data-nav="effectiveness" data-target="effectiveness" data-tooltip="Efectividad Real a 6 Meses & Auto-Calibración">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+          </div>
+          <span class="nav-item-label">Efectividad IA (6m)</span>
+        </a>
+
+        <a href="#auditoria" class="nav-item" data-nav="audit" data-target="audit" data-tooltip="Auditoría Inmutable & Trazabilidad">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <span class="nav-item-label">Auditoría & Trazabilidad</span>
+        </a>
+
+        <!-- SECCIÓN 5: ANALÍTICA -->
+        <div class="nav-section-title">Analítica & Dirección</div>
+
+        <a href="#dashboard-ejecutivo" class="nav-item" data-nav="executive" data-target="executive" data-tooltip="Dashboard Ejecutivo para Decanos y Gerencia">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="20" x2="12" y2="10"></line>
+              <line x1="18" y1="20" x2="18" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="16"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Dashboard Ejecutivo</span>
         </a>
       </nav>
 
@@ -121,7 +198,7 @@
           </div>
           <div class="recruiter-meta">
             <span class="recruiter-name">Mariana Córdova</span>
-            <span class="recruiter-role">Reclutadora GTHC</span>
+            <span class="recruiter-role">Reclutadora GTHC · ESAN</span>
           </div>
         </div>
       </div>
@@ -131,26 +208,56 @@
          2. CENTRAL WORKSPACE: HUB DE RECLUTAMIENTO
          ========================================================================== -->
     <main class="app-main">
-      <!-- Workspace Header -->
+      <!-- Workspace Header con Selector de Convocatoria Activa y Switch Modo RRHH -->
       <header class="workspace-header">
         <div class="workspace-title-area">
-          <span class="position-tag">
-            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--esan-primary);"></span>
-            Semestre 2026-II
-          </span>
-          <h1 class="position-title">Convocatoria Docente / Desarrollador de Software</h1>
+          <!-- Job Selector Dropdown (Cambio #1) -->
+          <div class="job-selector-wrapper">
+            <button class="job-selector-trigger" id="activeJobSelectorBtn" title="Clic para cambiar de convocatoria activa">
+              <div class="job-selector-info">
+                <span class="job-selector-code" id="headerJobCode">
+                  <span class="role-badge role-docente" id="headerRoleBadge">DOCENTE</span>
+                  <span id="headerJobPeriod">Semestre 2026-II</span>
+                  <span>•</span>
+                  <span id="headerJobDept" style="color: var(--text-tertiary);">Dirección de TI</span>
+                </span>
+                <span class="job-selector-title" id="headerJobTitle">Convocatoria Docente / Desarrollador Cloud & Software</span>
+              </div>
+              <svg class="job-selector-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            <!-- Menú Desplegable de Convocatorias -->
+            <div class="job-selector-dropdown" id="activeJobDropdownMenu">
+              <div class="job-dropdown-header">Convocatorias Abiertas Institucionales</div>
+              <div id="jobDropdownOptionsMount">
+                <!-- Inyectado por JS -->
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="workspace-header-actions">
+          <!-- Mode Toggle: Modo RRHH vs Modo Técnico (Cambio #9) -->
+          <div class="mode-toggle-pill" title="Alternar terminología entre reclutamiento RRHH y análisis técnico de IA">
+            <button class="mode-toggle-btn active" id="modeBtnRRHH" data-mode="rrhh">
+              👔 Modo RRHH
+            </button>
+            <button class="mode-toggle-btn" id="modeBtnTechnical" data-mode="technical">
+              ⚙️ Modo Técnico
+            </button>
+          </div>
+
           <button class="btn btn-secondary" id="openIngestionBtn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            Carga Masiva & OCR
+            Carga OCR
           </button>
-          <button class="btn btn-primary" onclick="alert('Exportando reporte oficial de auditoría GTHC en formato Excel/PDF...')">
+          <button class="btn btn-primary" onclick="alert('Exportando informe consolidado en formato Excel / PDF para Dirección de GTHC...')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
               <polyline points="16 6 12 2 8 6"></polyline>
@@ -161,172 +268,230 @@
         </div>
       </header>
 
+      <!-- Barra de Pestañas de Sub-Navegación del Proceso (Cambio #5, #7) -->
+      <nav class="process-subnav" id="processSubnav">
+        <button class="subnav-tab active" data-view="ranking">
+          <span>🏆 Ranking Top-N</span>
+        </button>
+        <button class="subnav-tab" data-view="kanban">
+          <span>📌 Tablero Kanban</span>
+        </button>
+        <button class="subnav-tab" data-view="comparison">
+          <span>⚖️ Comparador</span>
+          <span class="subnav-badge" id="subnavCompareCount">0</span>
+        </button>
+        <button class="subnav-tab" data-view="talentPool">
+          <span>👥 Banco de Talento</span>
+        </button>
+        <button class="subnav-tab" data-view="effectiveness">
+          <span>📈 Efectividad IA (6m)</span>
+        </button>
+        <button class="subnav-tab" data-view="executive">
+          <span>👔 Dashboard Ejecutivo</span>
+        </button>
+      </nav>
+
       <!-- Workspace Content Body -->
-      <div class="workspace-content">
+      <div class="workspace-content" id="workspaceContent">
 
-        <!-- A. Header & Summary Metrics -->
-        <section class="kpi-grid">
-          <!-- KPI 1: Lote Procesado -->
-          <div class="kpi-card kpi-accent-primary">
-            <div class="kpi-header">
-              <span class="kpi-label">Lote Procesado</span>
-              <div class="kpi-icon-wrapper">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
+        <!-- VISTA 1: RANKING TOP-N (VISTA PRINCIPAL PREDETERMINADA) -->
+        <div class="view-container active" id="viewContainer_ranking">
+          <!-- A. Header & Summary Metrics -->
+          <section class="kpi-grid">
+            <!-- KPI 1: Lote Procesado -->
+            <div class="kpi-card kpi-accent-primary">
+              <div class="kpi-header">
+                <span class="kpi-label">Lote Procesado</span>
+                <div class="kpi-icon-wrapper">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpiProcessedCount">482</span>
+                <span class="kpi-unit">CVs</span>
+              </div>
+              <div class="kpi-subtitle">
+                <span>Procesados vía OCR & Markdown</span>
               </div>
             </div>
-            <div class="kpi-value-row">
-              <span class="kpi-value">482</span>
-              <span class="kpi-unit">CVs</span>
-            </div>
-            <div class="kpi-subtitle">
-              <span>Procesados vía OCR & Markdown</span>
-            </div>
-          </div>
 
-          <!-- KPI 2: Top-N Configurado -->
-          <div class="kpi-card kpi-accent-primary">
-            <div class="kpi-header">
-              <span class="kpi-label">Top-N Configurado</span>
-              <div class="kpi-icon-wrapper" style="color: var(--esan-primary); background: var(--esan-primary-light);">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                </svg>
+            <!-- KPI 2: Top-N Configurado -->
+            <div class="kpi-card kpi-accent-primary">
+              <div class="kpi-header">
+                <span class="kpi-label">Top-N Configurado</span>
+                <div class="kpi-icon-wrapper" style="color: var(--esan-primary); background: var(--esan-primary-light);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value-row top-n-value-row">
+                <div class="top-n-badge-pill">
+                  <span class="top-n-prefix-tag">N =</span>
+                  <input type="text" class="top-n-input-field" id="topNInput" value="5" readonly />
+                </div>
+                <div class="top-n-stepper-btns">
+                  <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Disminuir vacantes" title="Disminuir vacantes">−</button>
+                  <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Aumentar vacantes" title="Aumentar vacantes">+</button>
+                </div>
+                <span class="kpi-unit">vacantes</span>
+              </div>
+              <div class="kpi-subtitle">
+                <span>Corte dinámico en la tabla</span>
               </div>
             </div>
-            <div class="kpi-value-row top-n-value-row">
-              <div class="top-n-badge-pill">
-                <span class="top-n-prefix-tag">N =</span>
-                <input type="text" class="top-n-input-field" id="topNInput" value="5" readonly />
-              </div>
-              <div class="top-n-stepper-btns">
-                <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Disminuir vacantes" title="Disminuir vacantes">−</button>
-                <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Aumentar vacantes" title="Aumentar vacantes">+</button>
-              </div>
-              <span class="kpi-unit">vacantes</span>
-            </div>
-            <div class="kpi-subtitle">
-              <span>Corte dinámico en la tabla</span>
-            </div>
-          </div>
 
-          <!-- KPI 3: Score Promedio -->
-          <div class="kpi-card kpi-accent-info">
-            <div class="kpi-header">
-              <span class="kpi-label">Score Promedio Lote</span>
-              <div class="kpi-icon-wrapper">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="20" x2="18" y2="10"></line>
-                  <line x1="12" y1="20" x2="12" y2="4"></line>
-                  <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
+            <!-- KPI 3: Score Promedio -->
+            <div class="kpi-card kpi-accent-info">
+              <div class="kpi-header">
+                <span class="kpi-label">Score Promedio Lote</span>
+                <div class="kpi-icon-wrapper">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpiAvgScore">78.4</span>
+                <span class="kpi-unit">/ 100</span>
+              </div>
+              <div class="kpi-subtitle">
+                <span style="color: var(--status-success); font-weight: 600;">+8.4%</span>
+                <span>vs. histórico institucional</span>
               </div>
             </div>
-            <div class="kpi-value-row">
-              <span class="kpi-value">74.2</span>
-              <span class="kpi-unit">/ 100</span>
-            </div>
-            <div class="kpi-subtitle">
-              <span style="color: var(--status-success); font-weight: 600;">+8.4%</span>
-              <span>vs. promedio histórico ESAN</span>
-            </div>
-          </div>
 
-          <!-- KPI 4: Talento con Potencial -->
-          <div class="kpi-card kpi-accent-success">
-            <div class="kpi-header">
-              <span class="kpi-label">Talento con Potencial</span>
-              <div class="kpi-icon-wrapper" style="color: var(--inclusion-text); background: var(--inclusion-bg);">
-                ✦
+            <!-- KPI 4: Métrica Específica del Puesto (Cambio #8) -->
+            <div class="kpi-card kpi-accent-success" id="kpiRoleSpecificCard">
+              <div class="kpi-header">
+                <span class="kpi-label" id="kpiRoleMetricLabel">% Maestría SUNEDU</span>
+                <div class="kpi-icon-wrapper" style="color: var(--inclusion-text); background: var(--inclusion-bg);">
+                  ✦
+                </div>
+              </div>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpiRoleMetricValue">92%</span>
+                <span class="kpi-unit">aptos</span>
+              </div>
+              <div class="kpi-subtitle">
+                <span id="kpiRoleMetricSub">Métrica ajustada al tipo de puesto</span>
               </div>
             </div>
-            <div class="kpi-value-row">
-              <span class="kpi-value">18</span>
-              <span class="kpi-unit">perfiles</span>
+          </section>
+
+          <!-- B. Candidate Data Grid Toolbar -->
+          <section class="table-toolbar" id="candidateGridSection">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                type="text" 
+                class="search-input" 
+                id="tableSearchInput" 
+                placeholder="Buscar por candidato, cargo o empresa actual..." 
+              />
             </div>
-            <div class="kpi-subtitle">
-              <span>Habilidades transferibles detectadas</span>
+
+            <div class="filter-group">
+              <select class="filter-select" id="filterStatusSelect">
+                <option value="all">Todos los Estados</option>
+                <option value="topN">Dentro de Top-N</option>
+                <option value="outsideTopN">Fuera de corte</option>
+                <option value="transferable">Con Potencial Transferible</option>
+              </select>
+
+              <select class="filter-select" id="filterSourceSelect">
+                <option value="all">Todas las Fuentes</option>
+                <option value="linkedin">LinkedIn Recruiter</option>
+                <option value="computrabajo">CompuTrabajo</option>
+                <option value="bumeran">Bumeran</option>
+                <option value="referrals">Referencia ESAN</option>
+              </select>
+
+              <button class="btn btn-secondary btn-sm" onclick="alert('Selecciona postulantes con la casilla para comparar cara a cara o avanzar en bloque.')">
+                Acciones Masivas
+              </button>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- B. Candidate Data Grid Toolbar -->
-        <section class="table-toolbar" id="candidateGridSection">
-          <div class="search-input-wrapper">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input 
-              type="text" 
-              class="search-input" 
-              id="tableSearchInput" 
-              placeholder="Buscar por candidato, cargo o empresa actual..." 
-            />
-          </div>
-
-          <div class="filter-group">
-            <select class="filter-select" id="filterStatusSelect">
-              <option value="all">Todos los Estados</option>
-              <option value="topN">Dentro de Top-N</option>
-              <option value="outsideTopN">Fuera de corte</option>
-              <option value="transferable">Con Potencial Transferible</option>
-            </select>
-
-            <select class="filter-select" id="filterSourceSelect">
-              <option value="all">Todas las Fuentes</option>
-              <option value="linkedin">LinkedIn Recruiter</option>
-              <option value="computrabajo">CompuTrabajo</option>
-              <option value="bumeran">Bumeran</option>
-              <option value="gmail">Gmail / Correo Directo</option>
-            </select>
-
-            <button class="btn btn-secondary btn-sm" onclick="alert('Selecciona postulantes con la casilla de la izquierda para avanzar o notificar en bloque.')">
-              Acciones Masivas
-            </button>
-          </div>
-        </section>
-
-        <!-- C. Candidate Ranking Data Grid (The Core Engine) -->
-        <section class="table-card">
-          <div class="table-responsive">
-            <table class="candidate-table">
-              <thead>
-                <tr>
-                  <th style="width: 40px;">
-                    <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar todos los candidatos visibles" />
-                  </th>
-                  <th class="sortable" style="min-width: 250px;">Candidato / Empresa Actual</th>
-                  <th style="min-width: 170px;">
-                    Requisitos Mandatorios
-                    <span style="font-size: 10px; font-weight: normal; text-transform: none; color: var(--text-tertiary); display: block;">
-                      (Pasa el cursor para ver motivo)
-                    </span>
-                  </th>
-                  <th style="min-width: 170px;">Criterios Preferidos</th>
-                  <th class="sortable" style="width: 110px; text-align: center;">Score Dual</th>
-                  <th style="min-width: 140px;">Inclusión</th>
-                  <th style="min-width: 210px;">Estado Top-N & Decisión</th>
-                </tr>
-              </thead>
-              <tbody id="candidateTableBody">
-                <!-- Rellenado reactivamente por dataGrid.js -->
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Table Footer / Count & Sync indicator -->
-          <div class="table-footer">
-            <span id="resultCountDisplay">Cargando postulantes evaluados...</span>
-            <div class="batch-sync-indicator">
-              <span class="live-dot"></span>
-              <span>Motor Dual Conectado · Base Centralizada ESAN sincronizada</span>
+          <!-- C. Candidate Ranking Data Grid (The Core Engine) -->
+          <section class="table-card">
+            <div class="table-responsive">
+              <table class="candidate-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;">
+                      <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar todos los candidatos visibles" />
+                    </th>
+                    <th class="sortable" style="min-width: 250px;">Candidato / Podio & Empresa</th>
+                    <th style="min-width: 170px;">
+                      Requisitos Mandatorios (Puesto)
+                      <span style="font-size: 10px; font-weight: normal; text-transform: none; color: var(--text-tertiary); display: block;">
+                        (Pasa cursor para justificación técnica)
+                      </span>
+                    </th>
+                    <th style="min-width: 180px;">Análisis de Brechas (Cambio #10)</th>
+                    <th class="sortable" style="width: 130px; text-align: center;">Score Consolidado</th>
+                    <th style="min-width: 190px;">Acciones & Comparador</th>
+                  </tr>
+                </thead>
+                <tbody id="candidateTableBody">
+                  <!-- Rellenado reactivamente por dataGrid.js -->
+                </tbody>
+              </table>
             </div>
-          </div>
-        </section>
 
+            <!-- Table Footer / Count & Sync indicator -->
+            <div class="table-footer">
+              <span id="resultCountDisplay">Cargando postulantes evaluados...</span>
+              <div class="batch-sync-indicator">
+                <span class="live-dot"></span>
+                <span>Motor Dual Conectado · Convocatoria activa sincronizada con GTHC</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- VISTA 2: TABLERO KANBAN DEL PROCESO (Cambio #7) -->
+        <div class="view-container" id="viewContainer_kanban">
+          <!-- Inyectado por kanbanView.js -->
+        </div>
+
+        <!-- VISTA 3: COMPARADOR MULTICANDIDATO CARA A CARA (Cambio #6) -->
+        <div class="view-container" id="viewContainer_comparison">
+          <!-- Inyectado por comparisonView.js -->
+        </div>
+
+        <!-- VISTA 4: BANCO DE TALENTO INSTITUCIONAL & MARKETPLACE (Cambios #11 & #13) -->
+        <div class="view-container" id="viewContainer_talentPool">
+          <!-- Inyectado por talentPoolView.js -->
+        </div>
+
+        <!-- VISTA 5: EFECTIVIDAD REAL DE CONTRATACIÓN A 6 MESES (Cambio #12) -->
+        <div class="view-container" id="viewContainer_effectiveness">
+          <!-- Inyectado por effectivenessView.js -->
+        </div>
+
+        <!-- VISTA 6: DASHBOARD EJECUTIVO & BIBLIOTECA DE PERFILES (Cambios #4 & #15) -->
+        <div class="view-container" id="viewContainer_executive">
+          <!-- Inyectado por executiveDashboard.js -->
+        </div>
+
+      </div>
+
+      <!-- Dock Flotante de Comparación Rápida (Cambio #6) -->
+      <div class="comparison-floating-dock" id="comparisonFloatingDock">
+        <div class="dock-avatar-group" id="dockAvatarGroup"></div>
+        <span id="dockTextCount" style="font-size: 13px; font-weight: 600;">2 candidatos seleccionados</span>
+        <button class="dock-btn-compare" id="dockBtnCompareNow">Comparar Ahora ⚖️</button>
+        <button class="dock-btn-clear" id="dockBtnClear">Limpiar</button>
       </div>
     </main>
 
@@ -449,6 +614,7 @@
       <!-- Drawer Tabs -->
       <div class="drawer-tabs">
         <button class="drawer-tab-btn active" data-tab="explain">Explicación del Score</button>
+        <button class="drawer-tab-btn" data-tab="gaps">Brechas & Guía STAR</button>
         <button class="drawer-tab-btn" data-tab="weights">Desglose por Pesos</button>
         <button class="drawer-tab-btn" data-tab="cv">CV Markdown</button>
         <button class="drawer-tab-btn" data-tab="audit">Registro de Auditoría</button>
@@ -457,6 +623,7 @@
       <!-- Drawer Body -->
       <div class="drawer-body">
         <div class="tab-pane active" id="tabPane_explain"></div>
+        <div class="tab-pane" id="tabPane_gaps"></div>
         <div class="tab-pane" id="tabPane_weights"></div>
         <div class="tab-pane" id="tabPane_cv"></div>
         <div class="tab-pane" id="tabPane_audit"></div>

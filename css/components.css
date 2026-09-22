@@ -762,14 +762,14 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(200, 16, 46, 0.3);
+  box-shadow: 0 1px 3px rgba(14, 41, 75, 0.25);
   transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
 .btn-action-primary:hover {
   background: var(--esan-primary-hover);
-  box-shadow: 0 3px 8px rgba(200, 16, 46, 0.4);
+  box-shadow: 0 3px 8px rgba(14, 41, 75, 0.35);
   transform: translateY(-1px);
 }
 
@@ -825,3 +825,332 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.85); }
 }
+
+/* ==========================================================================
+   9. Podio Top-N Visual Badges (Cambio #18)
+   ========================================================================== */
+.podium-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+.podium-rank-badge.podium-1 {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  color: #92400E;
+  border: 1px solid #F59E0B;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
+}
+
+.podium-rank-badge.podium-2 {
+  background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
+  color: #334155;
+  border: 1px solid #94A3B8;
+  box-shadow: 0 1px 3px rgba(100, 116, 139, 0.2);
+}
+
+.podium-rank-badge.podium-3 {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
+  color: #9A3412;
+  border: 1px solid #EA580C;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2);
+}
+
+.podium-rank-badge.podium-regular {
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+/* ==========================================================================
+   10. Brechas & Riesgos Badges (Cambio #10)
+   ========================================================================== */
+.gap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gap-badge.has-gap {
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.gap-badge.clean {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+/* ==========================================================================
+   11. Role Badges (Cambio #1)
+   ========================================================================== */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.role-badge.role-docente {
+  background: var(--role-docente-bg);
+  color: var(--role-docente-text);
+  border: 1px solid var(--role-docente-border);
+}
+
+.role-badge.role-admin {
+  background: var(--role-admin-bg);
+  color: var(--role-admin-text);
+  border: 1px solid var(--role-admin-border);
+}
+
+.role-badge.role-operativo {
+  background: var(--role-operativo-bg);
+  color: var(--role-operativo-text);
+  border: 1px solid var(--role-operativo-border);
+}
+
+.role-badge.role-directivo {
+  background: var(--role-directivo-bg);
+  color: var(--role-directivo-text);
+  border: 1px solid var(--role-directivo-border);
+}
+
+/* ==========================================================================
+   12. Mode Toggle Segmented Control (Cambio #9)
+   ========================================================================== */
+.mode-toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #F1F5F9;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-toggle-btn {
+  border: none;
+  background: transparent;
+  color: #64748B;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mode-toggle-btn:hover {
+  color: var(--text-main);
+}
+
+.mode-toggle-btn.active {
+  background: #FFFFFF;
+  color: var(--esan-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   13. Process Sub-Navigation Tabs Bar (Cambios #5, #7)
+   ========================================================================== */
+.process-subnav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 0 28px;
+  overflow-x: auto;
+  position: sticky;
+  top: 61px;
+  z-index: 19;
+}
+
+.subnav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.subnav-tab:hover {
+  color: var(--text-main);
+}
+
+.subnav-tab.active {
+  color: var(--esan-primary);
+  border-bottom-color: var(--esan-primary);
+}
+
+.subnav-badge {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: #F1F5F9;
+  color: #475569;
+  font-weight: 700;
+}
+
+.subnav-tab.active .subnav-badge {
+  background: var(--esan-primary-light);
+  color: var(--esan-primary);
+}
+
+/* ==========================================================================
+   14. Floating Comparison Dock (Cambio #6)
+   ========================================================================== */
+.comparison-floating-dock {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #0B192C;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.comparison-floating-dock.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dock-avatar-group {
+  display: flex;
+  align-items: center;
+}
+
+.dock-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #0B192C;
+  background: #2563EB;
+  color: #FFF;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -8px;
+}
+
+.dock-avatar:first-child {
+  margin-left: 0;
+}
+
+.dock-btn-compare {
+  background: #10B981;
+  color: #FFF;
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dock-btn-compare:hover {
+  background: #059669;
+  transform: scale(1.03);
+}
+
+.dock-btn-clear {
+  background: transparent;
+  color: #94A3B8;
+  border: none;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.dock-btn-clear:hover {
+  color: #FFF;
+}
+
+/* ==========================================================================
+   15. Candidate Contextual Quick Actions (Cambio #14)
+   ========================================================================== */
+.quick-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 16px;
+}
+
+.quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: var(--radius-md);
+  background: #F8FAFC;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-action-btn:hover {
+  background: #FFFFFF;
+  color: var(--esan-primary);
+  border-color: #BFDBFE;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.quick-action-btn.primary {
+  background: var(--esan-primary-light);
+  color: var(--esan-primary);
+  border-color: var(--esan-primary-border);
+}
+
+.quick-action-btn.primary:hover {
+  background: #DBEAFE;
+}
+

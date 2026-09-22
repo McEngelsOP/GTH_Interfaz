@@ -3,11 +3,22 @@
    State Management & Reactive Subscriptions
    ========================================================================== */
 
-import { MOCK_CANDIDATES, MOCK_JOB_POSTING } from './mockData.js';
+import {
+  MOCK_JOB_POSTINGS,
+  MOCK_DOCENTE_CANDIDATES,
+  MOCK_OPERATIVO_CANDIDATES,
+  MOCK_ADMIN_CANDIDATES,
+  MOCK_TALENT_POOL,
+  ORGANIZATIONAL_TEMPLATES,
+  EXECUTIVE_METRICS
+} from './mockData.js';
 
 class AppState {
   constructor() {
-    this.jobPosting = { ...MOCK_JOB_POSTING };
+    this.jobPostings = [...MOCK_JOB_POSTINGS];
+    this.activeJobPostingId = this.jobPostings[0].id;
+    this.jobPosting = { ...this.jobPostings[0] };
+    
     this.topN = this.jobPosting.defaultTopN;
     this.searchQuery = '';
     this.filterSource = 'all';
@@ -20,8 +31,23 @@ class AppState {
     this.copilotCollapsed = false;
     this.activeDrawerTab = 'explain';
 
-    // Clone and initialize candidates with sorted ranks
-    this.candidates = this.sortCandidates([...MOCK_CANDIDATES]);
+    // New Architecture States
+    this.currentView = 'ranking'; // 'ranking' | 'kanban' | 'evaluation' | 'comparison' | 'talentPool' | 'effectiveness' | 'executive'
+    this.viewMode = 'rrhh';       // 'rrhh' | 'technical'
+    this.comparisonPool = new Set(); // Candidate IDs selected for side-by-side comparison (max 5)
+    this.talentPool = [...MOCK_TALENT_POOL];
+    this.templates = [...ORGANIZATIONAL_TEMPLATES];
+    this.executiveMetrics = { ...EXECUTIVE_METRICS };
+
+    // Candidates pool by job
+    this.candidatesByJob = {
+      'REQ-2026-DOC-088': JSON.parse(JSON.stringify(MOCK_DOCENTE_CANDIDATES)),
+      'REQ-2026-OPE-014': JSON.parse(JSON.stringify(MOCK_OPERATIVO_CANDIDATES)),
+      'REQ-2026-ADM-032': JSON.parse(JSON.stringify(MOCK_ADMIN_CANDIDATES))
+    };
+
+    // Current candidates for active job
+    this.candidates = this.sortCandidates([...this.candidatesByJob[this.activeJobPostingId]]);
     this.updateTopNFlags();
 
     this.listeners = [];
@@ -38,6 +64,111 @@ class AppState {
     this.listeners.forEach(l => l(event, data, this));
   }
 
+  // --- Convocatoria Activa Management (Cambio #1) ---
+  setActiveJobPosting(jobId) {
+    const target = this.jobPostings.find(j => j.id === jobId);
+    if (!target || this.activeJobPostingId === jobId) return;
+
+    this.activeJobPostingId = jobId;
+    this.jobPosting = { ...target };
+    this.topN = target.defaultTopN;
+    this.selectedCandidateId = null;
+    this.selectedRows.clear();
+    this.comparisonPool.clear();
+
+    // Load candidates for this job
+    const jobCands = this.candidatesByJob[jobId] || [];
+    this.candidates = this.sortCandidates([...jobCands]);
+    this.updateTopNFlags();
+
+    this.notify('job_changed', { jobPosting: this.jobPosting });
+    this.notify('filter_changed');
+  }
+
+  // --- View Routing System ---
+  setCurrentView(viewName) {
+    if (this.currentView !== viewName) {
+      this.currentView = viewName;
+      this.notify('view_changed', { viewName });
+    }
+  }
+
+  // --- View Mode Toggle: RRHH vs Técnico (Cambio #9) ---
+  setViewMode(mode) {
+    if (this.viewMode !== mode && (mode === 'rrhh' || mode === 'technical')) {
+      this.viewMode = mode;
+      this.notify('view_mode_changed', { viewMode: mode });
+    }
+  }
+
+  // --- Candidate Comparison Pool (Cambio #6) ---
+  toggleComparisonCandidate(candId) {
+    if (this.comparisonPool.has(candId)) {
+      this.comparisonPool.delete(candId);
+    } else {
+      if (this.comparisonPool.size >= 5) {
+        alert("Puedes comparar hasta un máximo de 5 candidatos a la vez.");
+        return;
+      }
+      this.comparisonPool.add(candId);
+    }
+    this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });
+  }
+
+  clearComparisonPool() {
+    this.comparisonPool.clear();
+    this.notify('comparison_pool_changed', { pool: [] });
+  }
+
+  getComparisonCandidates() {
+    return this.candidates.filter(c => this.comparisonPool.has(c.id));
+  }
+
+  // --- Kanban Pipeline Transitions (Cambio #7) ---
+  moveCandidateStage(candId, newStage) {
+    const cand = this.candidates.find(c => c.id === candId);
+    if (cand && cand.stage !== newStage) {
+      const prevStage = cand.stage;
+      cand.stage = newStage;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      cand.audit.decisionHistory.push({
+        time: timeStr,
+        user: "Mariana Córdova (Reclutadora GTHC)",
+        action: `Etapa actualizada: ${prevStage.toUpperCase()} → ${newStage.toUpperCase()}`
+      });
+
+      this.notify('candidate_stage_changed', { candidate: cand, prevStage, newStage });
+    }
+  }
+
+  // --- Banco de Talento (Cambio #11) ---
+  addToTalentPool(candId, customNote = "") {
+    const cand = this.candidates.find(c => c.id === candId);
+    if (!cand) return;
+
+    const exists = this.talentPool.find(t => t.name === cand.name);
+    if (!exists) {
+      this.talentPool.unshift({
+        id: `TAL-${Date.now()}`,
+        name: cand.name,
+        roleCategory: this.jobPosting.roleTypeName,
+        previousVacancy: `${this.jobPosting.title} (${this.jobPosting.id})`,
+        scoreObtained: cand.score,
+        matchReason: customNote || cand.narrative.selectionReason,
+        tags: cand.preferredCriteria.map(p => p.name),
+        availability: "Disponible",
+        lastContact: "Hoy (TalentAI Preservado)",
+        crossMatchOpportunity: cand.crossMatches && cand.crossMatches[0] 
+          ? `Apto para ${cand.crossMatches[0].jobTitle} (${cand.crossMatches[0].matchPct}%)`
+          : "Evaluado con Alto Potencial"
+      });
+      this.notify('talent_pool_updated', { talentPool: this.talentPool });
+    }
+  }
+
+  // --- Candidate Sorting & Filtering ---
   sortCandidates(list) {
     return list.sort((a, b) => {
       if (this.sortBy === 'score') {
@@ -55,6 +186,7 @@ class AppState {
   updateTopNFlags() {
     this.candidates.forEach((cand, index) => {
       cand.inTopN = index < this.topN;
+      cand.rank = index + 1;
     });
   }
 
@@ -105,19 +237,29 @@ class AppState {
   toggleRowSelection(candId) {
     if (this.selectedRows.has(candId)) {
       this.selectedRows.delete(candId);
+      this.comparisonPool.delete(candId);
     } else {
       this.selectedRows.add(candId);
+      if (this.comparisonPool.size < 5) {
+        this.comparisonPool.add(candId);
+      }
     }
     this.notify('selection_changed');
+    this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });
   }
 
   toggleSelectAll(checked) {
     if (checked) {
-      this.getFilteredCandidates().forEach(c => this.selectedRows.add(c.id));
+      this.getFilteredCandidates().forEach(c => {
+        this.selectedRows.add(c.id);
+        if (this.comparisonPool.size < 5) this.comparisonPool.add(c.id);
+      });
     } else {
       this.selectedRows.clear();
+      this.comparisonPool.clear();
     }
     this.notify('selection_changed');
+    this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });
   }
 
   selectCandidate(candId) {
@@ -149,8 +291,8 @@ class AppState {
       // Search
       if (this.searchQuery) {
         const matchesName = c.name.toLowerCase().includes(this.searchQuery);
-        const matchesCompany = c.company.toLowerCase().includes(this.searchQuery);
-        const matchesRole = c.role.toLowerCase().includes(this.searchQuery);
+        const matchesCompany = (c.company || '').toLowerCase().includes(this.searchQuery);
+        const matchesRole = (c.role || '').toLowerCase().includes(this.searchQuery);
         if (!matchesName && !matchesCompany && !matchesRole) return false;
       }
 

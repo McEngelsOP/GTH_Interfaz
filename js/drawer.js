@@ -1,6 +1,6 @@
 /* ==========================================================================
    TalentAI - GTHC · ESAN
-   Auditability & Score Explainability Slide-Over Drawer Controller
+   Auditability, Score Explainability & Interview STAR Generator Drawer
    ========================================================================== */
 
 import { appState } from './state.js';
@@ -28,6 +28,7 @@ export class DrawerController {
 
     // Content containers
     this.paneExplain = this.drawer.querySelector('#tabPane_explain');
+    this.paneGaps = this.drawer.querySelector('#tabPane_gaps');
     this.paneWeights = this.drawer.querySelector('#tabPane_weights');
     this.paneCV = this.drawer.querySelector('#tabPane_cv');
     this.paneAudit = this.drawer.querySelector('#tabPane_audit');
@@ -71,9 +72,14 @@ export class DrawerController {
       this.btnAdvance.addEventListener('click', () => {
         const cand = appState.getSelectedCandidate();
         if (cand) {
-          appState.recordDecision(cand.id, `Avanzado desde panel de explicabilidad`);
-          alert(`✅ ${cand.name} ha sido promovido exitosamente.`);
-          this.renderAuditPane(cand);
+          const stages = ['postulado', 'preseleccionado', 'entrevista', 'evaluacion', 'oferta', 'contratado'];
+          const currIdx = stages.indexOf(cand.stage);
+          if (currIdx < stages.length - 1) {
+            const nextStage = stages[currIdx + 1];
+            appState.moveCandidateStage(cand.id, nextStage);
+            alert(`✅ ${cand.name} ha avanzado a la etapa: "${nextStage.toUpperCase()}".`);
+            this.renderAuditPane(cand);
+          }
         }
       });
     }
@@ -82,10 +88,11 @@ export class DrawerController {
       this.btnRelease.addEventListener('click', () => {
         const cand = appState.getSelectedCandidate();
         if (cand) {
-          const ok = confirm(`¿Liberar y notificar agradecimiento institucional a ${cand.name}?`);
+          const ok = confirm(`¿Liberar al postulante ${cand.name}? Se registrará en la auditoría y se preservará en el Banco de Talento.`);
           if (ok) {
             appState.recordDecision(cand.id, `Liberado desde panel de explicabilidad`);
-            alert(`📨 Notificación enviada a ${cand.name}.`);
+            appState.addToTalentPool(cand.id, "Preservado tras liberación en convocatoria activa.");
+            alert(`📨 Notificación de agradecimiento registrada para ${cand.name}.`);
             this.renderAuditPane(cand);
           }
         }
@@ -132,39 +139,104 @@ export class DrawerController {
     // Header
     const initials = candidate.name.split(' ').map(n => n[0]).slice(0, 2).join('');
     if (this.avatarEl) this.avatarEl.textContent = initials;
-    if (this.nameEl) this.nameEl.textContent = candidate.name;
+    if (this.nameEl) {
+      this.nameEl.innerHTML = `
+        ${candidate.name}
+        <span class="stage-tag stage-${candidate.stage}" style="font-size: 11px; margin-left: 8px;">
+          ${candidate.stage.toUpperCase()}
+        </span>
+      `;
+    }
     if (this.roleEl) this.roleEl.textContent = `${candidate.role} · ${candidate.company}`;
-    if (this.sourceEl) this.sourceEl.textContent = `Origen: ${candidate.source.toUpperCase()}`;
+    if (this.sourceEl) this.sourceEl.textContent = `Convocatoria: ${appState.jobPosting.title} | Origen: ${candidate.source.toUpperCase()}`;
 
     // Score badge
     if (this.scoreBadgeEl) {
-      const color = candidate.score >= 80 ? 'var(--status-success)' : candidate.score >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
+      const color = candidate.score >= 85 ? 'var(--status-success)' : candidate.score >= 75 ? 'var(--status-warning)' : 'var(--status-danger)';
       this.scoreBadgeEl.innerHTML = `
         <div style="text-align: right;">
           <div style="font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: ${color}; line-height: 1;">
             ${candidate.score}<span style="font-size: 13px; color: var(--text-tertiary);">/100</span>
           </div>
-          <div style="font-size: 10.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
-            Matching Dual
+          <div style="font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+            ${candidate.rank <= 3 ? `🥇 Podio Top ${candidate.rank}` : `Ranking #${candidate.rank}`}
           </div>
         </div>
       `;
     }
 
+    // Render Contextual Quick Actions (Cambio #14)
+    this.renderQuickActions(candidate);
+
     // Populate Tab 1: Explicación del Score
     this.renderExplainPane(candidate);
 
-    // Populate Tab 2: Desglose por Pesos
+    // Populate Tab 2: Brechas & Entrevista STAR (Cambio #10)
+    this.renderGapsPane(candidate);
+
+    // Populate Tab 3: Desglose por Pesos
     this.renderWeightsPane(candidate);
 
-    // Populate Tab 3: CV Markdown
+    // Populate Tab 4: CV Markdown
     this.renderCVPane(candidate);
 
-    // Populate Tab 4: Registro de Auditoría
+    // Populate Tab 5: Registro de Auditoría
     this.renderAuditPane(candidate);
 
-    // Default to explain tab
+    // Default tab
     this.switchTab(appState.activeDrawerTab || 'explain');
+  }
+
+  renderQuickActions(cand) {
+    let actionContainer = this.drawer.querySelector('.drawer-quick-actions-mount');
+    if (!actionContainer) {
+      const headerArea = this.drawer.querySelector('.drawer-header');
+      actionContainer = document.createElement('div');
+      actionContainer.className = 'drawer-quick-actions-mount';
+      headerArea.parentNode.insertBefore(actionContainer, headerArea.nextSibling);
+    }
+
+    actionContainer.innerHTML = `
+      <div class="quick-action-bar" style="padding: 0 28px 12px; border-bottom: 1px solid var(--border-divider);">
+        <button class="quick-action-btn primary" data-action="btn-star" title="Ver preguntas situacionales STAR generadas por IA">
+          🎯 Guía STAR
+        </button>
+        <button class="quick-action-btn" data-action="btn-explain" title="Ver desglose detallado del Score">
+          ⚡ Explicar Score
+        </button>
+        <button class="quick-action-btn" data-action="btn-compare" title="Agregar al comparador y contrastar">
+          ⚖️ Comparar
+        </button>
+        <button class="quick-action-btn" data-action="btn-crossmatch" title="Ver compatibilidad con otras plazas ESAN">
+          🔄 Vacante Interna
+        </button>
+        <button class="quick-action-btn" data-action="btn-talentpool" title="Preservar en Banco de Talento">
+          👥 Banco de Talento
+        </button>
+      </div>
+    `;
+
+    // Bind Quick Action Events
+    actionContainer.querySelector('[data-action="btn-star"]').onclick = () => {
+      this.switchTab('gaps');
+    };
+    actionContainer.querySelector('[data-action="btn-explain"]').onclick = () => {
+      this.switchTab('explain');
+    };
+    actionContainer.querySelector('[data-action="btn-compare"]').onclick = () => {
+      appState.toggleComparisonCandidate(cand.id);
+      this.close();
+      appState.setCurrentView('comparison');
+    };
+    actionContainer.querySelector('[data-action="btn-crossmatch"]').onclick = () => {
+      this.switchTab('gaps');
+      const crossEl = this.paneGaps.querySelector('.crossmatch-box');
+      if (crossEl) crossEl.scrollIntoView({ behavior: 'smooth' });
+    };
+    actionContainer.querySelector('[data-action="btn-talentpool"]').onclick = () => {
+      appState.addToTalentPool(cand.id);
+      alert(`👥 ${cand.name} ha sido guardado exitosamente en el Banco de Talento Institucional.`);
+    };
   }
 
   renderExplainPane(cand) {
@@ -173,7 +245,7 @@ export class DrawerController {
     this.paneExplain.innerHTML = `
       <div class="drawer-card">
         <h4 class="drawer-card-title">
-          <span style="color: var(--esan-primary);">✦</span> ¿Por qué quedó seleccionado este perfil?
+          <span style="color: var(--esan-primary);">✦</span> ¿Por qué quedó en esta posición del ranking?
         </h4>
         <div class="narrative-box">
           <p>${cand.narrative.selectionReason}</p>
@@ -181,7 +253,7 @@ export class DrawerController {
 
         <div class="narrative-tag-group">
           <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-tertiary); margin-top: 10px;">
-            Puntos Clave Validados por IA:
+            Fortalezas Validadas por el Algoritmo Dual:
           </div>
           ${cand.narrative.strengths.map(s => `
             <div class="narrative-item">
@@ -190,34 +262,106 @@ export class DrawerController {
             </div>
           `).join('')}
 
-          <div class="narrative-item" style="background: #FEF2F2; padding: 8px 10px; border-radius: 6px; border-left: 3px solid var(--status-danger);">
-            <span class="narrative-icon" style="color: var(--status-danger);">⚠</span>
-            <span style="color: #991B1B;"><strong>Análisis de Brecha:</strong> ${cand.narrative.gap}</span>
-          </div>
-
           ${cand.transferablePotential ? `
             <div class="narrative-item" style="background: #F0F9FF; padding: 8px 10px; border-radius: 6px; border-left: 3px solid var(--inclusion-text);">
               <span class="narrative-icon" style="color: var(--inclusion-text);">✦</span>
-              <span style="color: #0369A1;"><strong>Principio de Inclusión:</strong> ${cand.narrative.inclusionDetail}</span>
+              <span><strong>Principio de Inclusión ESAN:</strong> ${cand.narrative.inclusionDetail}</span>
             </div>
           ` : ''}
         </div>
       </div>
+    `;
+  }
 
+  renderGapsPane(cand) {
+    if (!this.paneGaps) return;
+
+    const questions = cand.interviewStarQuestions || [
+      "Situación: Describa una situación desafiante en su área técnica o laboral.",
+      "Tarea: ¿Cuál era el objetivo y las limitaciones de tiempo o presupuesto?",
+      "Acción: ¿Qué decisión tomó y qué herramientas utilizó?",
+      "Resultado: ¿Cuál fue el impacto cuantitativo o pedagógico logrado?"
+    ];
+
+    this.paneGaps.innerHTML = `
       <div class="drawer-card">
-        <h4 class="drawer-card-title">Resumen de Criterios Obligatorios</h4>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          ${cand.mandatoryReqs.map((req, i) => `
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 6px; background: #F8FAFC; border: 1px solid var(--border-light);">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="capsule-pill pill-${req.status}" style="width: 10px; height: 18px; border-radius: 4px;"></span>
-                <span style="font-weight: 600; font-size: 12.5px; color: var(--text-main);">${req.name}</span>
+        <h4 class="drawer-card-title" style="color: #B45309;">
+          ⚠️ Brechas Detectadas en el Perfil (${cand.name})
+        </h4>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+          ${cand.gaps && cand.gaps.length > 0 && cand.gaps[0].severity !== 'none' ? cand.gaps.map(g => `
+            <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 12px; border-radius: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #92400E;">
+                <span>⚠️</span> <span>${g.item}</span>
               </div>
-              <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${req.status === 'green' ? 'var(--status-success)' : req.status === 'amber' ? 'var(--status-warning)' : 'var(--status-danger)'};">
-                ${req.status === 'green' ? 'Cumplido' : req.status === 'amber' ? 'Parcial' : 'No cumple'}
-              </span>
+              ${g.tip ? `<p style="font-size: 12px; color: #78350F; margin-top: 4px;"><strong>Recomendación GTHC:</strong> ${g.tip}</p>` : ''}
             </div>
-          `).join('')}
+          `).join('') : `
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 12px; border-radius: 8px; color: #047857; font-weight: 600;">
+              ✅ El candidato cumple satisfactoriamente con el 100% de requisitos obligatorios y preferentes.
+            </div>
+          `}
+        </div>
+
+        <!-- Riesgos Registrados -->
+        <div style="margin-top: 16px;">
+          <h5 style="font-size: 12px; text-transform: uppercase; color: var(--text-tertiary); font-weight: 700; margin-bottom: 6px;">
+            Riesgos Operacionales / Horarios
+          </h5>
+          <div style="background: #F8FAFC; border: 1px solid var(--border-light); padding: 10px; border-radius: 6px; font-size: 12.5px; color: var(--text-secondary);">
+            ${cand.risks && cand.risks.length > 0 ? cand.risks[0] : 'Candidato sin alertas de horario ni conflicto de intereses.'}
+          </div>
+        </div>
+
+        <!-- Guía de Entrevista STAR Dinámica (Cambio #10) -->
+        <div style="margin-top: 20px; border-top: 1px solid var(--border-divider); padding-top: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h4 class="drawer-card-title" style="margin-bottom: 0;">
+              🎯 Guía de Entrevista Generada por IA (Método STAR)
+            </h4>
+            <span style="font-size: 11px; background: #EEF2FF; color: #3730A3; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
+              Basada en sus brechas
+            </span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+            Preguntas redactadas por TalentAI para indagar cómo el candidato compensa las brechas detectadas:
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${questions.map((q, idx) => `
+              <div style="background: #FFFFFF; border: 1px solid var(--border-light); padding: 10px 12px; border-radius: 6px; font-size: 12.5px; line-height: 1.4;">
+                <span style="font-weight: 700; color: var(--esan-primary);">P${idx + 1}:</span> ${q}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Marketplace de Vacantes Cruzadas (Cambio #13) -->
+        <div class="crossmatch-box" style="margin-top: 20px; border-top: 1px solid var(--border-divider); padding-top: 16px;">
+          <h4 class="drawer-card-title" style="color: #1D4ED8;">
+            🔄 Oportunidades en Vacantes Cruzadas (Marketplace Interno)
+          </h4>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+            TalentAI detectó afinidad de este perfil con otras convocatorias activas en ESAN:
+          </p>
+
+          ${cand.crossMatches && cand.crossMatches.length > 0 ? cand.crossMatches.map(cm => `
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <div>
+                <div style="font-weight: 700; font-size: 13px; color: #1E3A8A;">${cm.jobTitle}</div>
+                <div style="font-size: 11.5px; color: #2563EB;">${cm.reason}</div>
+              </div>
+              <div style="text-align: right; flex-shrink: 0;">
+                <span style="font-family: var(--font-heading); font-size: 18px; font-weight: 800; color: #1D4ED8;">${cm.matchPct}%</span>
+                <div style="font-size: 10px; color: #3B82F6;">Coincidencia</div>
+              </div>
+            </div>
+          `).join('') : `
+            <div style="font-size: 12px; color: var(--text-tertiary); font-style: italic;">
+              No se detectaron vacantes paralelas de alta coincidencia en este momento.
+            </div>
+          `}
         </div>
       </div>
     `;
@@ -226,42 +370,36 @@ export class DrawerController {
   renderWeightsPane(cand) {
     if (!this.paneWeights) return;
 
+    const weights = cand.weights || appState.jobPosting.weights.map(w => ({
+      label: w.label,
+      weightPct: w.weightPct,
+      scoreObtained: Math.round((cand.score * w.weightPct) / 100),
+      maxScore: w.weightPct,
+      type: w.type
+    }));
+
     this.paneWeights.innerHTML = `
       <div class="drawer-card">
-        <h4 class="drawer-card-title">Ponderación Dual de Motores</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-          <div style="background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: var(--radius-md); padding: 12px;">
-            <div style="font-size: 11px; font-weight: 700; color: #6D28D9; text-transform: uppercase;">Camino 1 · ML Tradicional (30%)</div>
-            <div style="font-size: 20px; font-weight: 800; color: #5B21B6; margin-top: 4px;">${cand.mlScore}/100</div>
-            <div style="font-size: 11.5px; color: #4C1D95;">Reglas NLP, años experiencia & filtros duros.</div>
-          </div>
-          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 12px;">
-            <div style="font-size: 11px; font-weight: 700; color: #1D4ED8; text-transform: uppercase;">Camino 2 · LLM Embeddings (70%)</div>
-            <div style="font-size: 20px; font-weight: 800; color: #1E40AF; margin-top: 4px;">${cand.llmScore}/100</div>
-            <div style="font-size: 11.5px; color: #1E3A8A;">Similitud semántica vectorial Claude/OpenAI.</div>
-          </div>
-        </div>
+        <h4 class="drawer-card-title">Desglose Analítico por Criterios de Ponderación</h4>
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;">
+          Pesos configurados específicamente para: <strong>${appState.jobPosting.title}</strong> (${appState.jobPosting.roleTypeName}).
+        </p>
 
-        <h5 style="font-size: 12.5px; font-weight: 700; margin-bottom: 10px; color: var(--text-main);">
-          Desglose Analítico por Variables y Pesos Asignados:
-        </h5>
-
-        <div class="weight-breakdown-list">
-          ${cand.weights.map(w => {
-            const pct = Math.round((w.scoreObtained / w.maxScore) * 100);
-            const fillClass = w.type === 'LLM' ? 'info' : 'primary';
-            return `
-              <div class="weight-row">
-                <div class="weight-meta">
-                  <span class="weight-label">${w.label} (Peso: ${w.weightPct}%)</span>
-                  <span class="weight-score"><strong>${w.scoreObtained}</strong> / ${w.maxScore} pts (${pct}%)</span>
-                </div>
-                <div class="weight-track">
-                  <div class="weight-fill ${fillClass}" style="width: ${pct}%;"></div>
-                </div>
+        <div class="weights-list">
+          ${weights.map(w => `
+            <div class="weight-bar-item">
+              <div class="weight-meta">
+                <span class="weight-label">
+                  ${w.label}
+                  <span class="weight-tag ${w.type.toLowerCase()}">${w.type}</span>
+                </span>
+                <span class="weight-score"><strong>${w.scoreObtained}</strong> / ${w.maxScore} pts (${w.weightPct}%)</span>
               </div>
-            `;
-          }).join('')}
+              <div class="weight-progress-track">
+                <div class="weight-progress-fill ${w.type.toLowerCase()}" style="width: ${(w.scoreObtained / w.maxScore) * 100}%;"></div>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
     `;
@@ -270,20 +408,15 @@ export class DrawerController {
   renderCVPane(cand) {
     if (!this.paneCV) return;
 
-    // Format markdown text into clean HTML
-    const formattedHtml = this.formatMarkdownToHtml(cand.cvMarkdown);
-
     this.paneCV.innerHTML = `
-      <div class="drawer-card" style="padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
-        <span style="font-size: 12px; color: var(--text-secondary);">
-          Documento extraído mediante <strong>OCR Inteligente</strong> y estructurado a Markdown.
-        </span>
-        <button class="btn btn-secondary btn-sm" onclick="alert('Descargando archivo estructurado en formato .md...')">
-          Descargar .MD
-        </button>
-      </div>
-      <div class="markdown-cv-viewer">
-        ${formattedHtml}
+      <div class="drawer-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h4 class="drawer-card-title" style="margin-bottom: 0;">Currículum Vitae Estructurado (Post-OCR)</h4>
+          <span style="font-size: 11px; color: var(--text-tertiary);">Extracción Verificada</span>
+        </div>
+        <div class="cv-markdown-container">
+          <pre style="white-space: pre-wrap; font-family: var(--font-body); font-size: 12.5px; line-height: 1.6; color: var(--text-main);">${cand.cvMarkdown || 'Sin CV estructurado'}</pre>
+        </div>
       </div>
     `;
   }
@@ -293,65 +426,39 @@ export class DrawerController {
 
     this.paneAudit.innerHTML = `
       <div class="drawer-card">
-        <h4 class="drawer-card-title">Sello Inmutable de Auditoría GTHC</h4>
-        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;">
-          Trazabilidad criptográfica y operativa del proceso de selección automatizado según directivas de gobernanza ESAN.
-        </p>
-
-        <div class="audit-stamp-box">
-          <div class="audit-badge-verified">
-            ✓ Registro Verificado & Firmado
+        <h4 class="drawer-card-title">Registro de Auditoría e Inmutabilidad GTHC</h4>
+        <div class="audit-meta-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+          <div class="audit-meta-box">
+            <span class="audit-meta-label">ID de Lote</span>
+            <span class="audit-meta-value">${cand.audit.batchId}</span>
           </div>
-
-          <div class="audit-field-grid">
-            <div class="audit-field">
-              <span class="audit-field-title">ID de Lote de Postulación:</span>
-              <span class="audit-field-value">${cand.audit.batchId}</span>
-            </div>
-            <div class="audit-field">
-              <span class="audit-field-title">Fecha & Hora de Indexación:</span>
-              <span class="audit-field-value">${cand.audit.timestamp}</span>
-            </div>
-            <div class="audit-field">
-              <span class="audit-field-title">Versión de Criterios & Pesos:</span>
-              <span class="audit-field-value">${cand.audit.criteriaVersion}</span>
-            </div>
-            <div class="audit-field">
-              <span class="audit-field-title">Modelo de Embeddings / LLM:</span>
-              <span class="audit-field-value">${cand.audit.model}</span>
-            </div>
+          <div class="audit-meta-box">
+            <span class="audit-meta-label">Versión Criterios</span>
+            <span class="audit-meta-value">${cand.audit.criteriaVersion}</span>
+          </div>
+          <div class="audit-meta-box" style="grid-column: span 2;">
+            <span class="audit-meta-label">Modelos Empleados</span>
+            <span class="audit-meta-value">${cand.audit.model}</span>
           </div>
         </div>
-      </div>
 
-      <div class="drawer-card">
-        <h4 class="drawer-card-title">Historial de Decisiones y Acciones</h4>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
-          ${cand.audit.decisionHistory.map(dh => `
-            <div style="padding: 10px 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 3px;">
+        <h5 style="font-size: 12px; text-transform: uppercase; color: var(--text-tertiary); font-weight: 700; margin-bottom: 8px;">
+          Historial de Trazabilidad y Decisiones Humanas
+        </h5>
+        <div class="audit-timeline">
+          ${cand.audit.decisionHistory.map(entry => `
+            <div class="timeline-entry" style="padding: 8px 12px; background: #F8FAFC; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #2563EB;">
               <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-tertiary);">
-                <span>${dh.time}</span>
-                <strong style="color: var(--text-secondary);">${dh.user}</strong>
+                <span>${entry.user}</span>
+                <span>${entry.time}</span>
               </div>
-              <div style="font-size: 12.5px; font-weight: 500; color: var(--text-main);">
-                ${dh.action}
+              <div style="font-size: 12.5px; font-weight: 600; color: var(--text-main); margin-top: 2px;">
+                ${entry.action}
               </div>
             </div>
           `).join('')}
         </div>
       </div>
     `;
-  }
-
-  formatMarkdownToHtml(md) {
-    if (!md) return '<p>No hay contenido disponible.</p>';
-    return md
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\*(.*)\*/gim, '<em>$1</em>')
-      .replace(/^- (.*$)/gim, '<li>$1</li>')
-      .replace(/\n\n/gim, '<p></p>');
   }
 }

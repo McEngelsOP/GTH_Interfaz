@@ -5,12 +5,22 @@
 
 :root {
   /* Institutional ESAN Palette */
-  --esan-primary: #C8102E;           /* Crimson Red institucional */
-  --esan-primary-hover: #A50D25;     /* Darker Crimson */
-  --esan-primary-active: #820A1D;    /* Deep Crimson */
-  --esan-primary-light: #FDF2F4;     /* Very soft tinted red */
-  --esan-primary-border: #F8B4BF;    /* Soft red border */
-  --esan-secondary: #0F172A;         /* Dark Slate Navy */
+  --esan-navy: #0B192C;              /* Deep Navy institucional primario */
+  --esan-navy-light: #1E293B;        /* Slate Navy refinado */
+  --esan-navy-surface: #0F172A;      /* Backgrounds y headers oscuros */
+  
+  --esan-primary: #0E294B;           /* Primario Operativo: Azul Marino ESAN */
+  --esan-primary-hover: #0B192C;     /* Darker Navy */
+  --esan-primary-active: #08111F;    /* Deep Navy */
+  --esan-primary-light: #EFF6FF;     /* Soft blue tint */
+  --esan-primary-border: #BFDBFE;    /* Soft blue border */
+  --esan-secondary: #1E293B;         /* Slate Navy secondary */
+
+  /* Institutional Brand Accent (Sello ESAN Carmesí) - Usado con estricta moderación */
+  --esan-crimson: #C8102E;           /* Carmesí Institucional para logos, sellos y alertas */
+  --esan-crimson-hover: #A50D25;
+  --esan-crimson-light: #FDF2F4;
+  --esan-crimson-border: #F8B4BF;
 
   /* Neutral Slates */
   --bg-app: #F8FAFC;                 /* Main canvas background */
@@ -20,7 +30,7 @@
   --bg-hover: #E2E8F0;               /* Hover states */
   
   --border-light: #E2E8F0;           /* Subtle borders */
-  --border-focus: #C8102E;           /* Focus ring color */
+  --border-focus: #0E294B;           /* Focus ring color (Navy) */
   --border-divider: #EDF2F7;
 
   /* Typography Colors */
@@ -38,20 +48,48 @@
   --status-warning-bg: #FFFBEB;
   --status-warning-border: #FDE68A;
 
-  --status-danger: #EF4444;          /* Soft red (unmet requirement) */
+  --status-danger: #EF4444;          /* Soft red (unmet requirement / critical action) */
   --status-danger-bg: #FEF2F2;
   --status-danger-border: #FECACA;
 
-  --status-info: #3B82F6;            /* Blue/Indigo for AI and embeddings */
+  --status-info: #2563EB;            /* Blue for AI and embeddings */
   --status-info-bg: #EFF6FF;
   --status-info-border: #BFDBFE;
 
-  --status-purple: #8B5CF6;          /* ML Traditional rules accent */
+  --status-purple: #7C3AED;          /* ML Traditional rules accent */
   --status-purple-bg: #F5F3FF;
 
   --inclusion-bg: #E0F2FE;           /* Soft Sky/Cyan for "Potencial Transferible" */
   --inclusion-text: #0369A1;
   --inclusion-border: #BAE6FD;
+
+  /* Podio Top-N Tokens */
+  --podium-gold: #D97706;
+  --podium-gold-bg: #FEF3C7;
+  --podium-gold-border: #FCD34D;
+  --podium-silver: #475569;
+  --podium-silver-bg: #F1F5F9;
+  --podium-silver-border: #CBD5E1;
+  --podium-bronze: #B45309;
+  --podium-bronze-bg: #FFEDD5;
+  --podium-bronze-border: #FDBA74;
+
+  /* Role Badges */
+  --role-docente-bg: #EEF2FF;
+  --role-docente-text: #4338CA;
+  --role-docente-border: #C7D2FE;
+  
+  --role-admin-bg: #F0FDF4;
+  --role-admin-text: #15803D;
+  --role-admin-border: #BBF7D0;
+
+  --role-operativo-bg: #FFF7ED;
+  --role-operativo-text: #C2410C;
+  --role-operativo-border: #FFEDD5;
+
+  --role-directivo-bg: #FAF5FF;
+  --role-directivo-text: #7E22CE;
+  --role-directivo-border: #E9D5FF;
 
   /* Typography */
   --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
