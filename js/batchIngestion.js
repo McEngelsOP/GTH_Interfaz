@@ -1,12 +1,15 @@
 /* ==========================================================================
    TalentAI - GTHC · ESAN
-   Batch Ingestion, OCR & Multi-Source Synchronization Controller
+   Batch Ingestion, OCR & Multi-Source Synchronization Controller (con Incidencias)
    ========================================================================== */
+
+import { appState } from './state.js';
 
 export class BatchIngestionController {
   constructor(backdropEl, modalEl) {
     this.backdrop = backdropEl;
     this.modal = modalEl;
+    this.showIncidences = false;
 
     this.initElements();
     this.initListeners();
@@ -18,6 +21,11 @@ export class BatchIngestionController {
     this.fileInput = this.modal.querySelector('#cvFileInput');
     this.startBtn = this.modal.querySelector('#startBatchBtn');
     this.cancelBtn = this.modal.querySelector('#cancelBatchBtn');
+
+    // Incidences elements
+    this.btnToggleIncidences = this.modal.querySelector('#btnToggleOcrIncidences');
+    this.incidencesPanel = this.modal.querySelector('#ocrIncidencesPanel');
+    this.incidencesListMount = this.modal.querySelector('#ocrIncidencesListMount');
 
     // Steps elements
     this.step1Indicator = this.modal.querySelector('#step1Indicator');
@@ -47,6 +55,24 @@ export class BatchIngestionController {
       this.backdrop.addEventListener('click', (e) => {
         if (e.target === this.backdrop && !this.isProcessing) {
           this.close();
+        }
+      });
+    }
+
+    // Toggle Incidences filter
+    if (this.btnToggleIncidences) {
+      this.btnToggleIncidences.addEventListener('click', () => {
+        this.showIncidences = !this.showIncidences;
+        if (this.incidencesPanel) {
+          this.incidencesPanel.classList.toggle('hidden', !this.showIncidences);
+        }
+        if (this.showIncidences) {
+          this.renderIncidences();
+          this.btnToggleIncidences.textContent = 'Ocultar incidencias ▲';
+          this.btnToggleIncidences.classList.add('active');
+        } else {
+          this.btnToggleIncidences.textContent = '⚠️ Mostrar incidencias (7)';
+          this.btnToggleIncidences.classList.remove('active');
         }
       });
     }
@@ -88,6 +114,33 @@ export class BatchIngestionController {
     }
   }
 
+  renderIncidences() {
+    if (!this.incidencesListMount) return;
+    const items = appState.ocrIncidences.items || [];
+
+    this.incidencesListMount.innerHTML = items.map(item => `
+      <div class="ocr-incidence-card ${item.status}">
+        <div class="incidence-left">
+          <span class="incidence-badge ${item.status}">
+            ${item.status === 'review' ? '⚠️ En Revisión' : '🔴 Error de Carga'}
+          </span>
+          <div class="incidence-file-info">
+            <span class="incidence-filename">${item.file}</span>
+            <span class="incidence-meta">${item.candidateName} • ${item.channel} • ${item.type}</span>
+          </div>
+        </div>
+        <div class="incidence-right">
+          <div class="incidence-issue">
+            <strong>Motivo:</strong> ${item.issue} (${item.action})
+          </div>
+          <button class="btn btn-secondary btn-xs" onclick="alert('Resolviendo incidencia para ${item.file}: Abriendo visor de edición manual...')">
+            Subsanar
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
   open() {
     this.backdrop.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -100,7 +153,7 @@ export class BatchIngestionController {
   }
 
   simulateFileUpload(count) {
-    alert(`📥 ${count} archivo(s) recibidos en el búfer de extracción. Haz clic en "Iniciar Procesamiento OCR" para ejecutar el pipeline.`);
+    alert(`📥 ${count} archivo(s) recibidos en el búfer de extracción. Haz clic en "Simular Re-procesamiento OCR" para ejecutar el pipeline.`);
   }
 
   runBatchPipeline() {

@@ -104,8 +104,11 @@ export class DataGridController {
               </div>
 
               <div class="candidate-info">
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                   <span class="candidate-name">${candidate.name}</span>
+                  <span class="role-badge role-${appState.jobPosting.roleType || 'docente'}" style="font-size: 9.5px; padding: 1.5px 6px;">
+                    ${(appState.jobPosting.roleTypeName || 'Docente').toUpperCase()}
+                  </span>
                   <span class="candidate-source-badge ${candidate.source}">${this.getSourceLabel(candidate.source)}</span>
                   ${candidate.transferablePotential 
                     ? `<span class="inclusion-badge" title="Candidato con habilidades transversales transferibles">✦ Transferible</span>`
@@ -161,49 +164,57 @@ export class DataGridController {
             </div>
           </td>
 
-          <!-- Col 5: Acciones de Selección & Comparador (Cambio #6, #14) -->
+          <!-- Col 5: Acciones de Selección & Menú Desplegable (Simplificación Cognitiva) -->
           <td onclick="event.stopPropagation()">
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              <div class="action-buttons-group">
-                <button 
-                  class="btn-action-primary" 
-                  data-action="advance" 
-                  data-id="${candidate.id}" 
-                  title="Avanzar etapa en el pipeline Kanban"
-                >
-                  Avanzar Etapa
-                </button>
-                <button 
-                  class="btn-action-ghost compare-toggle-btn ${inComparison ? 'active' : ''}" 
-                  data-action="compare" 
-                  data-id="${candidate.id}" 
-                  title="Seleccionar para comparar cara a cara (Cambio #6)"
-                  style="${inComparison ? 'background: #EFF6FF; border-color: #3B82F6; color: #1D4ED8; font-weight: 700;' : ''}"
-                >
-                  ${inComparison ? '✓ En Comparador' : '⚖️ Comparar'}
-                </button>
-              </div>
+            <div class="row-actions-cluster">
+              <button 
+                class="btn-action-primary" 
+                data-action="advance" 
+                data-id="${candidate.id}" 
+                title="Avanzar etapa en el pipeline Kanban"
+              >
+                Avanzar
+              </button>
 
-              <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div class="more-actions-dropdown-wrapper">
                 <button 
-                  class="btn-action-ghost" 
-                  data-action="talentpool" 
-                  data-id="${candidate.id}" 
-                  style="font-size: 10.5px; padding: 3px 8px;"
-                  title="Preservar en el Banco de Talento Institucional (Cambio #11)"
+                  class="btn-more-actions" 
+                  data-action="toggle-menu" 
+                  data-id="${candidate.id}"
+                  title="Más acciones de selección"
+                  aria-label="Más acciones"
                 >
-                  👥 Guardar en Banco
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="1.5"></circle>
+                    <circle cx="12" cy="5" r="1.5"></circle>
+                    <circle cx="12" cy="19" r="1.5"></circle>
+                  </svg>
+                  <span>Más</span>
                 </button>
 
-                <button 
-                  class="btn-action-ghost" 
-                  data-action="release" 
-                  data-id="${candidate.id}" 
-                  style="font-size: 10.5px; padding: 3px 8px; color: var(--status-danger);"
-                  title="Liberar y enviar correo de agradecimiento"
-                >
-                  Liberar
-                </button>
+                <div class="more-actions-menu" id="actionsMenu_${candidate.id}">
+                  <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${candidate.id}">
+                    <span class="action-icon">⚖️</span>
+                    <span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span>
+                  </button>
+                  <button class="more-action-item" data-action="talentpool" data-id="${candidate.id}">
+                    <span class="action-icon">👥</span>
+                    <span>Guardar en Banco</span>
+                  </button>
+                  <button class="more-action-item" data-action="history" data-id="${candidate.id}">
+                    <span class="action-icon">📋</span>
+                    <span>Ver expediente & auditoría</span>
+                  </button>
+                  <button class="more-action-item" data-action="star" data-id="${candidate.id}">
+                    <span class="action-icon">🪄</span>
+                    <span>Generar entrevista STAR</span>
+                  </button>
+                  <div class="more-action-divider"></div>
+                  <button class="more-action-item text-danger" data-action="release" data-id="${candidate.id}">
+                    <span class="action-icon">📨</span>
+                    <span>Liberar y notificar</span>
+                  </button>
+                </div>
               </div>
             </div>
           </td>
@@ -233,19 +244,46 @@ export class DataGridController {
   renderGapsSummary(candidate) {
     if (!candidate.gaps || candidate.gaps.length === 0 || candidate.gaps[0].severity === 'none') {
       return `
-        <span class="gap-badge clean" title="El postulante cubre íntegramente los requerimientos obligatorios y preferentes.">
-          ✅ Sin brechas críticas
-        </span>
+        <div class="gap-visual-card gap-impact-none" title="El postulante cubre íntegramente los requerimientos obligatorios y preferentes.">
+          <span class="gap-visual-icon">✅</span>
+          <div class="gap-visual-content">
+            <span class="gap-visual-title">Sin brechas críticas</span>
+            <span class="gap-impact-tag impact-none">Impacto: Nulo</span>
+          </div>
+        </div>
       `;
     }
 
     const gap = candidate.gaps[0];
+    const severity = (gap.severity || 'low').toLowerCase();
+
+    let icon = '⚠️';
+    let impactLabel = 'Impacto: Bajo';
+    let cardClass = 'gap-impact-low';
+    let tagClass = 'impact-low';
+
+    if (severity === 'high' || gap.item.toLowerCase().includes('sunedu') || gap.item.toLowerCase().includes('maestría')) {
+      icon = '🔴';
+      impactLabel = 'Impacto: Alto';
+      cardClass = 'gap-impact-high';
+      tagClass = 'impact-high';
+    } else if (severity === 'medium' || gap.item.toLowerCase().includes('docente') || gap.item.toLowerCase().includes('gestión')) {
+      icon = '🟡';
+      impactLabel = 'Impacto: Medio';
+      cardClass = 'gap-impact-medium';
+      tagClass = 'impact-medium';
+    }
+
     return `
-      <div style="display: flex; flex-direction: column; gap: 3px;">
-        <span class="gap-badge has-gap" title="${gap.tip || gap.item}">
-          ⚠️ ${gap.item}
-        </span>
-        ${gap.tip ? `<span style="font-size: 10px; color: var(--text-tertiary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${gap.tip}</span>` : ''}
+      <div class="gap-visual-card ${cardClass}" title="${gap.tip || gap.item}">
+        <span class="gap-visual-icon">${icon}</span>
+        <div class="gap-visual-content">
+          <span class="gap-visual-title">${gap.item}</span>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <span class="gap-impact-tag ${tagClass}">${impactLabel}</span>
+            ${gap.tip ? `<span class="gap-visual-tip">${gap.tip}</span>` : ''}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -314,30 +352,88 @@ export class DataGridController {
       });
     });
 
-    // Compare Toggle button (Cambio #6)
+    // Dropdown Menu Toggles (⋮ Más acciones)
+    this.tableBody.querySelectorAll('[data-action="toggle-menu"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
+        const menu = this.tableBody.querySelector(`#actionsMenu_${candId}`);
+        
+        // Close other menus
+        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
+          if (m !== menu) m.classList.remove('show');
+        });
+
+        if (menu) {
+          menu.classList.toggle('show');
+        }
+      });
+    });
+
+    // Close any open actions menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.more-actions-dropdown-wrapper')) {
+        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
+          m.classList.remove('show');
+        });
+      }
+    });
+
+    // Compare Toggle
     this.tableBody.querySelectorAll('[data-action="compare"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const candId = e.target.getAttribute('data-id');
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
         appState.toggleComparisonCandidate(candId);
+        const menu = btn.closest('.more-actions-menu');
+        if (menu) menu.classList.remove('show');
       });
     });
 
     // Talent Pool preservation (Cambio #11)
     this.tableBody.querySelectorAll('[data-action="talentpool"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const candId = e.target.getAttribute('data-id');
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
           appState.addToTalentPool(candId);
           alert(`👥 ${cand.name} ha sido preservado en el Banco de Talento Institucional con categoría "${appState.jobPosting.roleTypeName}".`);
         }
+        const menu = btn.closest('.more-actions-menu');
+        if (menu) menu.classList.remove('show');
+      });
+    });
+
+    // Open History / Audit from dropdown
+    this.tableBody.querySelectorAll('[data-action="history"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
+        appState.selectCandidate(candId);
+        appState.setActiveDrawerTab('audit');
+        const menu = btn.closest('.more-actions-menu');
+        if (menu) menu.classList.remove('show');
+      });
+    });
+
+    // Generate STAR Questions from dropdown
+    this.tableBody.querySelectorAll('[data-action="star"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
+        appState.selectCandidate(candId);
+        appState.setActiveDrawerTab('gaps');
+        const menu = btn.closest('.more-actions-menu');
+        if (menu) menu.classList.remove('show');
       });
     });
 
     // Advance Stage button (Cambio #7)
     this.tableBody.querySelectorAll('[data-action="advance"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const candId = e.target.getAttribute('data-id');
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
           const stages = ['postulado', 'preseleccionado', 'entrevista', 'evaluacion', 'oferta', 'contratado'];
@@ -356,7 +452,8 @@ export class DataGridController {
     // Release candidate button
     this.tableBody.querySelectorAll('[data-action="release"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const candId = e.target.getAttribute('data-id');
+        e.stopPropagation();
+        const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
           const confirmRelease = confirm(`¿Deseas liberar al postulante ${cand.name}? Se registrará en la auditoría y se ofrecerá enviarlo al Banco de Talento.`);
@@ -366,6 +463,8 @@ export class DataGridController {
             alert(`📨 Decisión registrada. ${cand.name} ha sido notificado y resguardado en el Banco de Talento.`);
           }
         }
+        const menu = btn.closest('.more-actions-menu');
+        if (menu) menu.classList.remove('show');
       });
     });
   }

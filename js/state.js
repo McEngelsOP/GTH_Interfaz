@@ -10,7 +10,8 @@ import {
   MOCK_ADMIN_CANDIDATES,
   MOCK_TALENT_POOL,
   ORGANIZATIONAL_TEMPLATES,
-  EXECUTIVE_METRICS
+  EXECUTIVE_METRICS,
+  MOCK_OCR_INCIDENCES
 } from './mockData.js';
 
 class AppState {
@@ -31,12 +32,55 @@ class AppState {
     this.copilotCollapsed = false;
     this.activeDrawerTab = 'explain';
 
-    // New Architecture States
-    this.currentView = 'ranking'; // 'ranking' | 'kanban' | 'evaluation' | 'comparison' | 'talentPool' | 'effectiveness' | 'executive'
-    this.comparisonPool = new Set(); // Candidate IDs selected for side-by-side comparison (max 5)
+    // Role-based state: 'reclutador' | 'coordinador' | 'director' | 'admin'
+    this.currentUserRole = 'reclutador';
+    this.rolesConfig = {
+      reclutador: {
+        roleId: 'reclutador',
+        roleLabel: 'Reclutador Operativo',
+        userName: 'Mariana Córdova',
+        userRole: 'Reclutadora GTHC · ESAN',
+        initials: 'MC',
+        description: 'Enfocado en ingestión OCR, ranking Top-N, entrevistas y pipeline Kanban.',
+        stages: ['convocatorias', 'evaluacion', 'seleccion']
+      },
+      coordinador: {
+        roleId: 'coordinador',
+        roleLabel: 'Coordinador GTH',
+        userName: 'Jorge Benavides',
+        userRole: 'Coordinador de Selección & Talento',
+        initials: 'JB',
+        description: 'Supervisión de movilidad interna, banco de talento institucional y matriz de ponderaciones.',
+        stages: ['convocatorias', 'seleccion', 'talento', 'gobernanza']
+      },
+      director: {
+        roleId: 'director',
+        roleLabel: 'Director / Decano',
+        userName: 'Dr. Armando Valdés',
+        userRole: 'Director de Escuela & Claustro',
+        initials: 'AV',
+        description: 'Visión estratégica: Cobertura de vacantes, KPIs gerenciales y Biblioteca de Perfiles.',
+        stages: ['convocatorias', 'direccion', 'talento']
+      },
+      admin: {
+        roleId: 'admin',
+        roleLabel: 'Administrador Global',
+        userName: 'Gobernanza TI ESAN',
+        userRole: 'Super Administrador · Matching Dual',
+        initials: 'SA',
+        description: 'Acceso irrestricto: Calibración de modelos LLM, auditoría inmutable y todos los módulos.',
+        stages: ['convocatorias', 'evaluacion', 'seleccion', 'talento', 'gobernanza', 'direccion']
+      }
+    };
+
+    // Architecture States
+    this.currentView = 'ranking'; // 'ranking' | 'kanban' | 'comparison' | 'talentPool' | 'effectiveness' | 'executive' | 'profilesLibrary'
+    this.comparisonPool = new Set();
     this.talentPool = [...MOCK_TALENT_POOL];
+    this.talentSearchQuery = '';
     this.templates = [...ORGANIZATIONAL_TEMPLATES];
     this.executiveMetrics = { ...EXECUTIVE_METRICS };
+    this.ocrIncidences = { ...MOCK_OCR_INCIDENCES };
 
     // Candidates pool by job
     this.candidatesByJob = {
@@ -63,6 +107,44 @@ class AppState {
     this.listeners.forEach(l => l(event, data, this));
   }
 
+  // --- Role-Based Experience & Views Filter ---
+  setUserRole(roleId) {
+    if (this.rolesConfig[roleId] && this.currentUserRole !== roleId) {
+      this.currentUserRole = roleId;
+      this.notify('role_changed', {
+        roleId,
+        roleConfig: this.rolesConfig[roleId]
+      });
+    }
+  }
+
+  getUserRoleProfile() {
+    return this.rolesConfig[this.currentUserRole] || this.rolesConfig.reclutador;
+  }
+
+  isStageVisibleForCurrentRole(stageId) {
+    const config = this.getUserRoleProfile();
+    return config.stages.includes(stageId);
+  }
+
+  // --- Hierarchical Vacancy Structure (Acordeón por Categorías) ---
+  getJobPostingsByCategory() {
+    const categories = {
+      Docente: [],
+      Administrativo: [],
+      Operativo: [],
+      Directivo: []
+    };
+
+    this.jobPostings.forEach(job => {
+      const group = job.categoryGroup || (job.roleType === 'operativo' ? 'Operativo' : job.roleType === 'administrativo' ? 'Administrativo' : job.roleType === 'directivo' ? 'Directivo' : 'Docente');
+      if (!categories[group]) categories[group] = [];
+      categories[group].push(job);
+    });
+
+    return categories;
+  }
+
   // --- Convocatoria Activa Management (Cambio #1) ---
   setActiveJobPosting(jobId) {
     const target = this.jobPostings.find(j => j.id === jobId);
@@ -75,13 +157,107 @@ class AppState {
     this.selectedRows.clear();
     this.comparisonPool.clear();
 
-    // Load candidates for this job
-    const jobCands = this.candidatesByJob[jobId] || [];
+    // Load candidates for this job (create realistic clones if not yet initialized)
+    if (!this.candidatesByJob[jobId]) {
+      const baseList = this.jobPosting.roleType === 'operativo' 
+        ? MOCK_OPERATIVO_CANDIDATES 
+        : this.jobPosting.roleType === 'administrativo' 
+          ? MOCK_ADMIN_CANDIDATES 
+          : MOCK_DOCENTE_CANDIDATES;
+      
+      this.candidatesByJob[jobId] = JSON.parse(JSON.stringify(baseList)).map((c, i) => ({
+        ...c,
+        id: `${jobId}-CAND-${i+1}`,
+        jobPostingId: jobId,
+        score: Math.max(70, Math.min(96, c.score + ((i % 3) - 1) * 2))
+      }));
+    }
+    const jobCands = this.candidatesByJob[jobId];
     this.candidates = this.sortCandidates([...jobCands]);
     this.updateTopNFlags();
 
     this.notify('job_changed', { jobPosting: this.jobPosting });
     this.notify('filter_changed');
+  }
+
+  // --- Simulation Engine for Weights Impact on Candidate Podium (Cambio #9) ---
+  simulateWeightsImpact(variableWeights) {
+    // variableWeights: { exp, sem, tech, teach, pref }
+    const currentList = [...this.candidates];
+    const simulated = currentList.map(c => {
+      let scoreModifier = 0;
+      if (variableWeights.teach > 10) {
+        const hasTeach = (c.weights || []).some(w => w.label.toLowerCase().includes('docente') && (w.scoreObtained || 0) >= 8);
+        if (hasTeach) scoreModifier += (variableWeights.teach - 10) * 0.4;
+      }
+      if (variableWeights.exp > 30) {
+        const hasExp = (c.weights || []).some(w => w.label.toLowerCase().includes('experiencia') && (w.scoreObtained || 0) >= 28);
+        if (hasExp) scoreModifier += (variableWeights.exp - 30) * 0.3;
+      }
+      if (variableWeights.sem > 30) {
+        const hasSem = (c.llmScore || 85) >= 88;
+        if (hasSem) scoreModifier += (variableWeights.sem - 30) * 0.35;
+      }
+      if (variableWeights.tech > 20) {
+        const hasTech = (c.weights || []).some(w => (w.label.toLowerCase().includes('stack') || w.label.toLowerCase().includes('técnico')) && (w.scoreObtained || 0) >= 15);
+        if (hasTech) scoreModifier += (variableWeights.tech - 20) * 0.3;
+      }
+
+      const simScore = Math.max(65, Math.min(99, Math.round(c.score + scoreModifier)));
+      return {
+        id: c.id,
+        name: c.name,
+        company: c.company,
+        role: c.role,
+        currentScore: c.score,
+        simulatedScore: simScore,
+        currentRank: c.rank
+      };
+    });
+
+    // Sort simulated list by simulated score
+    simulated.sort((a, b) => b.simulatedScore - a.simulatedScore);
+    simulated.forEach((item, idx) => {
+      item.simulatedRank = idx + 1;
+      item.rankDelta = item.currentRank - item.simulatedRank; // > 0 means went up! (e.g. 3 -> 1 = +2)
+    });
+
+    return simulated;
+  }
+
+  // --- Universal Talent Pool Search & Filters (Cambio #8) ---
+  setTalentSearchQuery(q) {
+    this.talentSearchQuery = (q || '').trim().toLowerCase();
+    this.notify('talent_search_changed', { query: this.talentSearchQuery });
+  }
+
+  getFilteredTalentPool(activeCategory = 'all') {
+    return this.talentPool.filter(talent => {
+      // Category filter
+      if (activeCategory === 'transferible') {
+        if (!talent.crossMatchOpportunity) return false;
+      } else if (activeCategory !== 'all') {
+        const cat = talent.roleCategory.toLowerCase();
+        if (!cat.includes(activeCategory.toLowerCase())) return false;
+      }
+
+      // Universal search query
+      if (this.talentSearchQuery) {
+        const q = this.talentSearchQuery;
+        const nameMatch = talent.name.toLowerCase().includes(q);
+        const roleMatch = talent.roleCategory.toLowerCase().includes(q);
+        const vacancyMatch = (talent.previousVacancy || '').toLowerCase().includes(q);
+        const reasonMatch = (talent.matchReason || '').toLowerCase().includes(q);
+        const tagsMatch = (talent.tags || []).some(t => t.toLowerCase().includes(q));
+        const oppMatch = (talent.crossMatchOpportunity || '').toLowerCase().includes(q);
+
+        if (!nameMatch && !roleMatch && !vacancyMatch && !reasonMatch && !tagsMatch && !oppMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
   }
 
   // --- View Routing System ---

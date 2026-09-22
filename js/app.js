@@ -1,8 +1,3 @@
-/* ==========================================================================
-   TalentAI - GTHC · ESAN
-   Main Application Entry Point, Multi-Role Architecture & View Orchestrator
-   ========================================================================== */
-
 import { appState } from './state.js';
 import { DataGridController } from './dataGrid.js';
 import { DrawerController } from './drawer.js';
@@ -14,6 +9,7 @@ import { ComparisonViewController } from './comparisonView.js';
 import { TalentPoolViewController } from './talentPoolView.js';
 import { EffectivenessViewController } from './effectivenessView.js';
 import { ExecutiveDashboardController } from './executiveDashboard.js';
+import { ProfilesLibraryViewController } from './profilesLibraryView.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Core Components
@@ -38,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const copilotFloatingTriggerEl = document.getElementById('copilotFloatingTrigger');
   const copilot = new CopilotController(copilotEl, copilotFloatingTriggerEl);
 
-  // 2. Initialize New Architecture View Controllers
+  // 2. Initialize View Controllers
   const kanbanContainerEl = document.getElementById('viewContainer_kanban');
   const kanbanController = new KanbanViewController(kanbanContainerEl);
   window.kanbanController = kanbanController;
@@ -59,13 +55,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const executiveController = new ExecutiveDashboardController(executiveContainerEl);
   window.executiveController = executiveController;
 
+  const profilesLibraryContainerEl = document.getElementById('viewContainer_profilesLibrary');
+  const profilesLibraryController = new ProfilesLibraryViewController(profilesLibraryContainerEl);
+  window.profilesLibraryController = profilesLibraryController;
+
   // 3. Global PDF CV opener
   window.openCandidateCV = (candId) => {
     appState.selectCandidate(candId);
     appState.setActiveDrawerTab('cv');
   };
 
-  // 4. Job Selector Dropdown Logic (Cambio #1)
+  // 4. Hierarchical Job Selector Dropdown (18 Vacantes por Categoría)
   const activeJobSelectorBtn = document.getElementById('activeJobSelectorBtn');
   const activeJobDropdownMenu = document.getElementById('activeJobDropdownMenu');
   const jobDropdownOptionsMount = document.getElementById('jobDropdownOptionsMount');
@@ -80,23 +80,46 @@ document.addEventListener('DOMContentLoaded', () => {
   const kpiRoleMetricLabel = document.getElementById('kpiRoleMetricLabel');
   const kpiRoleMetricValue = document.getElementById('kpiRoleMetricValue');
 
+  const categoryMeta = {
+    docente: { label: 'Convocatorias Docentes & Cátedras', icon: '🎓', count: 8 },
+    administrativo: { label: 'Convocatorias Administrativas & Gestión', icon: '💼', count: 5 },
+    operativo: { label: 'Convocatorias Operativas & Soporte', icon: '🔧', count: 3 },
+    directivo: { label: 'Convocatorias Directivas & Jefaturas', icon: '🏛️', count: 2 }
+  };
+
   const renderJobDropdownOptions = () => {
     if (!jobDropdownOptionsMount) return;
-    jobDropdownOptionsMount.innerHTML = appState.jobPostings.map(job => {
-      const isSelected = job.id === appState.activeJobPostingId;
+    const grouped = appState.getJobPostingsByCategory();
+
+    jobDropdownOptionsMount.innerHTML = Object.entries(grouped).map(([categoryKey, jobs]) => {
+      const meta = categoryMeta[categoryKey] || { label: categoryKey, icon: '📁', count: jobs.length };
       return `
-        <div class="job-option-item ${isSelected ? 'selected' : ''}" data-job-id="${job.id}">
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="role-badge role-${job.roleType}">${job.roleTypeName}</span>
-              <span style="font-size: 11px; font-weight: 700; color: var(--text-tertiary);">${job.id}</span>
-            </div>
-            <strong style="font-size: 13.5px; color: var(--text-main); margin-top: 3px;">${job.title}</strong>
-            <span style="font-size: 11.5px; color: var(--text-secondary);">${job.department} • ${job.period}</span>
+        <div class="job-category-group">
+          <div class="job-category-header">
+            <span class="job-category-icon">${meta.icon}</span>
+            <span class="job-category-title">${meta.label}</span>
+            <span class="job-category-badge">${jobs.length} plazas</span>
           </div>
-          <div style="text-align: right; flex-shrink: 0;">
-            <span style="font-size: 14px; font-weight: 800; color: #2563EB;">${job.totalProcessed}</span>
-            <div style="font-size: 10px; color: var(--text-tertiary);">postulantes</div>
+          <div class="job-category-list">
+            ${jobs.map(job => {
+              const isSelected = job.id === appState.activeJobPostingId;
+              return `
+                <div class="job-option-item ${isSelected ? 'selected' : ''}" data-job-id="${job.id}">
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="role-badge role-${job.roleType}">${job.roleTypeName}</span>
+                      <span style="font-size: 11px; font-weight: 700; color: var(--text-tertiary);">${job.id}</span>
+                    </div>
+                    <strong style="font-size: 13px; color: var(--text-main); margin-top: 2px;">${job.title}</strong>
+                    <span style="font-size: 11px; color: var(--text-secondary);">${job.department} • ${job.period}</span>
+                  </div>
+                  <div style="text-align: right; flex-shrink: 0;">
+                    <span style="font-size: 13.5px; font-weight: 800; color: #2563EB;">${job.totalProcessed}</span>
+                    <div style="font-size: 10px; color: var(--text-tertiary);">CVs</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
       `;
@@ -152,7 +175,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. View Routing & Sidebar Navigation Only (subnav eliminada)
+  // 5. Adaptive Multi-Role Switcher (Mariana Córdova / Dr. Talavera / Decana / Admin)
+  const globalRoleSelect = document.getElementById('globalRoleSelect');
+  const userProfileAvatar = document.getElementById('userProfileAvatar');
+  const userProfileName = document.getElementById('userProfileName');
+  const userProfileRole = document.getElementById('userProfileRole');
+  const navSectionGroups = document.querySelectorAll('.nav-section-group');
+
+  const applyUserRole = (roleKey) => {
+    appState.setUserRole(roleKey);
+    const profile = appState.getUserRoleProfile();
+
+    if (userProfileAvatar) userProfileAvatar.querySelector('span').textContent = profile.avatar;
+    if (userProfileName) userProfileName.textContent = profile.name;
+    if (userProfileRole) userProfileRole.textContent = profile.roleTitle;
+
+    // Filter sidebar stages
+    navSectionGroups.forEach(group => {
+      const stage = group.getAttribute('data-stage');
+      const isAllowed = profile.allowedStages.includes(stage);
+      group.style.display = isAllowed ? 'block' : 'none';
+    });
+
+    // Check if current view is allowed in this role
+    const currentView = appState.currentView;
+    const stageViewMap = {
+      ranking: ['convocatorias', 'evaluacion'],
+      profilesLibrary: ['convocatorias'],
+      kanban: ['seleccion'],
+      comparison: ['evaluacion'],
+      talentPool: ['talento'],
+      effectiveness: ['gobernanza'],
+      executive: ['direccion']
+    };
+
+    const allowedViews = Object.entries(stageViewMap)
+      .filter(([_, stages]) => stages.some(s => profile.allowedStages.includes(s)))
+      .map(([view]) => view);
+
+    if (!allowedViews.includes(currentView)) {
+      switchView(profile.defaultView || 'ranking');
+    }
+  };
+
+  if (globalRoleSelect) {
+    globalRoleSelect.addEventListener('change', (e) => {
+      applyUserRole(e.target.value);
+    });
+  }
+
+  // 6. View Routing & Sidebar Navigation (6 Etapas del Ciclo del Talento)
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
@@ -177,12 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewName === 'talentPool') talentPoolController.render();
     if (viewName === 'effectiveness') effectivenessController.render();
     if (viewName === 'executive') executiveController.render();
+    if (viewName === 'profilesLibrary') profilesLibraryController.render();
     if (viewName === 'ranking') dataGrid.render();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Sidebar navigation routing only
+  // Sidebar navigation routing
   navItems.forEach(item => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
@@ -192,8 +265,26 @@ document.addEventListener('DOMContentLoaded', () => {
         batchIngestion.open();
       } else if (target === 'criteria') {
         criteriaModal.open();
-      } else if (target === 'new-job') {
-        executiveController.showProfilesLibraryModal();
+      } else if (target === 'new-job' || target === 'profilesLibrary') {
+        switchView('profilesLibrary');
+      } else if (target === 'interviews_star') {
+        switchView('ranking');
+        const first = appState.candidates[0];
+        if (first) {
+          appState.selectCandidate(first.id);
+          appState.setActiveDrawerTab('gaps');
+        }
+      } else if (target === 'decisions') {
+        switchView('ranking');
+        const first = appState.candidates[0];
+        if (first) {
+          appState.selectCandidate(first.id);
+          appState.setActiveDrawerTab('audit');
+        }
+      } else if (target === 'crossmatch') {
+        switchView('talentPool');
+      } else if (target === 'reports') {
+        alert('📊 Generando informe consolidado de cobertura institucional y contrataciones en formato PDF para Decanatura...');
       } else if (target === 'audit') {
         const first = appState.candidates[0];
         if (first) {
@@ -303,6 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (filterStatusSelect) {
     filterStatusSelect.addEventListener('change', (e) => {
       appState.setFilterStatus(e.target.value);
+    });
+  }
+
+  const filterCategorySelect = document.getElementById('filterCategorySelect');
+  if (filterCategorySelect) {
+    filterCategorySelect.addEventListener('change', (e) => {
+      const cat = e.target.value;
+      if (cat !== 'all') {
+        const found = appState.jobPostings.find(j => j.roleType === cat);
+        if (found) {
+          appState.setActiveJobPosting(found.id);
+        }
+      }
     });
   }
 

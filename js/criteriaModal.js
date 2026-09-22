@@ -1,6 +1,6 @@
 /* ==========================================================================
    TalentAI - GTHC · ESAN
-   Criteria & Weights Configuration Modal Controller (v2.4 / Matching Dual)
+   Criteria & Weights Configuration Modal Controller (con Simulador Reactivo)
    ========================================================================== */
 
 import { appState } from './state.js';
@@ -44,6 +44,9 @@ export class CriteriaModalController {
 
     this.balanceBar = this.modal.querySelector('#weightsBalanceBar');
     this.checkInclusion = this.modal.querySelector('#checkInclusionEnable');
+
+    // Simulator mount
+    this.simulatorMount = this.modal.querySelector('#simulatorResultsListMount');
   }
 
   initListeners() {
@@ -75,7 +78,7 @@ export class CriteriaModalController {
       });
     }
 
-    // Specific Variables Listeners
+    // Specific Variables Listeners with Simulator Trigger
     const variableSliders = [
       { slider: this.sliderExp, val: this.valExp, name: 'Experiencia' },
       { slider: this.sliderSem, val: this.valSem, name: 'Similitud Semántica' },
@@ -90,6 +93,7 @@ export class CriteriaModalController {
           const v = parseInt(e.target.value, 10);
           if (item.val) item.val.textContent = `${v} pts (${v}%)`;
           this.updateBalanceValidation();
+          this.updateSimulation();
         });
       }
     });
@@ -107,6 +111,45 @@ export class CriteriaModalController {
         this.saveAndRecalculate();
       });
     }
+  }
+
+  updateSimulation() {
+    if (!this.simulatorMount) return;
+    const weights = {
+      exp: parseInt(this.sliderExp.value, 10) || 30,
+      sem: parseInt(this.sliderSem.value, 10) || 30,
+      tech: parseInt(this.sliderTech.value, 10) || 20,
+      teach: parseInt(this.sliderTeach.value, 10) || 10,
+      pref: parseInt(this.sliderPref.value, 10) || 10
+    };
+
+    const simulated = appState.simulateWeightsImpact(weights);
+    const topSim = simulated.slice(0, 5);
+
+    this.simulatorMount.innerHTML = topSim.map(item => {
+      let deltaBadge = '<span class="sim-delta equal">= Mantiene posición</span>';
+      if (item.rankDelta > 0) {
+        deltaBadge = `<span class="sim-delta up">↑ +${item.rankDelta} posiciones</span>`;
+      } else if (item.rankDelta < 0) {
+        deltaBadge = `<span class="sim-delta down">↓ ${item.rankDelta} posición${Math.abs(item.rankDelta) > 1 ? 'es' : ''}</span>`;
+      }
+
+      return `
+        <div class="sim-candidate-row">
+          <div class="sim-cand-info">
+            <span class="sim-cand-rank">#${item.simulatedRank}</span>
+            <div style="display: flex; flex-direction: column;">
+              <span class="sim-cand-name">${item.name}</span>
+              <span class="sim-cand-sub">${item.role} • ${item.company}</span>
+            </div>
+          </div>
+          <div class="sim-cand-scores">
+            <span class="sim-cand-score-tag">Score: ${item.currentScore} → <strong>${item.simulatedScore} pts</strong></span>
+            ${deltaBadge}
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   updateBalanceValidation() {
@@ -151,6 +194,7 @@ export class CriteriaModalController {
 
     this.checkInclusion.checked = true;
     this.updateBalanceValidation();
+    this.updateSimulation();
   }
 
   saveAndRecalculate() {
@@ -172,13 +216,14 @@ export class CriteriaModalController {
       this.saveBtn.textContent = 'Guardar y Re-calcular Ranking';
       this.close();
 
-      alert('✅ ¡Criterios y Pesos guardados con éxito! Se ha recalculado la matriz de scoring dual (v2.5) para los 482 candidatos.');
+      alert('✅ ¡Criterios y Pesos guardados con éxito! Se ha recalculado la matriz de scoring dual (v2.5) para los postulantes.');
     }, 600);
   }
 
   open() {
     this.backdrop.classList.add('active');
     document.body.style.overflow = 'hidden';
+    this.updateSimulation();
   }
 
   close() {

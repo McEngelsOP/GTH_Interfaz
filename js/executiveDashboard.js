@@ -1,6 +1,6 @@
 /* ==========================================================================
    TalentAI - GTHC · ESAN
-   Executive Dashboard for Deans & Organizational Profiles Library (Cambios #4 & #15)
+   Executive Dashboard for Deans & High-Level Leadership (Rediseño Simplificado)
    ========================================================================== */
 
 import { appState } from './state.js';
@@ -23,7 +23,6 @@ export class ExecutiveDashboardController {
     if (!this.container) return;
 
     const metrics = appState.executiveMetrics;
-    const templates = appState.templates;
 
     this.container.innerHTML = `
       <div class="executive-wrapper">
@@ -31,63 +30,94 @@ export class ExecutiveDashboardController {
         <div class="executive-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 22px;">👔</span>
+              <span style="font-size: 24px;">📊</span>
               <h2 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--text-main);">
                 Dashboard Ejecutivo para Decanos, Directores & Gerencia
               </h2>
             </div>
-            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
-              Consolidado estratégico de atracción y cobertura de talento institucional en <strong>ESAN Graduate School of Business</strong>.
+            <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 4px;">
+              Consolidado estratégico de atracción, cobertura y efectividad del talento en <strong>ESAN Graduate School of Business</strong>.
             </p>
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="btn btn-secondary" onclick="window.executiveController.showProfilesLibraryModal()">
-              📚 Biblioteca de Perfiles (Templates)
+            <button class="btn btn-secondary" onclick="appState.setCurrentView('profilesLibrary')">
+              📚 Ir a Biblioteca de Perfiles
             </button>
-            <button class="btn btn-primary" onclick="alert('Generando informe de gestión para el Consejo Directivo de ESAN...')">
+            <button class="btn btn-primary" onclick="alert('Generando informe ejecutivo consolidado en PDF para el Consejo Directivo de ESAN...')">
               Exportar Informe Ejecutivo
             </button>
           </div>
         </div>
 
-        <!-- Executive High-Level KPI Row (Cambio #15) -->
+        <!-- 1. HERO KPI PRINCIPAL (Recomendación Ejecutiva: Cobertura de Vacantes 94%) -->
+        <div class="executive-hero-kpi-card">
+          <div class="hero-kpi-main-block">
+            <div class="hero-kpi-header">
+              <span class="hero-kpi-badge">INDICADOR PRINCIPAL DE GESTIÓN</span>
+              <span class="hero-kpi-period">Semestre 2026-II · GTHC</span>
+            </div>
+            <div class="hero-kpi-value-row">
+              <div class="hero-kpi-number">94.0%</div>
+              <div class="hero-kpi-context">
+                <span class="hero-kpi-title">Cobertura de Vacantes Institucionales</span>
+                <span class="hero-kpi-meta">
+                  <strong style="color: #047857;">+4.0%</strong> por encima de la meta institucional (90%) · 17 de 18 plazas cubiertas o en fase de oferta final
+                </span>
+              </div>
+            </div>
+            <div class="hero-kpi-progress-bar">
+              <div class="hero-kpi-progress-fill" style="width: 94%;"></div>
+            </div>
+          </div>
+
+          <div class="hero-kpi-side-metric">
+            <span class="side-metric-label">Tiempo de Retención 6m</span>
+            <span class="side-metric-val">94.7%</span>
+            <span class="side-metric-sub">Solo 2 deserciones anuales</span>
+          </div>
+        </div>
+
+        <!-- 2. KPIS SECUNDARIOS (18 vacantes, 845 candidatos, 12.4 días cobertura, 89% éxito) -->
         <div class="kpi-grid" style="margin-bottom: 24px;">
+          <!-- KPI Secundario 1: Plazas Activas -->
           <div class="kpi-card kpi-accent-primary">
             <div class="kpi-header">
-              <span class="kpi-label">Convocatorias Abiertas</span>
+              <span class="kpi-label">Vacantes Convocadas</span>
               <div class="kpi-icon-wrapper">📂</div>
             </div>
             <div class="kpi-value-row">
-              <span class="kpi-value">${metrics.openVacanciesCount}</span>
-              <span class="kpi-unit">plazas activas</span>
+              <span class="kpi-value">18</span>
+              <span class="kpi-unit">vacantes</span>
             </div>
             <div class="kpi-subtitle">
-              <span>Distribuido en 4 facultades y áreas</span>
+              <span>8 Docentes · 5 Admin · 3 Ope · 2 Dir</span>
             </div>
           </div>
 
+          <!-- KPI Secundario 2: Candidatos Evaluados -->
           <div class="kpi-card kpi-accent-info">
             <div class="kpi-header">
-              <span class="kpi-label">Candidatos Evaluados (YTD)</span>
+              <span class="kpi-label">Candidatos Evaluados</span>
               <div class="kpi-icon-wrapper" style="color: #2563EB; background: #EFF6FF;">👥</div>
             </div>
             <div class="kpi-value-row">
-              <span class="kpi-value">${metrics.evaluatedCandidatesYTD}</span>
+              <span class="kpi-value">845</span>
               <span class="kpi-unit">postulantes</span>
             </div>
             <div class="kpi-subtitle">
-              <span>Procesados por OCR & Matching Dual</span>
+              <span>Procesados vía OCR & Matching Dual</span>
             </div>
           </div>
 
+          <!-- KPI Secundario 3: Tiempo Cobertura -->
           <div class="kpi-card kpi-accent-success">
             <div class="kpi-header">
-              <span class="kpi-label">Tiempo Cobertura Promedio</span>
+              <span class="kpi-label">Días de Cobertura</span>
               <div class="kpi-icon-wrapper" style="color: #10B981; background: #ECFDF5;">⏱️</div>
             </div>
             <div class="kpi-value-row">
-              <span class="kpi-value">${metrics.avgCoverageDays}</span>
+              <span class="kpi-value">12.4</span>
               <span class="kpi-unit">días</span>
             </div>
             <div class="kpi-subtitle">
@@ -96,13 +126,14 @@ export class ExecutiveDashboardController {
             </div>
           </div>
 
+          <!-- KPI Secundario 4: Éxito en Contratación -->
           <div class="kpi-card kpi-accent-warning">
             <div class="kpi-header">
-              <span class="kpi-label">Éxito en Contratación</span>
+              <span class="kpi-label">Éxito en Selección</span>
               <div class="kpi-icon-wrapper" style="color: #D97706; background: #FEF3C7;">⭐</div>
             </div>
             <div class="kpi-value-row">
-              <span class="kpi-value">${metrics.successfulHires6mRate}%</span>
+              <span class="kpi-value">89.2%</span>
               <span class="kpi-unit">satisfacción</span>
             </div>
             <div class="kpi-subtitle">
@@ -111,12 +142,12 @@ export class ExecutiveDashboardController {
           </div>
         </div>
 
-        <!-- Two Column Analytical Overview -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-          <!-- Left: Convocatorias por Facultad -->
+        <!-- 3. Two Column Analytical Breakdown -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+          <!-- Left: Cobertura por Facultad -->
           <div class="card" style="padding: 20px; background: #FFF; border: 1px solid var(--border-light); border-radius: var(--radius-lg);">
             <h3 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 14px;">
-              Estado de Cobertura por Facultad y Dirección
+              Estado de Cobertura por Facultad y Área
             </h3>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -125,7 +156,7 @@ export class ExecutiveDashboardController {
                   <div>
                     <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${fb.faculty}</div>
                     <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">
-                      ${fb.activeJobs} convocatorias en curso
+                      ${fb.activeJobs} convocatorias abiertas
                     </div>
                   </div>
                   <div style="text-align: right;">
@@ -137,10 +168,10 @@ export class ExecutiveDashboardController {
             </div>
           </div>
 
-          <!-- Right: Fuentes Más Efectivas -->
+          <!-- Right: Canales de Atracción -->
           <div class="card" style="padding: 20px; background: #FFF; border: 1px solid var(--border-light); border-radius: var(--radius-lg);">
             <h3 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 14px;">
-              Canales de Atracción Más Rentables
+              Efectividad por Canal de Atracción
             </h3>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -159,62 +190,25 @@ export class ExecutiveDashboardController {
           </div>
         </div>
 
-        <!-- Bottom Section: Biblioteca de Perfiles Organizacionales (Cambio #4) -->
-        <div style="margin-top: 28px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-            <div>
-              <h3 style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-main);">
-                📚 Biblioteca de Perfiles Organizacionales Guardados
-              </h3>
-              <p style="font-size: 12.5px; color: var(--text-secondary);">
-                Plantillas estandarizadas con criterios, pesos y filtros predefinidos para apertura inmediata de vacantes.
-              </p>
-            </div>
-            <button class="btn btn-primary" onclick="alert('Abriendo editor de plantilla para crear nuevo perfil organizacional...')">
-              + Crear Nueva Plantilla
-            </button>
+        <!-- 4. Quick Gateway to Autonomous Profiles Library -->
+        <div class="profiles-library-cta-banner">
+          <div>
+            <h4 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: #1E3A8A;">
+              📚 Biblioteca de Perfiles Organizacionales de ESAN
+            </h4>
+            <p style="font-size: 13px; color: #2563EB; margin-top: 3px;">
+              Configura y estandariza los criterios, ponderaciones y knockouts por tipo de puesto (Docente, Administrativo, Operativo, Directivo).
+            </p>
           </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
-            ${templates.map(tpl => `
-              <div class="talent-profile-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                    <span class="role-badge role-${tpl.roleType}">
-                      ${tpl.roleType.toUpperCase()}
-                    </span>
-                    <span style="font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;">ID: ${tpl.id}</span>
-                  </div>
-                  <h4 style="font-family: var(--font-heading); font-size: 14.5px; font-weight: 700; color: var(--text-main); line-height: 1.3;">
-                    ${tpl.title}
-                  </h4>
-                  <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;">
-                    ${tpl.description}
-                  </p>
-
-                  <div style="margin-top: 10px; padding: 8px; background: #F8FAFC; border-radius: 6px; border: 1px solid var(--border-light); font-size: 11px;">
-                    <strong style="color: var(--text-main);">Regla Knockout:</strong> ${tpl.knockoutRule}
-                  </div>
-                </div>
-
-                <div style="margin-top: 16px; border-top: 1px solid var(--border-divider); padding-top: 10px; display: flex; gap: 8px;">
-                  <button class="btn btn-primary" style="flex: 1; font-size: 11.5px; padding: 6px 10px;" onclick="alert('Iniciando nueva convocatoria basada en la plantilla: ${tpl.title}')">
-                    Usar Perfil
-                  </button>
-                  <button class="btn btn-secondary" style="font-size: 11.5px; padding: 6px 10px;" onclick="alert('Criterios configurados para ${tpl.title}:\\n\\n' + JSON.stringify(${JSON.stringify(tpl.criteria)}, null, 2))">
-                    Ver Criterios
-                  </button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
+          <button class="btn btn-primary" onclick="appState.setCurrentView('profilesLibrary')">
+            Explorar Biblioteca de Perfiles →
+          </button>
         </div>
       </div>
     `;
   }
 
   showProfilesLibraryModal() {
-    const list = appState.templates.map((t, i) => `${i + 1}. [${t.roleType.toUpperCase()}] ${t.title}`).join('\n');
-    alert(`📚 Biblioteca de Perfiles Organizacionales de ESAN:\n\n${list}\n\nSelecciona cualquier perfil para autocompletar una nueva convocatoria.`);
+    appState.setCurrentView('profilesLibrary');
   }
 }

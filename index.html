@@ -45,157 +45,246 @@
         </button>
       </div>
 
-      <!-- Navigation Links (Rediseño por Etapas del Flujo de Trabajo) -->
-      <nav class="sidebar-nav">
-        <!-- GRUPO 1: RECRUITMENT (Convocatorias y Proceso Activo) -->
-        <div class="nav-section-title">Recruitment</div>
-        
-        <a href="#convocatorias" class="nav-item active" data-nav="convocatorias" data-target="ranking" data-tooltip="Convocatorias Activas por Tipo de Puesto">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">Convocatorias</span>
-          <span class="nav-item-badge">3 activas</span>
-          <span class="nav-indicator-dot dot-crimson"></span>
-        </a>
+      <!-- Navigation Links (Rediseño por 6 Etapas del Ciclo del Talento Institucional) -->
+      <nav class="sidebar-nav" id="sidebarNavMain">
+        <!-- ETAPA 1: CONVOCATORIAS -->
+        <div class="nav-section-group" data-stage="convocatorias">
+          <div class="nav-section-title">1. Convocatorias</div>
+          
+          <a href="#convocatorias" class="nav-item active" data-nav="convocatorias" data-target="ranking" data-tooltip="Convocatorias Institucionales Abiertas">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">Convocatorias</span>
+            <span class="nav-item-badge" id="navJobsCountBadge">18 activas</span>
+            <span class="nav-indicator-dot dot-crimson"></span>
+          </a>
 
-        <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Crear Convocatoria con Template Inteligente por Puesto">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">+ Nueva Convocatoria</span>
-        </a>
+          <a href="#biblioteca-perfiles" class="nav-item" data-nav="profilesLibrary" data-target="profilesLibrary" data-tooltip="Biblioteca de Perfiles & Plantillas Organizacionales">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+            </div>
+            <span class="nav-item-label">Biblioteca de Perfiles</span>
+            <span class="nav-item-badge badge-info">8 perfiles</span>
+          </a>
 
-        <a href="#carga-ocr" class="nav-item" data-nav="ingestion" data-target="ingestion" id="navIngestionItem" data-tooltip="Carga Masiva & OCR Multi-fuente">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">Carga & OCR</span>
-          <span class="nav-item-badge badge-emerald">482 CVs</span>
-          <span class="nav-indicator-dot dot-emerald"></span>
-        </a>
+          <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Abrir Convocatoria desde Plantilla Institucional">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">+ Nueva Convocatoria</span>
+          </a>
+        </div>
 
-        <!-- GRUPO 2: TALENT (Evaluación y Gestión de Candidatos) -->
-        <div class="nav-section-title">Talent</div>
+        <!-- ETAPA 2: EVALUACIÓN -->
+        <div class="nav-section-group" data-stage="evaluacion">
+          <div class="nav-section-title">2. Evaluación</div>
 
-        <a href="#ranking" class="nav-item" data-nav="ranking" data-target="ranking" data-tooltip="Ranking Top-N con Podios">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">Ranking</span>
-        </a>
+          <a href="#carga-ocr" class="nav-item" data-nav="ingestion" data-target="ingestion" id="navIngestionItem" data-tooltip="Carga Masiva & OCR Multi-fuente con Extracción">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">Carga & OCR</span>
+            <span class="nav-item-badge badge-emerald">482 CVs</span>
+            <span class="nav-indicator-dot dot-emerald"></span>
+          </a>
 
-        <a href="#kanban" class="nav-item" data-nav="kanban" data-target="kanban" data-tooltip="Tablero Kanban de 6 Fases">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="9" rx="1"></rect>
-              <rect x="14" y="3" width="7" height="5" rx="1"></rect>
-              <rect x="14" y="12" width="7" height="9" rx="1"></rect>
-              <rect x="3" y="16" width="7" height="5" rx="1"></rect>
-            </svg>
-          </div>
-          <span class="nav-item-label">Kanban</span>
-        </a>
+          <a href="#ranking" class="nav-item" data-nav="ranking" data-target="ranking" data-tooltip="Ranking Top-N con Podio e Impacto de Brechas">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">Ranking Top-N</span>
+          </a>
 
-        <a href="#comparador" class="nav-item" data-nav="comparison" data-target="comparison" data-tooltip="Comparador Multicandidato Cara a Cara">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
-              <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
-              <path d="M7 21h10"></path>
-              <path d="M12 3v18"></path>
-              <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path>
-            </svg>
-          </div>
-          <span class="nav-item-label">Comparador</span>
-        </a>
+          <a href="#comparador" class="nav-item" data-nav="comparison" data-target="comparison" data-tooltip="Comparador Multicandidato con Radar de Competencias">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+                <path d="M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"></path>
+                <path d="M7 21h10"></path>
+                <path d="M12 3v18"></path>
+                <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path>
+              </svg>
+            </div>
+            <span class="nav-item-label">Comparador</span>
+          </a>
+        </div>
 
-        <a href="#banco-talento" class="nav-item" data-nav="talentPool" data-target="talentPool" data-tooltip="Banco de Talento & Movilidad Interna">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-          </div>
-          <span class="nav-item-label">Banco de Talento</span>
-        </a>
+        <!-- ETAPA 3: SELECCIÓN -->
+        <div class="nav-section-group" data-stage="seleccion">
+          <div class="nav-section-title">3. Selección</div>
 
-        <!-- GRUPO 3: GOVERNANCE (Configuración, Auditoría y Calidad) -->
-        <div class="nav-section-title">Governance</div>
+          <a href="#kanban" class="nav-item" data-nav="kanban" data-target="kanban" data-tooltip="Tablero Kanban de 6 Fases de Contratación">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+                <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+                <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+              </svg>
+            </div>
+            <span class="nav-item-label">Pipeline (Kanban)</span>
+          </a>
 
-        <a href="#configuracion" class="nav-item" data-nav="criteria" data-target="criteria" data-tooltip="Criterios y Pesos por Tipo de Puesto">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-          </div>
-          <span class="nav-item-label">Criterios & Pesos</span>
-        </a>
+          <a href="#entrevistas-star" class="nav-item" data-nav="interviews_star" data-tooltip="Preguntas Situacionales STAR Generadas por IA">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
+            <span class="nav-item-label">Entrevistas & STAR</span>
+          </a>
 
-        <a href="#auditoria" class="nav-item" data-nav="audit" data-target="audit" data-tooltip="Auditoría Inmutable & Trazabilidad">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-          </div>
-          <span class="nav-item-label">Auditoría</span>
-        </a>
+          <a href="#decisiones" class="nav-item" data-nav="decisions" data-tooltip="Registro Formal de Decisiones y Avances">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <span class="nav-item-label">Decisiones & Avance</span>
+          </a>
+        </div>
 
-        <!-- GRUPO 4: ANALYTICS (Efectividad IA y Dashboard Ejecutivo) -->
-        <div class="nav-section-title">Analytics</div>
+        <!-- ETAPA 4: TALENTO -->
+        <div class="nav-section-group" data-stage="talento">
+          <div class="nav-section-title">4. Talento</div>
 
-        <a href="#efectividad" class="nav-item" data-nav="effectiveness" data-target="effectiveness" data-tooltip="Efectividad Real a 6 Meses & Auto-Calibración">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-              <polyline points="17 6 23 6 23 12"></polyline>
-            </svg>
-          </div>
-          <span class="nav-item-label">Efectividad IA</span>
-        </a>
+          <a href="#banco-talento" class="nav-item" data-nav="talentPool" data-target="talentPool" data-tooltip="Banco de Talento con Buscador Universal de Habilidades">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <span class="nav-item-label">Banco de Talento</span>
+          </a>
 
-        <a href="#dashboard-ejecutivo" class="nav-item" data-nav="executive" data-target="executive" data-tooltip="Dashboard Ejecutivo para Decanos y Gerencia">
-          <div class="nav-item-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="20" x2="12" y2="10"></line>
-              <line x1="18" y1="20" x2="18" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="16"></line>
-            </svg>
-          </div>
-          <span class="nav-item-label">Dashboard Ejecutivo</span>
-        </a>
+          <a href="#movilidad-interna" class="nav-item" data-nav="crossmatch" data-tooltip="Marketplace de Vacantes Cruzadas">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 3 21 3 21 8"></polyline>
+                <line x1="4" y1="20" x2="21" y2="3"></line>
+                <polyline points="21 16 21 21 16 21"></polyline>
+                <line x1="15" y1="15" x2="21" y2="21"></line>
+                <line x1="4" y1="4" x2="9" y2="9"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">Movilidad Interna</span>
+          </a>
+        </div>
+
+        <!-- ETAPA 5: GOBERNANZA -->
+        <div class="nav-section-group" data-stage="gobernanza">
+          <div class="nav-section-title">5. Gobernanza</div>
+
+          <a href="#configuracion" class="nav-item" data-nav="criteria" data-target="criteria" data-tooltip="Matriz de Criterios & Ponderaciones Duales">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <span class="nav-item-label">Criterios & Pesos</span>
+          </a>
+
+          <a href="#auditoria" class="nav-item" data-nav="audit" data-target="audit" data-tooltip="Auditoría Inmutable & Trazabilidad de Decisiones">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <span class="nav-item-label">Auditoría</span>
+          </a>
+
+          <a href="#efectividad" class="nav-item" data-nav="effectiveness" data-target="effectiveness" data-tooltip="Efectividad Real a 6 Meses & Métricas Avanzadas">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                <polyline points="17 6 23 6 23 12"></polyline>
+              </svg>
+            </div>
+            <span class="nav-item-label">Efectividad IA</span>
+          </a>
+        </div>
+
+        <!-- ETAPA 6: DIRECCIÓN -->
+        <div class="nav-section-group" data-stage="direccion">
+          <div class="nav-section-title">6. Dirección</div>
+
+          <a href="#dashboard-ejecutivo" class="nav-item" data-nav="executive" data-target="executive" data-tooltip="Dashboard Ejecutivo para Decanos y Gerencia">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="20" x2="12" y2="10"></line>
+                <line x1="18" y1="20" x2="18" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="16"></line>
+              </svg>
+            </div>
+            <span class="nav-item-label">Dashboard Ejecutivo</span>
+            <span class="nav-item-badge badge-emerald">94%</span>
+          </a>
+
+          <a href="#reportes" class="nav-item" data-nav="reports" data-tooltip="Reportes e Informes Consolidados para Decanatura">
+            <div class="nav-item-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            <span class="nav-item-label">Reportes de Decanatura</span>
+          </a>
+        </div>
       </nav>
 
-      <!-- Recruiter Profile Footer -->
+      <!-- Role Switcher & User Profile Footer -->
       <div class="sidebar-footer">
-        <div class="recruiter-profile" title="Sesión activa: Mariana Córdova" data-tooltip="Mariana Córdova · Reclutadora GTHC">
-          <div class="recruiter-avatar">
+        <div class="role-selector-box">
+          <label for="globalRoleSelect" class="role-selector-label">
+            <span>Rol Activo:</span>
+          </label>
+          <div class="role-select-wrapper">
+            <select class="role-selector-select" id="globalRoleSelect" aria-label="Cambiar Rol de Usuario">
+              <option value="reclutador" selected>💼 Reclutador (Operativo)</option>
+              <option value="coordinador">🎓 Coordinador Académico</option>
+              <option value="director">🏛️ Director / Decano</option>
+              <option value="admin">⚙️ Administrador / GTHC</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="recruiter-profile" id="userProfileCard" title="Sesión activa">
+          <div class="recruiter-avatar" id="userProfileAvatar">
             <span>MC</span>
             <span class="recruiter-online-dot"></span>
           </div>
           <div class="recruiter-meta">
-            <span class="recruiter-name">Mariana Córdova</span>
-            <span class="recruiter-role">Reclutadora GTHC · ESAN</span>
+            <span class="recruiter-name" id="userProfileName">Mariana Córdova</span>
+            <span class="recruiter-role" id="userProfileRole">Reclutadora GTHC · ESAN</span>
           </div>
         </div>
       </div>
@@ -364,6 +453,14 @@
             </div>
 
             <div class="filter-group">
+              <select class="filter-select" id="filterCategorySelect">
+                <option value="all">Todas las Categorías</option>
+                <option value="docente">🎓 Docentes & Cátedras</option>
+                <option value="administrativo">💼 Administrativos & Gestión</option>
+                <option value="operativo">🔧 Operativos & Facilities</option>
+                <option value="directivo">🏛️ Directivos & Decanato</option>
+              </select>
+
               <select class="filter-select" id="filterStatusSelect">
                 <option value="all">Todos los Estados</option>
                 <option value="topN">Dentro de Top-N</option>
@@ -443,9 +540,14 @@
           <!-- Inyectado por effectivenessView.js -->
         </div>
 
-        <!-- VISTA 6: DASHBOARD EJECUTIVO & BIBLIOTECA DE PERFILES (Cambios #4 & #15) -->
+        <!-- VISTA 6: DASHBOARD EJECUTIVO (Hero KPI 94% & Métricas Consolidadas) -->
         <div class="view-container" id="viewContainer_executive">
           <!-- Inyectado por executiveDashboard.js -->
+        </div>
+
+        <!-- VISTA 7: BIBLIOTECA DE PERFILES ORGANIZACIONALES (Módulo Autónomo) -->
+        <div class="view-container" id="viewContainer_profilesLibrary">
+          <!-- Inyectado por profilesLibraryView.js -->
         </div>
 
       </div>
@@ -716,6 +818,28 @@
             </div>
           </div>
         </div>
+
+        <!-- OCR Status Breakdown & Incidences Panel (Cognitive Simplification) -->
+        <div class="ocr-status-summary-bar">
+          <div class="ocr-status-counters">
+            <span class="ocr-stat-chip success">✓ 482 Exitosos</span>
+            <span class="ocr-stat-chip warning">⚠️ 5 En Revisión</span>
+            <span class="ocr-stat-chip error">🔴 2 Con Error</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btnToggleOcrIncidences">
+            ⚠️ Mostrar incidencias (7)
+          </button>
+        </div>
+
+        <div class="ocr-incidences-panel hidden" id="ocrIncidencesPanel">
+          <div class="incidences-panel-header">
+            <strong>Incidencias de Extracción & Legibilidad</strong>
+            <span style="font-size: 11px; color: var(--text-secondary);">Requieren verificación manual o reemplazo de documento</span>
+          </div>
+          <div class="incidences-list" id="ocrIncidencesListMount">
+            <!-- Rellenado reactivamente por batchIngestion.js -->
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -845,6 +969,20 @@
           <p style="font-size: 12px; color: #0369A1; margin-top: 6px; margin-left: 28px;">
             Permite que candidatos con alta competencia arquitectónica y desviaciones menores en certificaciones secundarias mantengan un score de corte competitivo.
           </p>
+        </div>
+
+        <!-- 4. Simulador de Impacto en Ranking en Tiempo Real -->
+        <div class="criteria-simulator-section">
+          <div class="simulator-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">⚡</span>
+              <strong style="font-size: 13.5px; color: var(--text-main);">Simulador de Impacto en Ranking en Tiempo Real (Top 5)</strong>
+            </div>
+            <span style="font-size: 11px; color: var(--text-tertiary);">Proyección reactiva de cambios en el podio antes de guardar</span>
+          </div>
+          <div class="simulator-list" id="simulatorResultsListMount">
+            <!-- Rellenado reactivamente por criteriaModal.js -->
+          </div>
         </div>
       </div>
 

@@ -1116,3 +1116,983 @@
   background: #DBEAFE;
 }
 
+/* ==========================================================================
+   16. Role Selector & Stage Filtering
+   ========================================================================== */
+.role-selector-box {
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.role-selector-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94A3B8;
+}
+
+.role-select-wrapper {
+  position: relative;
+}
+
+.role-selector-select {
+  width: 100%;
+  background: #0F172A;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+  color: #F8FAFC;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.role-selector-select:hover,
+.role-selector-select:focus {
+  border-color: #38BDF8;
+  background: #1E293B;
+}
+
+.app-sidebar.collapsed .role-selector-box {
+  display: none !important;
+}
+
+.nav-section-group {
+  margin-bottom: 14px;
+  transition: opacity var(--transition-fast);
+}
+
+/* ==========================================================================
+   17. Hierarchical Job Postings Dropdown (18 Vacantes)
+   ========================================================================== */
+.job-selector-dropdown {
+  max-height: 480px;
+  overflow-y: auto;
+  min-width: 440px;
+}
+
+.job-category-group {
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.job-category-group:last-child {
+  border-bottom: none;
+}
+
+.job-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 6px;
+  background: #F8FAFC;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.job-category-icon {
+  font-size: 14px;
+}
+
+.job-category-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+  flex: 1;
+}
+
+.job-category-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: #E2E8F0;
+  color: var(--text-secondary);
+}
+
+.job-category-list {
+  padding: 4px 8px 8px;
+}
+
+.job-category-list .job-option-item {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  margin-bottom: 2px;
+}
+
+/* ==========================================================================
+   18. More Actions Dropdown & Popover Menu
+   ========================================================================== */
+.more-actions-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-more-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  background: #F8FAFC;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-more-actions:hover {
+  background: #FFFFFF;
+  border-color: var(--border-dark);
+  color: var(--text-main);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.more-actions-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+  width: 210px;
+  padding: 6px;
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.more-actions-menu.show {
+  display: flex;
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.more-action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.more-action-item:hover {
+  background: #F1F5F9;
+  color: var(--esan-primary);
+}
+
+.more-action-item.active {
+  background: var(--esan-primary-light);
+  color: var(--esan-primary);
+  font-weight: 600;
+}
+
+.more-action-item.text-danger:hover {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.more-action-divider {
+  height: 1px;
+  background: var(--border-divider);
+  margin: 4px 0;
+}
+
+.action-icon {
+  font-size: 13px;
+  width: 16px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   19. Gap Visual Badges & Impact Tags
+   ========================================================================== */
+.gap-visual-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: #FAFAFA;
+}
+
+.gap-visual-card.gap-impact-none {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.gap-visual-card.gap-impact-low {
+  background: #FEFCE8;
+  border-color: #FEF08A;
+}
+
+.gap-visual-card.gap-impact-med {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+}
+
+.gap-visual-card.gap-impact-high {
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.gap-visual-icon {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.gap-visual-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gap-visual-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.gap-impact-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+
+.gap-impact-tag.impact-none { color: #16A34A; }
+.gap-impact-tag.impact-low { color: #CA8A04; }
+.gap-impact-tag.impact-med { color: #D97706; }
+.gap-impact-tag.impact-high { color: #DC2626; }
+
+/* ==========================================================================
+   20. Radar Chart & Multi-Candidate SVG Contraste
+   ========================================================================== */
+.radar-chart-container {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-xs);
+}
+
+.radar-content-layout {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 28px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.radar-svg-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.radar-candidates-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-cand-item {
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-mini-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.legend-mini-stats span strong {
+  color: var(--text-main);
+}
+
+.verdict-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #EFF6FF;
+  border-radius: var(--radius-lg);
+  border: 1px solid #BFDBFE;
+}
+
+.verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563EB;
+  color: #FFF;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.btn-verdict-toggle {
+  background: transparent;
+  border: none;
+  color: #2563EB;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   21. Profiles Library View & Template Cards
+   ========================================================================== */
+.profiles-library-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profiles-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-xs);
+}
+
+.profiles-category-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.profiles-tab-btn {
+  padding: 8px 16px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.profiles-tab-btn:hover {
+  background: #F1F5F9;
+  color: var(--text-main);
+}
+
+.profiles-tab-btn.active {
+  background: var(--esan-primary);
+  color: #FFFFFF;
+  border-color: var(--esan-primary);
+  box-shadow: 0 2px 6px rgba(200, 16, 46, 0.25);
+}
+
+.profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.profile-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.profile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #CBD5E1;
+}
+
+.profile-id-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  font-family: monospace;
+}
+
+.profile-card-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.3;
+}
+
+.profile-card-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.profile-details-box {
+  background: #F8FAFC;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-detail-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.profile-detail-val {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.knockout-row {
+  background: #FEF2F2;
+  border-left: 3px solid #DC2626;
+  padding: 6px 8px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.profile-criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-criterion-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--text-main);
+  background: #FFFFFF;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-divider);
+}
+
+.criterion-weight {
+  font-weight: 700;
+  color: #2563EB;
+}
+
+.profile-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ==========================================================================
+   22. OCR Status Counters & Incidences Panel
+   ========================================================================== */
+.ocr-status-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #F8FAFC;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  margin-top: 14px;
+}
+
+.ocr-status-counters {
+  display: flex;
+  gap: 8px;
+}
+
+.ocr-stat-chip {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.ocr-stat-chip.success {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.ocr-stat-chip.warning {
+  background: #FEF9C3;
+  color: #A16207;
+}
+
+.ocr-stat-chip.error {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.ocr-incidences-panel {
+  margin-top: 12px;
+  background: #FFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.ocr-incidences-panel.hidden {
+  display: none;
+}
+
+.incidences-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+}
+
+.incidences-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ocr-incidence-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: #FAFAFA;
+  gap: 12px;
+}
+
+.ocr-incidence-card.review {
+  border-left: 4px solid #F59E0B;
+}
+
+.ocr-incidence-card.error {
+  border-left: 4px solid #EF4444;
+}
+
+.incidence-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.incidence-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.incidence-badge.review {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.incidence-badge.error {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.incidence-filename {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: block;
+}
+
+.incidence-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.incidence-issue {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   23. Real-Time Criteria Impact Simulator
+   ========================================================================== */
+.criteria-simulator-section {
+  background: #F8FAFC;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.simulator-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.simulator-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sim-candidate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-divider);
+  border-radius: var(--radius-md);
+}
+
+.sim-cand-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sim-cand-rank {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2563EB;
+  background: #EFF6FF;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.sim-cand-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.sim-cand-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.sim-cand-scores {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sim-cand-score-tag {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.sim-delta {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.sim-delta.equal {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.sim-delta.up {
+  background: #DCFCE7;
+  color: #16A34A;
+}
+
+.sim-delta.down {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+/* ==========================================================================
+   24. Talent Pool Universal Search & Filter Chips
+   ========================================================================== */
+.talent-controls-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-xs);
+}
+
+.talent-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.talent-quick-chips-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.talent-quick-chip {
+  padding: 4px 10px;
+  background: #F1F5F9;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.talent-quick-chip:hover {
+  background: #E2E8F0;
+  color: var(--esan-primary);
+  border-color: #CBD5E1;
+}
+
+.talent-filter-bar {
+  display: flex;
+  gap: 6px;
+  border-top: 1px solid var(--border-divider);
+  padding-top: 12px;
+  overflow-x: auto;
+}
+
+.talent-filter-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.talent-filter-btn:hover {
+  background: #F8FAFC;
+  color: var(--text-main);
+}
+
+.talent-filter-btn.active {
+  background: var(--esan-primary-light);
+  color: var(--esan-primary);
+  font-weight: 700;
+  border-color: var(--esan-primary-border);
+}
+
+.crossmatch-chip {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   25. Executive Hero KPI Card (94% Cobertura de Vacantes)
+   ========================================================================== */
+.executive-hero-kpi-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border: 1px solid #334155;
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  color: #FFFFFF;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+  margin-bottom: 24px;
+  gap: 28px;
+}
+
+.hero-kpi-main-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hero-kpi-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-kpi-badge {
+  background: #059669;
+  color: #FFFFFF;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+}
+
+.hero-kpi-period {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.hero-kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+}
+
+.hero-kpi-number {
+  font-family: var(--font-heading);
+  font-size: 52px;
+  font-weight: 800;
+  color: #34D399;
+  line-height: 1;
+  letter-spacing: -1px;
+  text-shadow: 0 0 20px rgba(52, 211, 153, 0.35);
+}
+
+.hero-kpi-context {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hero-kpi-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.hero-kpi-meta {
+  font-size: 12.5px;
+  color: #CBD5E1;
+}
+
+.hero-kpi-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.hero-kpi-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981 0%, #34D399 100%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+}
+
+.hero-kpi-side-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding-left: 28px;
+  min-width: 160px;
+}
+
+.side-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.side-metric-val {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 800;
+  color: #38BDF8;
+  margin: 4px 0;
+}
+
+.side-metric-sub {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+
+

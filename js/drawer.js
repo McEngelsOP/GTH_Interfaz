@@ -197,45 +197,60 @@ export class DrawerController {
     }
 
     actionContainer.innerHTML = `
-      <div class="quick-action-bar" style="padding: 0 28px 12px; border-bottom: 1px solid var(--border-divider);">
-        <button class="quick-action-btn primary" data-action="btn-star" title="Ver preguntas situacionales STAR generadas por IA">
-          🎯 Guía STAR
+      <div class="quick-action-bar" style="padding: 0 28px 12px; border-bottom: 1px solid var(--border-divider); display: flex; flex-wrap: wrap; gap: 8px;">
+        <button class="quick-action-btn primary" data-action="btn-explain" title="Ver justificación técnica y explicabilidad del score">
+          🪄 Explicar Score
         </button>
-        <button class="quick-action-btn" data-action="btn-explain" title="Ver desglose detallado del Score">
-          ⚡ Explicar Score
+        <button class="quick-action-btn primary" data-action="btn-star" title="Ver preguntas situacionales STAR personalizadas para entrevista">
+          📋 Generar Entrevista STAR
         </button>
-        <button class="quick-action-btn" data-action="btn-compare" title="Agregar al comparador y contrastar">
-          ⚖️ Comparar
+        <button class="quick-action-btn" data-action="btn-gaps" title="Analizar brechas de competencias y requisitos faltantes">
+          🔍 Analizar Brechas
         </button>
-        <button class="quick-action-btn" data-action="btn-crossmatch" title="Ver compatibilidad con otras plazas ESAN">
-          🔄 Vacante Interna
+        <button class="quick-action-btn" data-action="btn-compare" title="Agregar a comparador cara a cara y contrastar">
+          ⚖️ Comparar Candidato
         </button>
-        <button class="quick-action-btn" data-action="btn-talentpool" title="Preservar en Banco de Talento">
+        <button class="quick-action-btn" data-action="btn-talentpool" title="Preservar en Banco de Talento Institucional">
           👥 Banco de Talento
         </button>
       </div>
     `;
 
     // Bind Quick Action Events
-    actionContainer.querySelector('[data-action="btn-star"]').onclick = () => {
-      this.switchTab('gaps');
-    };
     actionContainer.querySelector('[data-action="btn-explain"]').onclick = () => {
       this.switchTab('explain');
+      const narrative = this.paneExplain?.querySelector('.narrative-box');
+      if (narrative) {
+        narrative.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.3)';
+        setTimeout(() => narrative.style.boxShadow = '', 1500);
+      }
+    };
+    actionContainer.querySelector('[data-action="btn-star"]').onclick = () => {
+      this.switchTab('gaps');
+      setTimeout(() => {
+        const starBox = this.paneGaps?.querySelector('.star-generator-box');
+        if (starBox) {
+          starBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          starBox.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.3)';
+          setTimeout(() => starBox.style.boxShadow = '', 1500);
+        }
+      }, 50);
+    };
+    actionContainer.querySelector('[data-action="btn-gaps"]').onclick = () => {
+      this.switchTab('gaps');
+      const gapsList = this.paneGaps?.querySelector('.gaps-list');
+      if (gapsList) {
+        gapsList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
     actionContainer.querySelector('[data-action="btn-compare"]').onclick = () => {
       appState.toggleComparisonCandidate(cand.id);
       this.close();
       appState.setCurrentView('comparison');
     };
-    actionContainer.querySelector('[data-action="btn-crossmatch"]').onclick = () => {
-      this.switchTab('gaps');
-      const crossEl = this.paneGaps.querySelector('.crossmatch-box');
-      if (crossEl) crossEl.scrollIntoView({ behavior: 'smooth' });
-    };
     actionContainer.querySelector('[data-action="btn-talentpool"]').onclick = () => {
       appState.addToTalentPool(cand.id);
-      alert(`👥 ${cand.name} ha sido guardado exitosamente en el Banco de Talento Institucional.`);
+      alert(`👥 ${cand.name} ha sido guardado exitosamente en el Banco de Talento Institucional de ESAN.`);
     };
   }
 
