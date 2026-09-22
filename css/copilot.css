@@ -1,0 +1,338 @@
+/* ==========================================================================
+   TalentAI - GTHC · ESAN
+   Copilot: ESA IA GTH Recruitment Assistant
+   ========================================================================== */
+
+.copilot-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #FFFFFF;
+}
+
+/* Copilot Header */
+.copilot-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFFFFF;
+}
+
+.copilot-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copilot-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--esan-primary) 0%, #0F172A 100%);
+  color: #FFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(200, 16, 46, 0.25);
+}
+
+.copilot-header-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.copilot-title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.copilot-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--status-success);
+  font-weight: 600;
+}
+
+.copilot-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.copilot-close-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+}
+
+/* Suggested Quick Query Chips */
+.copilot-chips-section {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-light);
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.copilot-chips-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+}
+
+.copilot-chips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.copilot-chip-btn {
+  text-align: left;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copilot-chip-btn:hover {
+  border-color: var(--esan-primary);
+  color: var(--esan-primary);
+  background: var(--esan-primary-light);
+  transform: translateX(2px);
+}
+
+/* Chat Feed */
+.copilot-chat-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #FFFFFF;
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 90%;
+  animation: fadeIn 0.25s ease;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+}
+
+.chat-message.user .message-bubble {
+  background: var(--esan-primary);
+  color: #FFFFFF;
+  border-radius: 12px 12px 2px 12px;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+  max-width: 98%;
+}
+
+.chat-message.assistant .message-bubble {
+  background: #F1F5F9;
+  color: var(--text-main);
+  border-radius: 12px 12px 12px 2px;
+  border: 1px solid var(--border-light);
+}
+
+.message-bubble {
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.message-time {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.chat-message.user .message-time {
+  text-align: right;
+}
+
+/* Top 3 Candidate Preview Cards generated in chat */
+.recommendation-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.rec-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid var(--esan-primary);
+  transition: transform var(--transition-fast);
+}
+
+.rec-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.rec-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rec-candidate-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-rank-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  background: var(--esan-primary);
+  color: #FFF;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.rec-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.rec-score-badge {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #10B981;
+  background: #ECFDF5;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+}
+
+.rec-justification {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  background: #F8FAFC;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+}
+
+.rec-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-rec-action {
+  background: #FFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--esan-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-rec-action:hover {
+  background: var(--esan-primary);
+  color: #FFF;
+  border-color: var(--esan-primary);
+}
+
+/* Chat Input Bar */
+.copilot-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-light);
+  background: #FFFFFF;
+}
+
+.copilot-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F1F5F9;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 6px 10px;
+  transition: border-color var(--transition-fast);
+}
+
+.copilot-input-form:focus-within {
+  border-color: var(--esan-primary);
+  background: #FFF;
+}
+
+.copilot-text-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-main);
+  outline: none;
+}
+
+.copilot-send-btn {
+  background: var(--esan-primary);
+  color: #FFF;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.copilot-send-btn:hover {
+  background: var(--esan-primary-hover);
+}
+
+/* Copilot Disclaimer Footer */
+.copilot-disclaimer {
+  padding: 8px 16px;
+  background: #F8FAFC;
+  border-top: 1px solid var(--border-light);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.35;
+}

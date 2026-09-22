@@ -1,0 +1,777 @@
+/* ==========================================================================
+   TalentAI - GTHC · ESAN
+   Components: KPI Cards, Candidate Data Grid, Capsule Pills, Tooltips, Badges
+   ========================================================================== */
+
+/* ==========================================================================
+   1. KPI Summary Metrics Cards
+   ========================================================================== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.kpi-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.kpi-card.kpi-accent-primary::before { background: var(--esan-primary); }
+.kpi-card.kpi-accent-success::before { background: var(--status-success); }
+.kpi-card.kpi-accent-info::before { background: var(--status-info); }
+.kpi-card.kpi-accent-warning::before { background: var(--status-warning); }
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.kpi-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.2px;
+}
+
+.kpi-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+.kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.kpi-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.kpi-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Dynamic Top-N Input inside KPI card */
+.top-n-control {
+  display: inline-flex;
+  align-items: center;
+  background: var(--esan-primary-light);
+  border: 1.5px solid var(--esan-primary);
+  border-radius: var(--radius-md);
+  padding: 2px 4px;
+  gap: 4px;
+}
+
+.top-n-input {
+  width: 46px;
+  height: 28px;
+  background: #FFF;
+  border: 1px solid var(--esan-primary-border);
+  border-radius: var(--radius-xs);
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--esan-primary);
+  outline: none;
+}
+
+.top-n-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: var(--esan-primary);
+  color: #FFF;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background var(--transition-fast);
+}
+
+.top-n-btn:hover {
+  background: var(--esan-primary-hover);
+}
+
+/* ==========================================================================
+   2. Filters & Toolbar
+   ========================================================================== */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+  max-width: 380px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  height: 38px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 8px 12px 8px 36px;
+  font-size: 13.5px;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.search-input:focus {
+  border-color: var(--esan-primary);
+  background: #FFF;
+  box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  height: 38px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.filter-select:hover {
+  border-color: var(--text-tertiary);
+}
+
+.filter-select:focus {
+  border-color: var(--esan-primary);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn-primary {
+  background: var(--esan-primary);
+  color: #FFF;
+  border-color: var(--esan-primary);
+  box-shadow: 0 2px 6px rgba(200, 16, 46, 0.25);
+}
+
+.btn-primary:hover {
+  background: var(--esan-primary-hover);
+  border-color: var(--esan-primary-hover);
+  box-shadow: 0 4px 10px rgba(200, 16, 46, 0.35);
+}
+
+.btn-secondary {
+  background: #FFF;
+  color: var(--text-main);
+  border-color: var(--border-light);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-subtle);
+  border-color: var(--text-tertiary);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+}
+
+.btn-sm {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   3. Candidate Ranking Data Grid
+   ========================================================================== */
+.table-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.candidate-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.candidate-table th {
+  background: #F8FAFC;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.candidate-table th.sortable {
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.candidate-table th.sortable:hover {
+  color: var(--esan-primary);
+}
+
+.candidate-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+  background: #FFF;
+  transition: background var(--transition-fast);
+}
+
+.candidate-row {
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.candidate-row:hover td {
+  background-color: #F8FAFD;
+}
+
+.candidate-row.selected td {
+  background-color: var(--esan-primary-light);
+}
+
+.candidate-row.in-top-n td:first-child {
+  border-left: 4px solid var(--esan-primary);
+}
+
+.candidate-row.outside-top-n td:first-child {
+  border-left: 4px solid transparent;
+}
+
+/* Checkbox */
+.custom-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--text-tertiary);
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  background: #FFF;
+  display: inline-grid;
+  place-content: center;
+  transition: all var(--transition-fast);
+}
+
+.custom-checkbox:checked {
+  background: var(--esan-primary);
+  border-color: var(--esan-primary);
+}
+
+.custom-checkbox:checked::before {
+  content: "✓";
+  color: #FFF;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Candidate Identity Cell */
+.candidate-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+}
+
+.cv-pdf-icon {
+  width: 32px;
+  height: 34px;
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-xs);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.cv-pdf-icon:hover {
+  transform: scale(1.08);
+}
+
+.cv-pdf-text {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: var(--esan-primary);
+}
+
+.candidate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.candidate-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.candidate-role-org {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.candidate-source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #E2E8F0;
+  color: #475569;
+}
+
+.candidate-source-badge.linkedin {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.candidate-source-badge.computrabajo {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.candidate-source-badge.bumeran {
+  background: #FCE7F3;
+  color: #BE185D;
+}
+
+.candidate-source-badge.gmail {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+/* ==========================================================================
+   4. Vertical Capsule Pills (Requirements) & Hover Tooltips
+   ========================================================================== */
+.pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.capsule-pill {
+  width: 14px;
+  height: 28px;
+  border-radius: 7px;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+  cursor: help;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.capsule-pill:hover {
+  transform: scaleY(1.15) scaleX(1.15);
+  filter: brightness(0.95);
+  z-index: 5;
+}
+
+/* Colors strictly matching reference */
+.capsule-pill.pill-green {
+  background: #10B981; /* Emerald */
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.25);
+}
+
+.capsule-pill.pill-amber {
+  background: #F59E0B; /* Amber / Orange */
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.25);
+}
+
+.capsule-pill.pill-red {
+  background: #F87171; /* Salmon / Soft Red */
+  box-shadow: 0 1px 2px rgba(248, 113, 113, 0.25);
+}
+
+/* Interactive Floating Tooltip */
+.pill-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #1E293B;
+  color: #FFFFFF;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: normal;
+  width: 220px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  text-align: left;
+}
+
+.pill-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #1E293B transparent transparent transparent;
+}
+
+.capsule-pill:hover .pill-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-title {
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: #F8FAFC;
+  display: block;
+}
+
+.tooltip-reason {
+  color: #CBD5E1;
+}
+
+/* ==========================================================================
+   5. Preferred Criteria Pills
+   ========================================================================== */
+.preferred-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pref-pill {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.pref-pill.matched {
+  background: #F0FDF4;
+  color: #166534;
+  border-color: #BBF7D0;
+}
+
+/* ==========================================================================
+   6. Consolidated Score Circular Progress Badge
+   ========================================================================== */
+.score-circle-badge {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.score-bg-circle {
+  fill: none;
+  stroke: #E2E8F0;
+  stroke-width: 3.5;
+}
+
+.score-progress-circle {
+  fill: none;
+  stroke-width: 3.8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease-in-out;
+}
+
+.score-progress-circle.high {
+  stroke: #10B981; /* Emerald */
+}
+
+.score-progress-circle.medium {
+  stroke: #F59E0B; /* Amber */
+}
+
+.score-progress-circle.low {
+  stroke: #EF4444; /* Red */
+}
+
+.score-number {
+  position: absolute;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* ==========================================================================
+   7. Inclusion Badge ("Potencial Transferible")
+   ========================================================================== */
+.inclusion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--inclusion-bg);
+  color: var(--inclusion-text);
+  border: 1px solid var(--inclusion-border);
+  white-space: nowrap;
+}
+
+.inclusion-sparkle {
+  color: #0284C7;
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   8. Top-N Tag & Action Buttons
+   ========================================================================== */
+.top-n-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.top-n-tag.in {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.top-n-tag.out {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #CBD5E1;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action-primary {
+  background: var(--esan-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(200, 16, 46, 0.3);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-action-primary:hover {
+  background: var(--esan-primary-hover);
+  box-shadow: 0 3px 8px rgba(200, 16, 46, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-action-ghost {
+  background: transparent;
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-action-ghost:hover {
+  background: #F8FAFC;
+  color: var(--text-main);
+  border-color: #CBD5E1;
+}
+
+/* Table Footer / Pagination */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #FFF;
+  border-top: 1px solid var(--border-light);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.batch-sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-success);
+  display: inline-block;
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}

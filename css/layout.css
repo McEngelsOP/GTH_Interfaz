@@ -1,0 +1,419 @@
+/* ==========================================================================
+   TalentAI - GTHC · ESAN
+   Layout & Responsive Grid
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Base App Layout (3-Column Workspace) */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ==========================================================================
+   1. Left Sidebar
+   ========================================================================== */
+.app-sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100%;
+  background-color: #0B1329; /* Dark elegant institutional slate */
+  color: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  transition: width var(--transition-smooth), min-width var(--transition-smooth);
+  z-index: 30;
+  position: relative;
+  user-select: none;
+}
+
+.app-sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+  min-width: var(--sidebar-collapsed-width);
+}
+
+.sidebar-header {
+  padding: 20px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+.brand-logo-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--esan-primary) 0%, #820A1D 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFF;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 4px 10px rgba(200, 16, 46, 0.35);
+  flex-shrink: 0;
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast);
+}
+
+.app-sidebar.collapsed .brand-info {
+  display: none;
+}
+
+.brand-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  color: #FFFFFF;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94A3B8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94A3B8;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFF;
+}
+
+.app-sidebar.collapsed .sidebar-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.nav-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  color: #64748B;
+  padding: 8px 12px 4px;
+  margin-top: 8px;
+}
+
+.app-sidebar.collapsed .nav-section-title {
+  display: none;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  color: #94A3B8;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #F8FAFC;
+}
+
+.nav-item.active {
+  background: rgba(200, 16, 46, 0.15);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-left: 3px solid var(--esan-primary);
+}
+
+.nav-item-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-item-label {
+  white-space: nowrap;
+  transition: opacity var(--transition-fast);
+}
+
+.app-sidebar.collapsed .nav-item-label {
+  display: none;
+}
+
+.nav-item-badge {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  color: #CBD5E1;
+  font-weight: 600;
+}
+
+.app-sidebar.collapsed .nav-item-badge {
+  display: none;
+}
+
+/* Sidebar Recruiter Profile Footer */
+.sidebar-footer {
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.recruiter-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.recruiter-profile:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recruiter-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--esan-primary);
+  background: #1E293B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #FFF;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.recruiter-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recruiter-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--status-success);
+  border: 1.5px solid #0B1329;
+}
+
+.recruiter-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-sidebar.collapsed .recruiter-meta {
+  display: none;
+}
+
+.recruiter-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.recruiter-role {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+/* ==========================================================================
+   2. Central Workspace
+   ========================================================================== */
+.app-main {
+  flex: 1;
+  height: 100%;
+  background-color: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+}
+
+.workspace-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.workspace-title-area {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.position-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--esan-primary-light);
+  color: var(--esan-primary);
+  border: 1px solid var(--esan-primary-border);
+}
+
+.position-title {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.4px;
+}
+
+.workspace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-content {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ==========================================================================
+   3. Collapsible Right Copilot Panel
+   ========================================================================== */
+.app-copilot {
+  width: var(--copilot-width);
+  min-width: var(--copilot-width);
+  height: 100%;
+  background-color: var(--bg-surface);
+  border-left: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-smooth), min-width var(--transition-smooth), margin-right var(--transition-smooth);
+  z-index: 25;
+  position: relative;
+  box-shadow: -4px 0 15px rgba(15, 23, 42, 0.03);
+}
+
+.app-copilot.collapsed {
+  width: 0;
+  min-width: 0;
+  margin-right: 0;
+  border-left: none;
+  overflow: hidden;
+}
+
+/* Floating button to open copilot when closed */
+.copilot-floating-trigger {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 40;
+  background: var(--esan-primary);
+  color: #FFF;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(200, 16, 46, 0.35);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.copilot-floating-trigger:hover {
+  background: var(--esan-primary-hover);
+  transform: translateY(-2px);
+}
+
+.copilot-floating-trigger.hidden {
+  display: none;
+}

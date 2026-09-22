@@ -1,0 +1,325 @@
+/* ==========================================================================
+   TalentAI - GTHC · ESAN
+   Batch Ingestion & OCR Processing View / Modal
+   ========================================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(3px);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.modal-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ingestion-modal {
+  width: 800px;
+  max-width: 100%;
+  max-height: 90vh;
+  background: #FFFFFF;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: transform var(--transition-normal);
+}
+
+.modal-backdrop.active .ingestion-modal {
+  transform: scale(1);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FAFAFA;
+}
+
+.modal-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-subtitle {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Multi-Source Badges */
+.sources-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sources-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+}
+
+.sources-badges-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source-sync-card {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.source-sync-card:hover {
+  border-color: var(--esan-primary);
+  background: var(--esan-primary-light);
+}
+
+.source-sync-card.connected {
+  border-color: #A7F3D0;
+  background: #F0FDF4;
+}
+
+.source-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.source-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.source-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.source-status {
+  font-size: 10.5px;
+  color: var(--status-success);
+  font-weight: 500;
+}
+
+/* Dropzone */
+.massive-dropzone {
+  border: 2px dashed #CBD5E1;
+  border-radius: var(--radius-lg);
+  padding: 36px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.massive-dropzone:hover, .massive-dropzone.dragover {
+  border-color: var(--esan-primary);
+  background: var(--esan-primary-light);
+}
+
+.dropzone-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #FFF;
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--esan-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.dropzone-title {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.dropzone-subtitle {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Batch Pipeline Progress */
+.batch-pipeline-container {
+  background: #F8FAFC;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pipeline-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.pipeline-stats {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pipeline-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.step-indicator {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-indicator.done {
+  background: #10B981;
+  color: #FFF;
+}
+
+.step-indicator.active {
+  background: var(--esan-primary);
+  color: #FFF;
+  animation: pulse-dot 1.5s infinite;
+}
+
+.step-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.step-bar-wrap {
+  width: 140px;
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.step-bar-fill {
+  height: 100%;
+  background: var(--status-success);
+  border-radius: 3px;
+  width: 100%;
+}
+
+.step-pct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 38px;
+  text-align: right;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-light);
+  background: #FAFAFA;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}

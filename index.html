@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TalentAI | GTHC · ESAN - Plataforma de Reclutamiento Inteligente</title>
+  <meta name="description" content="Plataforma de alta densidad de datos para el reclutamiento masivo y evaluación explicable de candidatos con Inteligencia Artificial (Matching Dual: ML Tradicional + Embeddings LLM) de GTHC · ESAN.">
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/drawer.css">
+  <link rel="stylesheet" href="css/copilot.css">
+  <link rel="stylesheet" href="css/ingestion.css">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ==========================================================================
+         1. LEFT SIDEBAR: NAVEGACIÓN GLOBAL
+         ========================================================================== -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Sidebar Header & Brand -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-logo-badge" title="ESAN Graduate School of Business">
+            <span>E</span>
+          </div>
+          <div class="brand-info">
+            <span class="brand-title">TalentAI</span>
+            <span class="brand-subtitle">GTHC · ESAN</span>
+          </div>
+        </div>
+        <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Colapsar / Expandir barra lateral" aria-label="Colapsar barra lateral">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Módulos de Selección</div>
+        
+        <a href="#convocatorias" class="nav-item active" data-target="ranking">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Convocatorias Activas</span>
+          <span class="nav-item-badge">1 Activa</span>
+        </a>
+
+        <a href="#carga-ocr" class="nav-item" data-target="ingestion" id="navIngestionItem">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Carga Masiva & OCR</span>
+          <span class="nav-item-badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399;">482 CVs</span>
+        </a>
+
+        <a href="#ranking" class="nav-item" data-target="ranking">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Ranking & Evaluación</span>
+        </a>
+
+        <a href="#auditoria" class="nav-item" data-target="audit">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+          </div>
+          <span class="nav-item-label">Auditoría & Efectividad</span>
+        </a>
+
+        <div class="nav-section-title">Gobernanza</div>
+
+        <a href="#configuracion" class="nav-item" data-target="criteria">
+          <div class="nav-item-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </div>
+          <span class="nav-item-label">Criterios & Pesos (v2.4)</span>
+        </a>
+      </nav>
+
+      <!-- Recruiter Profile Footer -->
+      <div class="sidebar-footer">
+        <div class="recruiter-profile" title="Sesión activa: Mariana Córdova">
+          <div class="recruiter-avatar">
+            <span>MC</span>
+            <span class="recruiter-online-dot"></span>
+          </div>
+          <div class="recruiter-meta">
+            <span class="recruiter-name">Mariana Córdova</span>
+            <span class="recruiter-role">Reclutadora GTHC</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================================================
+         2. CENTRAL WORKSPACE: HUB DE RECLUTAMIENTO
+         ========================================================================== -->
+    <main class="app-main">
+      <!-- Workspace Header -->
+      <header class="workspace-header">
+        <div class="workspace-title-area">
+          <span class="position-tag">
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--esan-primary);"></span>
+            Semestre 2026-II
+          </span>
+          <h1 class="position-title">Convocatoria Docente / Desarrollador de Software</h1>
+        </div>
+
+        <div class="workspace-header-actions">
+          <button class="btn btn-secondary" id="openIngestionBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Carga Masiva & OCR
+          </button>
+          <button class="btn btn-primary" onclick="alert('Exportando reporte oficial de auditoría GTHC en formato Excel/PDF...')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+              <polyline points="16 6 12 2 8 6"></polyline>
+              <line x1="12" y1="2" x2="12" y2="15"></line>
+            </svg>
+            Exportar Ranking
+          </button>
+        </div>
+      </header>
+
+      <!-- Workspace Content Body -->
+      <div class="workspace-content">
+
+        <!-- A. Header & Summary Metrics -->
+        <section class="kpi-grid">
+          <!-- KPI 1: Lote Procesado -->
+          <div class="kpi-card kpi-accent-primary">
+            <div class="kpi-header">
+              <span class="kpi-label">Lote Procesado</span>
+              <div class="kpi-icon-wrapper">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </div>
+            </div>
+            <div class="kpi-value-row">
+              <span class="kpi-value">482</span>
+              <span class="kpi-unit">CVs</span>
+            </div>
+            <div class="kpi-subtitle">
+              <span>Procesados vía OCR & Markdown</span>
+            </div>
+          </div>
+
+          <!-- KPI 2: Top-N Configurado -->
+          <div class="kpi-card kpi-accent-primary">
+            <div class="kpi-header">
+              <span class="kpi-label">Top-N Configurado</span>
+              <div class="top-n-control" title="Ajusta el número de vacantes de corte objetivo">
+                <button class="top-n-btn" id="topNDecrementBtn" aria-label="Disminuir Top-N">−</button>
+                <input type="text" class="top-n-input" id="topNInput" value="5" readonly />
+                <button class="top-n-btn" id="topNIncrementBtn" aria-label="Aumentar Top-N">+</button>
+              </div>
+            </div>
+            <div class="kpi-value-row">
+              <span class="kpi-value">N = 5</span>
+              <span class="kpi-unit">vacantes</span>
+            </div>
+            <div class="kpi-subtitle">
+              <span>Corte dinámico reactivo en la tabla</span>
+            </div>
+          </div>
+
+          <!-- KPI 3: Score Promedio -->
+          <div class="kpi-card kpi-accent-info">
+            <div class="kpi-header">
+              <span class="kpi-label">Score Promedio Lote</span>
+              <div class="kpi-icon-wrapper">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+              </div>
+            </div>
+            <div class="kpi-value-row">
+              <span class="kpi-value">74.2</span>
+              <span class="kpi-unit">/ 100</span>
+            </div>
+            <div class="kpi-subtitle">
+              <span style="color: var(--status-success); font-weight: 600;">+8.4%</span>
+              <span>vs. promedio histórico ESAN</span>
+            </div>
+          </div>
+
+          <!-- KPI 4: Talento con Potencial -->
+          <div class="kpi-card kpi-accent-success">
+            <div class="kpi-header">
+              <span class="kpi-label">Talento con Potencial</span>
+              <div class="kpi-icon-wrapper" style="color: var(--inclusion-text); background: var(--inclusion-bg);">
+                ✦
+              </div>
+            </div>
+            <div class="kpi-value-row">
+              <span class="kpi-value">18</span>
+              <span class="kpi-unit">perfiles</span>
+            </div>
+            <div class="kpi-subtitle">
+              <span>Habilidades transferibles detectadas</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- B. Candidate Data Grid Toolbar -->
+        <section class="table-toolbar" id="candidateGridSection">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              class="search-input" 
+              id="tableSearchInput" 
+              placeholder="Buscar por candidato, cargo o empresa actual..." 
+            />
+          </div>
+
+          <div class="filter-group">
+            <select class="filter-select" id="filterStatusSelect">
+              <option value="all">Todos los Estados</option>
+              <option value="topN">Dentro de Top-N</option>
+              <option value="outsideTopN">Fuera de corte</option>
+              <option value="transferable">Con Potencial Transferible</option>
+            </select>
+
+            <select class="filter-select" id="filterSourceSelect">
+              <option value="all">Todas las Fuentes</option>
+              <option value="linkedin">LinkedIn Recruiter</option>
+              <option value="computrabajo">CompuTrabajo</option>
+              <option value="bumeran">Bumeran</option>
+              <option value="gmail">Gmail / Correo Directo</option>
+            </select>
+
+            <button class="btn btn-secondary btn-sm" onclick="alert('Selecciona postulantes con la casilla de la izquierda para avanzar o notificar en bloque.')">
+              Acciones Masivas
+            </button>
+          </div>
+        </section>
+
+        <!-- C. Candidate Ranking Data Grid (The Core Engine) -->
+        <section class="table-card">
+          <div class="table-responsive">
+            <table class="candidate-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">
+                    <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar todos los candidatos visibles" />
+                  </th>
+                  <th class="sortable" style="min-width: 250px;">Candidato / Empresa Actual</th>
+                  <th style="min-width: 170px;">
+                    Requisitos Mandatorios
+                    <span style="font-size: 10px; font-weight: normal; text-transform: none; color: var(--text-tertiary); display: block;">
+                      (Pasa el cursor para ver motivo)
+                    </span>
+                  </th>
+                  <th style="min-width: 170px;">Criterios Preferidos</th>
+                  <th class="sortable" style="width: 110px; text-align: center;">Score Dual</th>
+                  <th style="min-width: 140px;">Inclusión</th>
+                  <th style="min-width: 210px;">Estado Top-N & Decisión</th>
+                </tr>
+              </thead>
+              <tbody id="candidateTableBody">
+                <!-- Rellenado reactivamente por dataGrid.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Footer / Count & Sync indicator -->
+          <div class="table-footer">
+            <span id="resultCountDisplay">Cargando postulantes evaluados...</span>
+            <div class="batch-sync-indicator">
+              <span class="live-dot"></span>
+              <span>Motor Dual Conectado · Base Centralizada ESAN sincronizada</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- ==========================================================================
+         3. COLLAPSIBLE RIGHT COPILOT PANEL: ESA IA GTH ASSISTANT
+         ========================================================================== -->
+    <aside class="app-copilot" id="copilotPanel">
+      <div class="copilot-container">
+        <!-- Copilot Header -->
+        <div class="copilot-header">
+          <div class="copilot-header-brand">
+            <div class="copilot-icon-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 2a10 10 0 0 1 10 10c0 5.5-4.5 10-10 10S2 17.5 2 12A10 10 0 0 1 12 2z"></path>
+                <path d="M12 6v6l4 2"></path>
+              </svg>
+            </div>
+            <div class="copilot-header-info">
+              <span class="copilot-title">ESA IA GTH Assistant</span>
+              <span class="copilot-status">
+                <span class="live-dot"></span> Conectado a Base Centralizada
+              </span>
+            </div>
+          </div>
+          <button class="copilot-close-btn" id="copilotCloseBtn" title="Colapsar asistente" aria-label="Cerrar panel de copiloto">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Suggested Quick Query Chips -->
+        <div class="copilot-chips-section">
+          <span class="copilot-chips-title">Consultas de Reclutamiento Rápidas</span>
+          <div class="copilot-chips-list">
+            <button class="copilot-chip-btn" data-query="Dame los 3 mejores perfiles para Desarrollador de Software">
+              <span>✦</span> Dame los 3 mejores perfiles para Desarrollador
+            </button>
+            <button class="copilot-chip-btn" data-query="¿Qué candidato del Top-N tiene mayor potencial en liderazgo?">
+              <span>✦</span> ¿Qué candidato tiene mayor potencial en liderazgo?
+            </button>
+            <button class="copilot-chip-btn" data-query="Mostrar candidatos fuera del Top-N con perfil transferible">
+              <span>✦</span> Candidatos con perfil transferible
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Message Feed -->
+        <div class="copilot-chat-feed" id="copilotChatFeed">
+          <!-- Inyectado reactivamente por copilot.js -->
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="copilot-input-area">
+          <form class="copilot-input-form" id="copilotInputForm">
+            <input 
+              type="text" 
+              class="copilot-text-input" 
+              id="copilotTextInput" 
+              placeholder="Pregunta a la IA sobre candidatos, scores o brechas..." 
+              autocomplete="off"
+            />
+            <button type="submit" class="copilot-send-btn" title="Enviar consulta" aria-label="Enviar mensaje a la IA">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Disclaimer Notice Footer -->
+        <div class="copilot-disclaimer">
+          La IA analiza y clasifica. La decisión final de contratación y avance corresponde al reclutador de GTHC.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Floating Trigger to reopen Copilot when collapsed -->
+    <button class="copilot-floating-trigger hidden" id="copilotFloatingTrigger" title="Abrir Asistente Copiloto IA">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>ESA IA GTH</span>
+    </button>
+
+  </div>
+
+  <!-- ==========================================================================
+       4. SLIDE-OVER DRAWER: AUDITORÍA & EXPLICABILIDAD DEL SCORE
+       ========================================================================== -->
+  <div class="drawer-backdrop" id="drawerBackdrop">
+    <div class="audit-drawer" id="auditDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerCandidateName">
+      <!-- Drawer Header -->
+      <div class="drawer-header">
+        <div class="drawer-candidate-meta">
+          <div class="drawer-avatar" id="drawerCandidateAvatar">PL</div>
+          <div class="drawer-title-group">
+            <h3 class="drawer-candidate-name" id="drawerCandidateName">Paul Ladern</h3>
+            <div class="drawer-candidate-sub">
+              <span id="drawerCandidateRole">Senior Software Engineer · Meta</span>
+              <span>•</span>
+              <span id="drawerCandidateSource" style="font-weight: 600;">LinkedIn</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-header-actions">
+          <div id="drawerScoreBadge"></div>
+          <button class="drawer-close-btn" id="drawerCloseBtn" title="Cerrar panel de auditoría" aria-label="Cerrar expediente">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Drawer Tabs -->
+      <div class="drawer-tabs">
+        <button class="drawer-tab-btn active" data-tab="explain">Explicación del Score</button>
+        <button class="drawer-tab-btn" data-tab="weights">Desglose por Pesos</button>
+        <button class="drawer-tab-btn" data-tab="cv">CV Markdown</button>
+        <button class="drawer-tab-btn" data-tab="audit">Registro de Auditoría</button>
+      </div>
+
+      <!-- Drawer Body -->
+      <div class="drawer-body">
+        <div class="tab-pane active" id="tabPane_explain"></div>
+        <div class="tab-pane" id="tabPane_weights"></div>
+        <div class="tab-pane" id="tabPane_cv"></div>
+        <div class="tab-pane" id="tabPane_audit"></div>
+      </div>
+
+      <!-- Drawer Footer Action Buttons -->
+      <div class="drawer-footer">
+        <button class="btn btn-ghost" id="drawerBtnRelease">
+          Liberar y Notificar Agradecimiento
+        </button>
+        <button class="btn btn-primary" id="drawerBtnAdvance">
+          Avanzar a Siguiente Paso
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       5. MODAL / SUB-VIEW: CARGA MASIVA & OCR INTELIGENTE
+       ========================================================================== -->
+  <div class="modal-backdrop" id="ingestionBackdrop">
+    <div class="ingestion-modal" id="ingestionModal" role="dialog" aria-modal="true" aria-labelledby="ingestionModalTitle">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title" id="ingestionModalTitle">
+            <span style="color: var(--esan-primary);">📥</span> Carga Masiva de CVs & Extracción OCR
+          </h3>
+          <span class="modal-subtitle">
+            Ingestión multi-fuente, extracción OCR inteligente y generación de embeddings vectoriales
+          </span>
+        </div>
+        <button class="modal-close-btn" id="ingestionCloseBtn" title="Cerrar modal" aria-label="Cerrar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Multi-Source Badges -->
+        <div class="sources-bar">
+          <span class="sources-label">Bandejas y Canales Sincronizados</span>
+          <div class="sources-badges-row">
+            <div class="source-sync-card connected">
+              <div class="source-icon" style="background: #0077B5; color: #FFF;">in</div>
+              <div class="source-info">
+                <span class="source-name">LinkedIn Recruiter</span>
+                <span class="source-status">✓ 214 CVs sincronizados</span>
+              </div>
+            </div>
+
+            <div class="source-sync-card connected">
+              <div class="source-icon" style="background: #EA4335; color: #FFF;">M</div>
+              <div class="source-info">
+                <span class="source-name">Gmail Convocatoria</span>
+                <span class="source-status">✓ 89 CVs recibidos</span>
+              </div>
+            </div>
+
+            <div class="source-sync-card connected">
+              <div class="source-icon" style="background: #F59E0B; color: #FFF;">CT</div>
+              <div class="source-info">
+                <span class="source-name">CompuTrabajo API</span>
+                <span class="source-status">✓ 112 CVs conectados</span>
+              </div>
+            </div>
+
+            <div class="source-sync-card connected">
+              <div class="source-icon" style="background: #EC4899; color: #FFF;">B</div>
+              <div class="source-info">
+                <span class="source-name">Bumeran Portal</span>
+                <span class="source-status">✓ 67 CVs conectados</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Massive Dropzone -->
+        <div class="massive-dropzone" id="massiveDropzone">
+          <input type="file" id="cvFileInput" multiple accept=".pdf,.docx,.doc" style="display: none;" />
+          <div class="dropzone-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div class="dropzone-title">Arrastra cientos de CVs (PDF, DOCX) aquí</div>
+          <div class="dropzone-subtitle">o haz clic para explorar archivos en tu computadora (Soporta procesamiento por lotes de hasta 500 archivos simultáneos)</div>
+        </div>
+
+        <!-- Pipeline Progress Tracker -->
+        <div class="batch-pipeline-container">
+          <div class="pipeline-header">
+            <span class="pipeline-title">Estado del Pipeline de Ingestión Automática</span>
+            <span class="pipeline-stats">482 / 482 Procesados</span>
+          </div>
+
+          <div class="pipeline-steps-list">
+            <div class="pipeline-step">
+              <div class="step-indicator done" id="step1Indicator">✓</div>
+              <span class="step-name">1. Extracción con OCR Inteligente</span>
+              <div class="step-bar-wrap">
+                <div class="step-bar-fill" id="step1Bar" style="width: 100%;"></div>
+              </div>
+              <span class="step-pct" id="step1Pct">100%</span>
+            </div>
+
+            <div class="pipeline-step">
+              <div class="step-indicator done" id="step2Indicator">✓</div>
+              <span class="step-name">2. Estructuración y Conversión a Markdown</span>
+              <div class="step-bar-wrap">
+                <div class="step-bar-fill" id="step2Bar" style="width: 100%;"></div>
+              </div>
+              <span class="step-pct" id="step2Pct">100%</span>
+            </div>
+
+            <div class="pipeline-step">
+              <div class="step-indicator done" id="step3Indicator">✓</div>
+              <span class="step-name">3. Indexación de Embeddings Vectoriales en Base Centralizada</span>
+              <div class="step-bar-wrap">
+                <div class="step-bar-fill" id="step3Bar" style="width: 100%;"></div>
+              </div>
+              <span class="step-pct" id="step3Pct">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelBatchBtn">Cerrar</button>
+        <button class="btn btn-primary" id="startBatchBtn">
+          Simular Re-procesamiento OCR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App Entry Point -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
