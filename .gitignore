@@ -155,3 +155,5 @@ secrets.yaml
 .env.swp
 .env.swo
 .env~
+.vercel
+.env*
