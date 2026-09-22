@@ -22,10 +22,11 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 140px;
   box-shadow: var(--shadow-xs);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
@@ -61,15 +62,15 @@
 }
 
 .kpi-label {
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: -0.2px;
 }
 
 .kpi-icon-wrapper {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -109,33 +110,47 @@
 }
 
 /* Dynamic Top-N Input inside KPI card */
-.top-n-control {
+.top-n-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-n-prefix {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.top-n-stepper {
   display: inline-flex;
   align-items: center;
   background: var(--esan-primary-light);
   border: 1.5px solid var(--esan-primary);
   border-radius: var(--radius-md);
-  padding: 2px 4px;
+  padding: 3px 5px;
   gap: 4px;
 }
 
-.top-n-input {
-  width: 46px;
+.top-n-stepper .top-n-input {
+  width: 44px;
   height: 28px;
   background: #FFF;
   border: 1px solid var(--esan-primary-border);
   border-radius: var(--radius-xs);
   text-align: center;
   font-family: var(--font-heading);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   color: var(--esan-primary);
   outline: none;
 }
 
-.top-n-btn {
-  width: 22px;
-  height: 22px;
+.top-n-stepper .top-n-btn {
+  width: 24px;
+  height: 24px;
   border: none;
   background: var(--esan-primary);
   color: #FFF;
@@ -144,12 +159,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   transition: background var(--transition-fast);
 }
 
-.top-n-btn:hover {
+.top-n-stepper .top-n-btn:hover {
   background: var(--esan-primary-hover);
 }
 

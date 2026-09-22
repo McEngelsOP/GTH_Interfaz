@@ -27,10 +27,10 @@ export class DrawerController {
     this.scoreBadgeEl = this.drawer.querySelector('#drawerScoreBadge');
 
     // Content containers
-    this.paneExplain = this.drawer.querySelector('#tabPaneExplain');
-    this.paneWeights = this.drawer.querySelector('#tabPaneWeights');
-    this.paneCV = this.drawer.querySelector('#tabPaneCV');
-    this.paneAudit = this.drawer.querySelector('#tabPaneAudit');
+    this.paneExplain = this.drawer.querySelector('#tabPane_explain');
+    this.paneWeights = this.drawer.querySelector('#tabPane_weights');
+    this.paneCV = this.drawer.querySelector('#tabPane_cv');
+    this.paneAudit = this.drawer.querySelector('#tabPane_audit');
 
     // Drawer action buttons
     this.btnAdvance = this.drawer.querySelector('#drawerBtnAdvance');

@@ -60,6 +60,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  appState.subscribe((event, data) => {
+    if (event === 'topN_changed' && topNInput) {
+      topNInput.value = data.topN;
+    }
+  });
+
   // 4. Search and Filters
   const searchInput = document.getElementById('tableSearchInput');
   if (searchInput) {

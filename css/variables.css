@@ -82,6 +82,7 @@
   /* Layout dimensions */
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 72px;
-  --copilot-width: 380px;
+  --copilot-width: 420px;            /* Ancho del Copiloto IA (Lado derecho) */
   --copilot-collapsed-width: 0px;
+  --drawer-width: 720px;             /* Ancho del Drawer de Explicabilidad (Lado derecho) */
 }

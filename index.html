@@ -188,14 +188,19 @@
           <div class="kpi-card kpi-accent-primary">
             <div class="kpi-header">
               <span class="kpi-label">Top-N Configurado</span>
-              <div class="top-n-control" title="Ajusta el número de vacantes de corte objetivo">
+              <div class="kpi-icon-wrapper" style="color: var(--esan-primary); background: var(--esan-primary-light);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+              </div>
+            </div>
+            <div class="kpi-value-row top-n-value-row">
+              <span class="top-n-prefix">N =</span>
+              <div class="top-n-stepper">
                 <button class="top-n-btn" id="topNDecrementBtn" aria-label="Disminuir Top-N">−</button>
                 <input type="text" class="top-n-input" id="topNInput" value="5" readonly />
                 <button class="top-n-btn" id="topNIncrementBtn" aria-label="Aumentar Top-N">+</button>
               </div>
-            </div>
-            <div class="kpi-value-row">
-              <span class="kpi-value">N = 5</span>
               <span class="kpi-unit">vacantes</span>
             </div>
             <div class="kpi-subtitle">
