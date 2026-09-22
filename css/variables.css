@@ -80,7 +80,7 @@
   --transition-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Layout dimensions */
-  --sidebar-width: 280px;            /* Ancho de la barra izquierda (más holgado para evitar saltos de línea) */
+  --sidebar-width: 295px;            /* Ancho de la barra izquierda (óptimo para etiquetas y badges sin truncamiento) */
   --sidebar-collapsed-width: 72px;
   --copilot-width: 420px;            /* Ancho del Copiloto IA (Lado derecho) */
   --copilot-collapsed-width: 0px;

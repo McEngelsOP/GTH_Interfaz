@@ -7,18 +7,37 @@
    1. KPI Summary Metrics Cards
    ========================================================================== */
 .kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 900px) {
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
+.kpi-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.kpi-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kpi-grid::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.kpi-grid::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 .kpi-card {
+  flex: 1 0 250px;
+  min-width: 250px;
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);

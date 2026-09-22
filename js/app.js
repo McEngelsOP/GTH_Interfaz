@@ -8,6 +8,7 @@ import { DataGridController } from './dataGrid.js';
 import { DrawerController } from './drawer.js';
 import { BatchIngestionController } from './batchIngestion.js';
 import { CopilotController } from './copilot.js';
+import { CriteriaModalController } from './criteriaModal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Components
@@ -23,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const ingestionBackdropEl = document.getElementById('ingestionBackdrop');
   const ingestionModalEl = document.getElementById('ingestionModal');
   const batchIngestion = new BatchIngestionController(ingestionBackdropEl, ingestionModalEl);
+
+  const criteriaBackdropEl = document.getElementById('criteriaBackdrop');
+  const criteriaModalEl = document.getElementById('criteriaModal');
+  const criteriaModal = new CriteriaModalController(criteriaBackdropEl, criteriaModalEl);
 
   const copilotEl = document.getElementById('copilotPanel');
   const copilotFloatingTriggerEl = document.getElementById('copilotFloatingTrigger');
@@ -91,12 +96,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // 5. Sidebar Toggle
   const sidebarEl = document.getElementById('appSidebar');
   const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+  const toggleSidebar = () => {
+    if (!sidebarEl) return;
+    const isCollapsed = sidebarEl.classList.toggle('collapsed');
+    appState.setSidebarCollapsed(isCollapsed);
+  };
+
   if (sidebarToggleBtn && sidebarEl) {
-    sidebarToggleBtn.addEventListener('click', () => {
-      const isCollapsed = sidebarEl.classList.toggle('collapsed');
-      appState.setSidebarCollapsed(isCollapsed);
-    });
+    sidebarToggleBtn.addEventListener('click', toggleSidebar);
   }
+
+  // Atajo global de teclado: Ctrl+B o Cmd+B para alternar barra lateral
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      toggleSidebar();
+    }
+  });
 
   // 6. Navigation items
   const navItems = document.querySelectorAll('.nav-item');
@@ -119,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
           appState.setActiveDrawerTab('audit');
         }
       } else if (target === 'criteria') {
-        alert('⚙️ Configuración de Criterios y Pesos: Abriendo matriz de ponderación para la convocatoria...');
+        criteriaModal.open();
       }
     });
   });
@@ -134,6 +154,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 8. Initial table render
   dataGrid.render();
+
+  // 9. Floating Tooltips for Collapsed Sidebar (adjuntos al body para evitar clipping)
+  let sidebarTooltipEl = null;
+
+  const showSidebarTooltip = (targetEl) => {
+    if (!sidebarEl.classList.contains('collapsed')) return;
+    const text = targetEl.getAttribute('data-tooltip') || targetEl.getAttribute('title');
+    if (!text) return;
+
+    if (!sidebarTooltipEl) {
+      sidebarTooltipEl = document.createElement('div');
+      sidebarTooltipEl.className = 'sidebar-floating-tooltip';
+      document.body.appendChild(sidebarTooltipEl);
+    }
+
+    sidebarTooltipEl.textContent = text;
+    sidebarTooltipEl.style.display = 'block';
+
+    const rect = targetEl.getBoundingClientRect();
+    const tooltipRect = sidebarTooltipEl.getBoundingClientRect();
+
+    const top = rect.top + (rect.height - tooltipRect.height) / 2;
+    const left = rect.right + 10;
+
+    sidebarTooltipEl.style.top = `${Math.round(top)}px`;
+    sidebarTooltipEl.style.left = `${Math.round(left)}px`;
+    sidebarTooltipEl.classList.add('visible');
+  };
+
+  const hideSidebarTooltip = () => {
+    if (sidebarTooltipEl) {
+      sidebarTooltipEl.classList.remove('visible');
+      sidebarTooltipEl.style.display = 'none';
+    }
+  };
+
+  document.querySelectorAll('#appSidebar [data-tooltip], #appSidebar [title]').forEach(el => {
+    el.addEventListener('mouseenter', () => showSidebarTooltip(el));
+    el.addEventListener('mouseleave', hideSidebarTooltip);
+  });
+
+  window.addEventListener('scroll', hideSidebarTooltip, true);
 
   console.log('TalentAI (GTHC · ESAN) inicializado exitosamente.');
 });
