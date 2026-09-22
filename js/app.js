@@ -220,27 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 6. Mode Switcher: RRHH vs Técnico (Cambio #9)
-  const modeBtnRRHH = document.getElementById('modeBtnRRHH');
-  const modeBtnTechnical = document.getElementById('modeBtnTechnical');
-
-  if (modeBtnRRHH && modeBtnTechnical) {
-    modeBtnRRHH.addEventListener('click', () => {
-      appState.setViewMode('rrhh');
-    });
-    modeBtnTechnical.addEventListener('click', () => {
-      appState.setViewMode('technical');
-    });
-
-    appState.subscribe((event, data) => {
-      if (event === 'view_mode_changed') {
-        modeBtnRRHH.classList.toggle('active', data.viewMode === 'rrhh');
-        modeBtnTechnical.classList.toggle('active', data.viewMode === 'technical');
-      }
-    });
-  }
-
-  // 7. Floating Comparison Dock (Cambio #6)
+  // 6. Floating Comparison Dock (Cambio #6)
   const comparisonFloatingDock = document.getElementById('comparisonFloatingDock');
   const dockAvatarGroup = document.getElementById('dockAvatarGroup');
   const dockTextCount = document.getElementById('dockTextCount');

@@ -31,7 +31,6 @@ export class DataGridController {
         'candidate_selected',
         'decision_recorded',
         'job_changed',
-        'view_mode_changed',
         'comparison_pool_changed',
         'candidate_stage_changed'
       ].includes(event)) {
@@ -45,7 +44,6 @@ export class DataGridController {
 
     const candidates = appState.getFilteredCandidates();
     const selectedId = appState.selectedCandidateId;
-    const isTechMode = appState.viewMode === 'technical';
 
     // Update result count
     if (this.resultCount) {
@@ -150,19 +148,15 @@ export class DataGridController {
             ${this.renderGapsSummary(candidate)}
           </td>
 
-          <!-- Col 4: Score Dual & Modo Técnico vs RRHH (Cambio #9) -->
+          <!-- Col 4: Score & Ajuste al Perfil (Vista RRHH) -->
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               ${this.renderCircularScore(candidate.score)}
               <div style="display: flex; flex-direction: column; font-size: 11px;">
-                ${isTechMode
-                  ? `<span style="font-family: var(--font-mono); color: var(--status-info); font-weight: 600;">ML: ${candidate.mlScore} pts</span>
-                     <span style="font-family: var(--font-mono); color: var(--status-purple); font-weight: 600;">LLM: ${candidate.llmScore}% sim</span>`
-                  : `<span style="font-weight: 700; color: ${candidate.score >= 85 ? '#047857' : '#B45309'};">
-                       ${candidate.score >= 90 ? 'Sobresaliente' : candidate.score >= 80 ? 'Afinidad Alta' : 'Alineamiento Medio'}
-                     </span>
-                     <span style="color: var(--text-tertiary); font-size: 10.5px;">Ajuste al Perfil</span>`
-                }
+                <span style="font-weight: 700; color: ${candidate.score >= 85 ? '#047857' : '#B45309'};">
+                  ${candidate.score >= 90 ? 'Sobresaliente' : candidate.score >= 80 ? 'Afinidad Alta' : 'Alineamiento Medio'}
+                </span>
+                <span style="color: var(--text-tertiary); font-size: 10.5px;">Ajuste al Perfil</span>
               </div>
             </div>
           </td>

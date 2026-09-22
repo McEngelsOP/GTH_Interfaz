@@ -33,7 +33,6 @@ class AppState {
 
     // New Architecture States
     this.currentView = 'ranking'; // 'ranking' | 'kanban' | 'evaluation' | 'comparison' | 'talentPool' | 'effectiveness' | 'executive'
-    this.viewMode = 'rrhh';       // 'rrhh' | 'technical'
     this.comparisonPool = new Set(); // Candidate IDs selected for side-by-side comparison (max 5)
     this.talentPool = [...MOCK_TALENT_POOL];
     this.templates = [...ORGANIZATIONAL_TEMPLATES];
@@ -90,14 +89,6 @@ class AppState {
     if (this.currentView !== viewName) {
       this.currentView = viewName;
       this.notify('view_changed', { viewName });
-    }
-  }
-
-  // --- View Mode Toggle: RRHH vs Técnico (Cambio #9) ---
-  setViewMode(mode) {
-    if (this.viewMode !== mode && (mode === 'rrhh' || mode === 'technical')) {
-      this.viewMode = mode;
-      this.notify('view_mode_changed', { viewMode: mode });
     }
   }
 

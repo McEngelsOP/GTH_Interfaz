@@ -937,44 +937,6 @@
 }
 
 /* ==========================================================================
-   12. Mode Toggle Segmented Control (Cambio #9)
-   ========================================================================== */
-.mode-toggle-pill {
-  display: inline-flex;
-  align-items: center;
-  background: #F1F5F9;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-pill);
-  padding: 2px;
-  gap: 2px;
-}
-
-.mode-toggle-btn {
-  border: none;
-  background: transparent;
-  color: #64748B;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.mode-toggle-btn:hover {
-  color: var(--text-main);
-}
-
-.mode-toggle-btn.active {
-  background: #FFFFFF;
-  color: var(--esan-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-/* ==========================================================================
    13. Process Sub-Navigation Tabs Bar (Cambios #5, #7)
    ========================================================================== */
 .process-subnav {
