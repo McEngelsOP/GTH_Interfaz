@@ -152,19 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. View Routing & Subnav Orchestration
-  const processSubnav = document.getElementById('processSubnav');
-  const subnavTabs = processSubnav ? processSubnav.querySelectorAll('.subnav-tab') : [];
+  // 5. View Routing & Sidebar Navigation Only (subnav eliminada)
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
   const switchView = (viewName) => {
     appState.setCurrentView(viewName);
-
-    // Update Subnav Tabs
-    subnavTabs.forEach(tab => {
-      tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
-    });
 
     // Update Sidebar Navigation
     navItems.forEach(item => {
@@ -189,14 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  subnavTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const viewName = tab.getAttribute('data-view');
-      switchView(viewName);
-    });
-  });
-
-  // Sidebar navigation routing
+  // Sidebar navigation routing only
   navItems.forEach(item => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
@@ -226,13 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const dockTextCount = document.getElementById('dockTextCount');
   const dockBtnCompareNow = document.getElementById('dockBtnCompareNow');
   const dockBtnClear = document.getElementById('dockBtnClear');
-  const subnavCompareCount = document.getElementById('subnavCompareCount');
 
   const updateComparisonDock = (pool) => {
-    if (subnavCompareCount) {
-      subnavCompareCount.textContent = pool.length;
-    }
-
     if (!comparisonFloatingDock) return;
 
     if (pool.length >= 2) {
