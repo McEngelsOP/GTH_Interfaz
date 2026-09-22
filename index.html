@@ -59,7 +59,7 @@
             </svg>
           </div>
           <span class="nav-item-label">Convocatorias Activas</span>
-          <span class="nav-item-badge">1 Activa</span>
+          <span class="nav-item-badge">1 activa</span>
         </a>
 
         <a href="#carga-ocr" class="nav-item" data-target="ingestion" id="navIngestionItem">
@@ -189,22 +189,24 @@
             <div class="kpi-header">
               <span class="kpi-label">Top-N Configurado</span>
               <div class="kpi-icon-wrapper" style="color: var(--esan-primary); background: var(--esan-primary-light);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                 </svg>
               </div>
             </div>
             <div class="kpi-value-row top-n-value-row">
-              <span class="top-n-prefix">N =</span>
-              <div class="top-n-stepper">
-                <button class="top-n-btn" id="topNDecrementBtn" aria-label="Disminuir Top-N">−</button>
-                <input type="text" class="top-n-input" id="topNInput" value="5" readonly />
-                <button class="top-n-btn" id="topNIncrementBtn" aria-label="Aumentar Top-N">+</button>
+              <div class="top-n-badge-pill">
+                <span class="top-n-prefix-tag">N =</span>
+                <input type="text" class="top-n-input-field" id="topNInput" value="5" readonly />
+              </div>
+              <div class="top-n-stepper-btns">
+                <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Disminuir vacantes" title="Disminuir vacantes">−</button>
+                <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Aumentar vacantes" title="Aumentar vacantes">+</button>
               </div>
               <span class="kpi-unit">vacantes</span>
             </div>
             <div class="kpi-subtitle">
-              <span>Corte dinámico reactivo en la tabla</span>
+              <span>Corte dinámico en la tabla</span>
             </div>
           </div>
 

@@ -164,12 +164,12 @@ html, body {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 9px 12px;
   border-radius: var(--radius-md);
   color: #94A3B8;
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   transition: all var(--transition-fast);
   cursor: pointer;
@@ -189,8 +189,8 @@ html, body {
 }
 
 .nav-item-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,7 +199,11 @@ html, body {
 
 .nav-item-label {
   white-space: nowrap;
+  font-size: 13px;
   transition: opacity var(--transition-fast);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-sidebar.collapsed .nav-item-label {
@@ -208,12 +212,18 @@ html, body {
 
 .nav-item-badge {
   margin-left: auto;
-  font-size: 11px;
-  padding: 2px 7px;
+  font-size: 10.5px;
+  padding: 2.5px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.1);
-  color: #CBD5E1;
+  background: rgba(255, 255, 255, 0.12);
+  color: #E2E8F0;
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-sidebar.collapsed .nav-item-badge {

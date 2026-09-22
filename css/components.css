@@ -8,13 +8,13 @@
    ========================================================================== */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -113,59 +113,75 @@
 .top-n-value-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  margin-bottom: 6px;
 }
 
-.top-n-prefix {
-  font-family: var(--font-heading);
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-main);
-  line-height: 1;
-}
-
-.top-n-stepper {
+.top-n-badge-pill {
   display: inline-flex;
   align-items: center;
   background: var(--esan-primary-light);
   border: 1.5px solid var(--esan-primary);
   border-radius: var(--radius-md);
-  padding: 3px 5px;
+  padding: 2px 8px;
   gap: 4px;
+  flex-shrink: 0;
 }
 
-.top-n-stepper .top-n-input {
-  width: 44px;
-  height: 28px;
-  background: #FFF;
-  border: 1px solid var(--esan-primary-border);
-  border-radius: var(--radius-xs);
+.top-n-prefix-tag {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--esan-primary);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.top-n-input-field {
+  width: 28px;
+  height: 26px;
+  background: transparent;
+  border: none;
   text-align: center;
   font-family: var(--font-heading);
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--esan-primary);
   outline: none;
+  pointer-events: none;
+  padding: 0;
 }
 
-.top-n-stepper .top-n-btn {
+.top-n-stepper-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.top-n-step-btn {
   width: 24px;
   height: 24px;
-  border: none;
-  background: var(--esan-primary);
-  color: #FFF;
-  border-radius: var(--radius-xs);
+  border: 1.5px solid var(--esan-primary);
+  background: #FFFFFF;
+  color: var(--esan-primary);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
-  transition: background var(--transition-fast);
+  line-height: 1;
+  transition: all var(--transition-fast);
 }
 
-.top-n-stepper .top-n-btn:hover {
-  background: var(--esan-primary-hover);
+.top-n-step-btn:hover {
+  background: var(--esan-primary);
+  color: #FFFFFF;
+  transform: scale(1.05);
 }
 
 /* ==========================================================================
