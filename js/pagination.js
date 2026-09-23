@@ -11,3 +11,23 @@ export function paginateCandidates(candidates, requestedPage = 1, requestedSize 
     first: total ? offset + 1 : 0, last: Math.min(offset + pageSize, total)
   };
 }
+
+// Return only rows near the visible scroll window. Header height is removed
+// because it remains sticky inside the table's scroll region.
+export function getVirtualWindow(total, scrollTop, viewportHeight, rowHeight, overscan = 6, headerHeight = 0) {
+  const count = Math.max(0, Number(total) || 0);
+  if (!count) return { start: 0, end: 0 };
+
+  const row = Math.max(1, Number(rowHeight) || 1);
+  const header = Math.max(0, Number(headerHeight) || 0);
+  const top = Math.max(0, Number(scrollTop) || 0);
+  const viewport = Math.max(row, Number(viewportHeight) || row * 10);
+  const firstVisible = Math.min(count - 1, Math.floor(Math.max(0, top - header) / row));
+  const visibleCount = Math.max(1, Math.ceil(Math.max(row, viewport - header) / row));
+  const buffer = Math.max(0, Math.floor(Number(overscan) || 0));
+
+  return {
+    start: Math.max(0, firstVisible - buffer),
+    end: Math.min(count, firstVisible + visibleCount + buffer)
+  };
+}

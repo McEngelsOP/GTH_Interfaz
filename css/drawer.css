@@ -100,6 +100,80 @@
   margin-top: 2px;
 }
 
+.mandatory-review {
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-divider);
+}
+
+.mandatory-review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mandatory-review-heading h5 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.mandatory-review-heading > span {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mandatory-requirement-list { display: grid; gap: 6px; }
+
+.mandatory-requirement {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.requirement-status-mark {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.requirement-status-mark.green { background: #10b981; }
+.requirement-status-mark.amber { background: #f59e0b; }
+.requirement-status-mark.red { background: #ef6262; }
+
+.mandatory-requirement-copy { display: grid; gap: 2px; min-width: 0; }
+.mandatory-requirement-copy strong { color: var(--text-main); font-size: 12px; line-height: 1.3; }
+.mandatory-requirement-copy > span { color: var(--text-tertiary); font-size: 10.5px; font-weight: 650; }
+.mandatory-requirement-copy p { margin: 1px 0 0; color: var(--text-secondary); font-size: 11.5px; line-height: 1.4; }
+
+.requirement-status-label {
+  margin-top: 1px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.requirement-status-label.green { color: #167346; background: #e9f8ef; }
+.requirement-status-label.amber { color: #93610c; background: #fff4d7; }
+.requirement-status-label.red { color: #a93a3a; background: #ffeded; }
+.mandatory-review-empty { margin: 8px 0 0; color: var(--text-tertiary); font-size: 11.5px; }
+
 .drawer-header-actions {
   display: flex;
   align-items: center;

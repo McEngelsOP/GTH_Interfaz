@@ -4,6 +4,7 @@
    ========================================================================== */
 
 import { appState } from './state.js';
+import { escapeHTML as esc } from './ui.js';
 
 export class DrawerController {
   constructor(backdropEl, drawerEl) {
@@ -257,6 +258,10 @@ export class DrawerController {
   renderExplainPane(cand) {
     if (!this.paneExplain) return;
 
+    const mandatoryReqs = Array.isArray(cand.mandatoryReqs) ? cand.mandatoryReqs : [];
+    const passedRequirements = mandatoryReqs.filter(requirement => requirement.status === 'green').length;
+    const requirementLabels = { green: 'Cumple', amber: 'Parcial', red: 'No cumple' };
+
     this.paneExplain.innerHTML = `
       <div class="drawer-card">
         <h4 class="drawer-card-title">
@@ -284,6 +289,31 @@ export class DrawerController {
             </div>
           ` : ''}
         </div>
+
+        <section class="mandatory-review" aria-labelledby="mandatoryReviewTitle">
+          <div class="mandatory-review-heading">
+            <h5 id="mandatoryReviewTitle">Requisitos obligatorios</h5>
+            <span>${passedRequirements}/${mandatoryReqs.length} cumplen</span>
+          </div>
+          ${mandatoryReqs.length ? `
+            <div class="mandatory-requirement-list">
+              ${mandatoryReqs.map(requirement => {
+                const status = ['green', 'amber', 'red'].includes(requirement.status) ? requirement.status : 'amber';
+                return `
+                  <div class="mandatory-requirement">
+                    <span class="requirement-status-mark ${status}" aria-hidden="true"></span>
+                    <div class="mandatory-requirement-copy">
+                      <strong>${esc(requirement.name)}</strong>
+                      <span>${esc(requirement.tooltipTitle || 'Evidencia')}</span>
+                      <p>${esc(requirement.tooltipReason || 'Sin justificación registrada en esta demostración.')}</p>
+                    </div>
+                    <span class="requirement-status-label ${status}">${requirementLabels[status]}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<p class="mandatory-review-empty">No hay criterios obligatorios registrados para este perfil.</p>'}
+        </section>
       </div>
     `;
   }

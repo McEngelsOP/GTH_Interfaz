@@ -5,7 +5,7 @@
 
 import { appState } from './state.js';
 import { escapeHTML as esc } from './ui.js';
-import { paginateCandidates } from './pagination.js';
+import { getVirtualWindow, paginateCandidates } from './pagination.js';
 
 export class DataGridController {
   constructor(tableBodyEl, selectAllCheckboxEl, resultCountEl) {
@@ -15,6 +15,9 @@ export class DataGridController {
     this.page = 1;
     this.pageSize = 25;
     this.visibleCandidates = [];
+    this.pageCandidates = [];
+    this.density = 'compact';
+    this.overscan = 6;
     this.scrollRegion = document.getElementById('rankingScrollRegion');
 
     this.initListeners();
@@ -28,9 +31,19 @@ export class DataGridController {
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.more-actions-dropdown-wrapper')) closeMenus();
     });
-    this.scrollRegion?.addEventListener('scroll', closeMenus, { passive: true });
+    this.scrollRegion?.addEventListener('scroll', () => {
+      closeMenus();
+      this.scheduleVirtualRender();
+    }, { passive: true });
     this.tableBody?.closest('.app-main')?.addEventListener('scroll', closeMenus, { passive: true });
-    window.addEventListener('resize', closeMenus);
+    window.addEventListener('resize', () => {
+      closeMenus();
+      this.scheduleVirtualRender();
+    });
+    if (this.scrollRegion && typeof ResizeObserver !== 'undefined') {
+      this.scrollResizeObserver = new ResizeObserver(() => this.scheduleVirtualRender());
+      this.scrollResizeObserver.observe(this.scrollRegion);
+    }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
     document.getElementById('rankingPageSize')?.addEventListener('change', e => {
       this.pageSize = Number(e.target.value);
@@ -38,6 +51,9 @@ export class DataGridController {
     });
     document.getElementById('rankingPrevPage')?.addEventListener('click', () => this.changePage(this.page - 1));
     document.getElementById('rankingNextPage')?.addEventListener('click', () => this.changePage(this.page + 1));
+    document.querySelectorAll('#viewContainer_ranking [data-density]').forEach(button => {
+      button.addEventListener('click', () => this.setDensity(button.dataset.density));
+    });
     document.querySelectorAll('#viewContainer_ranking [data-sort]').forEach(button => {
       button.addEventListener('click', () => appState.toggleSort(button.dataset.sort));
     });
@@ -71,8 +87,140 @@ export class DataGridController {
 
   changePage(page) {
     this.page = page;
-    this.render();
     if (this.scrollRegion) this.scrollRegion.scrollTop = 0;
+    this.render();
+  }
+
+  setDensity(density) {
+    if (!['compact', 'comfortable'].includes(density) || density === this.density) return;
+    this.density = density;
+    const view = document.getElementById('viewContainer_ranking');
+    if (view) view.dataset.density = density;
+    document.querySelectorAll('#viewContainer_ranking [data-density]').forEach(button => {
+      const active = button.dataset.density === density;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    if (this.scrollRegion) this.scrollRegion.scrollTop = 0;
+    this.renderVisibleRows();
+  }
+
+  getRowHeight() {
+    return this.density === 'comfortable' ? 66 : 52;
+  }
+
+  getRenderWindow() {
+    const headerHeight = this.scrollRegion?.querySelector('thead')?.getBoundingClientRect().height || 40;
+    return getVirtualWindow(
+      this.pageCandidates.length,
+      this.scrollRegion?.scrollTop || 0,
+      this.scrollRegion?.clientHeight || 720,
+      this.getRowHeight(),
+      this.overscan,
+      headerHeight
+    );
+  }
+
+  scheduleVirtualRender() {
+    if (this.virtualRenderPending) return;
+    this.virtualRenderPending = true;
+    requestAnimationFrame(() => {
+      this.virtualRenderPending = false;
+      this.renderVisibleRows();
+    });
+  }
+
+  renderVisibleRows() {
+    if (!this.tableBody || !this.pageCandidates) return;
+    if (!this.pageCandidates.length) return;
+
+    const { start, end } = this.getRenderWindow();
+    if (start === this.windowStart && end === this.windowEnd && this.lastRenderedDensity === this.density) return;
+    this.windowStart = start;
+    this.windowEnd = end;
+    this.lastRenderedDensity = this.density;
+
+    const candidates = this.pageCandidates.slice(start, end);
+    const topSpacer = this.renderSpacer(start * this.getRowHeight());
+    const bottomSpacer = this.renderSpacer((this.pageCandidates.length - end) * this.getRowHeight());
+    this.tableBody.innerHTML = `${topSpacer}${candidates.map((candidate, index) => this.renderCandidateRow(candidate, start + index)).join('')}${bottomSpacer}`;
+    this.bindRowEvents();
+  }
+
+  renderSpacer(height) {
+    return height > 0
+      ? `<tr class="virtual-spacer" aria-hidden="true"><td colspan="6"><div style="height:${height}px"></div></td></tr>`
+      : '';
+  }
+
+  renderCandidateRow(candidate, rowOffset = 0) {
+    const isSelected = appState.selectedRows.has(candidate.id);
+    const inComparison = appState.comparisonPool.has(candidate.id);
+    const isActiveRow = appState.selectedCandidateId === candidate.id;
+    const rowTopNClass = candidate.inTopN ? 'in-top-n' : 'outside-top-n';
+    const activeClass = isActiveRow ? 'selected' : '';
+    const mandatoryCount = candidate.mandatoryReqs.filter(r => r.status === 'green').length;
+    const roleCategory = candidate.roleTypeName || appState.jobPosting.roleTypeName;
+
+    return `
+      <tr class="candidate-row ${rowTopNClass} ${activeClass}" data-id="${esc(candidate.id)}" aria-rowindex="${this.pageFirst + rowOffset + 1}" tabindex="0" aria-label="Abrir expediente de ${esc(candidate.name)}">
+        <td class="candidate-select-cell" onclick="event.stopPropagation()">
+          <input type="checkbox" class="custom-checkbox row-select-checkbox" data-id="${esc(candidate.id)}" aria-label="Seleccionar a ${esc(candidate.name)}" ${isSelected ? 'checked' : ''} />
+        </td>
+
+        <td class="candidate-primary-cell">
+          <div class="candidate-cell">
+            ${this.renderPodiumBadge(candidate.rank, candidate.inTopN)}
+            <div class="candidate-line">
+              <button type="button" class="candidate-name" data-action="open" data-id="${esc(candidate.id)}" title="Abrir expediente de ${esc(candidate.name)}">${esc(candidate.name)}</button>
+              <button type="button" class="candidate-cv-link" data-action="cv" data-id="${esc(candidate.id)}" aria-label="Ver CV de ${esc(candidate.name)}" title="Ver CV">CV</button>
+              <span class="candidate-role-org" title="${esc(candidate.role)} · ${esc(candidate.company)}">${esc(candidate.role)} · ${esc(candidate.company)}</span>
+              <span class="candidate-meta-icons">
+                <span class="meta-icon source-mark source-${esc(candidate.source)}" role="img" aria-label="Origen: ${esc(this.getSourceLabel(candidate.source))}" title="Origen: ${esc(this.getSourceLabel(candidate.source))}">${this.getSourceMark(candidate.source)}</span>
+                ${candidate.transferablePotential ? '<span class="meta-icon" role="img" aria-label="Potencial transferible" title="Potencial transferible">✦</span>' : ''}
+                ${roleCategory ? `<span class="meta-icon" role="img" aria-label="Categoría: ${esc(roleCategory)}" title="Categoría: ${esc(roleCategory)}">◈</span>` : ''}
+              </span>
+              <span class="stage-pill stage-${esc(candidate.stage)}" title="Estado actual">${this.getStageLabel(candidate.stage)}</span>
+            </div>
+          </div>
+        </td>
+
+        <td class="requirements-cell">
+          <button type="button" class="requirements-summary" data-action="requirements" data-id="${esc(candidate.id)}" aria-label="Revisar requisitos de ${esc(candidate.name)}: ${mandatoryCount} de ${candidate.mandatoryReqs.length} cumplen">
+            <span class="pills-row">
+              ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${esc(req.status)}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : 'no cumple'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
+            </span>
+          </button>
+        </td>
+
+        <td class="candidate-gap-cell">${this.renderGapsSummary(candidate)}</td>
+
+        <td class="candidate-score-cell">
+          <div class="score-summary" role="img" aria-label="${candidate.score} de 100 puntos" title="${candidate.score}/100 · ${candidate.score >= 85 ? 'Sobresaliente' : candidate.score >= 75 ? 'Ajuste alto' : 'Abre el expediente para ver el detalle'}">
+            ${this.renderCircularScore(candidate.score)}
+          </div>
+        </td>
+
+        <td class="candidate-actions-cell" onclick="event.stopPropagation()">
+          <div class="row-actions-cluster">
+            <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar etapa en el pipeline Kanban">Avanzar</button>
+            <div class="more-actions-dropdown-wrapper">
+              <button class="btn-more-actions" data-action="toggle-menu" data-id="${esc(candidate.id)}" title="Más acciones de selección" aria-label="Más acciones para ${esc(candidate.name)}" aria-expanded="false">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
+              </button>
+              <div class="more-actions-menu" id="actionsMenu_${esc(candidate.id)}">
+                <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}"><span class="action-icon">⚖️</span><span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span></button>
+                <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}"><span class="action-icon">👥</span><span>Guardar en Banco</span></button>
+                <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">📋</span><span>Ver expediente & auditoría</span></button>
+                <button class="more-action-item" data-action="star" data-id="${esc(candidate.id)}"><span class="action-icon">🪄</span><span>Generar entrevista STAR</span></button>
+                <div class="more-action-divider"></div>
+                <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}"><span class="action-icon">📨</span><span>Liberar y notificar</span></button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
   updatePagination(page) {
@@ -96,8 +244,13 @@ export class DataGridController {
     this.page = page.page;
     const candidates = page.items;
     this.visibleCandidates = candidates;
+    this.pageFirst = page.first;
     this.updatePagination(page);
-    const selectedId = appState.selectedCandidateId;
+    this.tableBody.closest?.('table')?.setAttribute('aria-rowcount', String(Math.max(1, page.total + 1)));
+    this.pageCandidates = candidates;
+    this.windowStart = -1;
+    this.windowEnd = -1;
+    this.lastRenderedDensity = null;
 
     // Update result count
     if (this.resultCount) {
@@ -126,158 +279,36 @@ export class DataGridController {
       return;
     }
 
-    this.tableBody.innerHTML = candidates.map(candidate => {
-      const isSelected = appState.selectedRows.has(candidate.id);
-      const inComparison = appState.comparisonPool.has(candidate.id);
-      const isActiveRow = selectedId === candidate.id;
-      const rowTopNClass = candidate.inTopN ? 'in-top-n' : 'outside-top-n';
-      const activeClass = isActiveRow ? 'selected' : '';
-
-      return `
-        <tr class="candidate-row ${rowTopNClass} ${activeClass}" data-id="${candidate.id}">
-          <!-- Col 0: Checkbox -->
-          <td onclick="event.stopPropagation()">
-            <input 
-              type="checkbox" 
-              class="custom-checkbox row-select-checkbox" 
-              data-id="${candidate.id}" 
-              aria-label="Seleccionar a ${esc(candidate.name)}"
-              ${isSelected ? 'checked' : ''} 
-            />
-          </td>
-
-          <td>
-            <div class="candidate-cell">
-              ${this.renderPodiumBadge(candidate.rank, candidate.inTopN)}
-              <div class="candidate-info">
-                <div class="candidate-title-line">
-                  <button type="button" class="candidate-name" data-action="open" data-id="${esc(candidate.id)}" title="Abrir expediente de ${esc(candidate.name)}">${esc(candidate.name)}</button>
-                  <button type="button" class="candidate-cv-link" data-action="cv" data-id="${esc(candidate.id)}" aria-label="Ver CV de ${esc(candidate.name)}">CV</button>
-                </div>
-                <span class="candidate-role-org" title="${esc(candidate.role)} · ${esc(candidate.company)}">${esc(candidate.role)} · ${esc(candidate.company)}</span>
-                <div class="candidate-meta">
-                  <span class="candidate-source-badge ${esc(candidate.source)}">${this.getSourceLabel(candidate.source)}</span>
-                  <span class="stage-tag">${this.getStageLabel(candidate.stage)}</span>
-                  ${candidate.transferablePotential ? '<span class="inclusion-badge" title="Potencial transferible">✦ Transferible</span>' : ''}
-                </div>
-              </div>
-            </div>
-          </td>
-
-          <td>
-            <button type="button" class="requirements-summary" data-action="requirements" data-id="${esc(candidate.id)}" aria-label="Revisar requisitos de ${esc(candidate.name)}: ${candidate.mandatoryReqs.filter(r => r.status === 'green').length} de ${candidate.mandatoryReqs.length} cumplen">
-              <span class="pills-row">
-                ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${req.status}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : 'no cumple'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
-              </span>
-              <span class="requirements-count">${candidate.mandatoryReqs.filter(r => r.status === 'green').length}/${candidate.mandatoryReqs.length} cumplen</span>
-            </button>
-          </td>
-
-          <!-- Col 3: Análisis de Brechas & Alertas (Cambio #10) -->
-          <td>
-            ${this.renderGapsSummary(candidate)}
-          </td>
-
-          <!-- Col 4: Score & Ajuste al Perfil (Vista RRHH) -->
-          <td class="candidate-score-cell">
-            <div class="score-summary" role="img" aria-label="${candidate.score} de 100 puntos" title="${candidate.score}/100 · Abre el expediente para ver la justificación">
-              ${this.renderCircularScore(candidate.score)}
-            </div>
-          </td>
-
-          <!-- Col 5: Acciones de Selección & Menú Desplegable (Simplificación Cognitiva) -->
-          <td onclick="event.stopPropagation()">
-            <div class="row-actions-cluster">
-              <button 
-                class="btn-action-primary" 
-                data-action="advance" 
-                data-id="${candidate.id}" 
-                title="Avanzar etapa en el pipeline Kanban"
-              >
-                Avanzar
-              </button>
-
-              <div class="more-actions-dropdown-wrapper">
-                <button 
-                  class="btn-more-actions" 
-                  data-action="toggle-menu" 
-                  data-id="${candidate.id}"
-                  title="Más acciones de selección"
-                  aria-label="Más acciones para ${esc(candidate.name)}"
-                  aria-expanded="false"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <circle cx="12" cy="12" r="1.5"></circle>
-                    <circle cx="12" cy="5" r="1.5"></circle>
-                    <circle cx="12" cy="19" r="1.5"></circle>
-                  </svg>
-                </button>
-
-                <div class="more-actions-menu" id="actionsMenu_${candidate.id}">
-                  <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${candidate.id}">
-                    <span class="action-icon">⚖️</span>
-                    <span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span>
-                  </button>
-                  <button class="more-action-item" data-action="talentpool" data-id="${candidate.id}">
-                    <span class="action-icon">👥</span>
-                    <span>Guardar en Banco</span>
-                  </button>
-                  <button class="more-action-item" data-action="history" data-id="${candidate.id}">
-                    <span class="action-icon">📋</span>
-                    <span>Ver expediente & auditoría</span>
-                  </button>
-                  <button class="more-action-item" data-action="star" data-id="${candidate.id}">
-                    <span class="action-icon">🪄</span>
-                    <span>Generar entrevista STAR</span>
-                  </button>
-                  <div class="more-action-divider"></div>
-                  <button class="more-action-item text-danger" data-action="release" data-id="${candidate.id}">
-                    <span class="action-icon">📨</span>
-                    <span>Liberar y notificar</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    this.bindRowEvents();
+    this.renderVisibleRows();
   }
 
   renderPodiumBadge(rank, inTopN) {
-    if (rank === 1) {
-      return `<span class="podium-rank-badge podium-1" title="Puesto 1">1</span>`;
-    }
-    if (rank === 2) {
-      return `<span class="podium-rank-badge podium-2" title="Puesto 2">2</span>`;
-    }
-    if (rank === 3) {
-      return `<span class="podium-rank-badge podium-3" title="Puesto 3">3</span>`;
-    }
     if (inTopN) {
-      return `<span class="podium-rank-badge podium-regular" title="Puesto ${rank}, dentro de Top-N">${rank}</span>`;
+      const medal = rank === 1 ? 'podium-1' : rank === 2 ? 'podium-2' : rank === 3 ? 'podium-3' : 'podium-regular';
+      return `<span class="podium-rank-badge ${medal}" title="Top ${rank}">Top ${rank}</span>`;
     }
-    return `<span class="candidate-rank" title="Puesto ${rank}">${rank}</span>`;
+    return `<span class="candidate-rank" title="Puesto ${rank}">#${rank}</span>`;
   }
 
   renderGapsSummary(candidate) {
     const levels = { none: 0, low: 1, medium: 2, high: 3 };
     const gap = [...(candidate.gaps || [])].sort((a, b) => (levels[b.severity] || 0) - (levels[a.severity] || 0))[0];
     if (!gap || gap.severity === 'none') {
-      return `<button type="button" class="gap-compact gap-none" data-action="gaps" data-id="${esc(candidate.id)}" title="Ver detalle de requisitos y brechas"><span aria-hidden="true">✓</span> Sin brechas críticas</button>`;
+      return `<button type="button" class="gap-indicator gap-none" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="${esc(candidate.name)}: sin brechas críticas" title="Sin brechas críticas. Abrir detalle"><span aria-hidden="true">✓</span></button>`;
     }
     const severity = ['high', 'medium', 'low'].includes(gap.severity) ? gap.severity : 'low';
-    const label = { high: 'Alta', medium: 'Media', low: 'Baja' }[severity];
-    return `<button type="button" class="gap-compact gap-${severity}" data-action="gaps" data-id="${esc(candidate.id)}" title="${esc(gap.item)}. ${esc(gap.tip || '')}"><span class="gap-short-title">${esc(gap.item)}</span><span class="gap-level">${label}</span></button>`;
+    const label = { high: 'brecha alta', medium: 'brecha media', low: 'brecha baja' }[severity];
+    const impactValue = gap.impact || { high: 'alto', medium: 'medio', low: 'bajo' }[severity];
+    const impact = ` Impacto: ${impactValue}.`;
+    const detail = `${gap.item}.${impact} ${gap.tip || ''}`.trim();
+    return `<button type="button" class="gap-indicator gap-${severity}" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="${esc(candidate.name)}: ${label}. ${esc(detail)} Abrir detalle" title="${esc(detail)}"><span aria-hidden="true">!</span></button>`;
   }
 
   getStageLabel(stage) {
     switch (stage) {
       case 'postulado': return 'Postulado';
-      case 'preseleccionado': return 'Preselección';
-      case 'entrevista': return 'Entrevista';
+      case 'preseleccionado': return 'Preseleccionado';
+      case 'entrevista': return 'En entrevista';
       case 'evaluacion': return 'Evaluación';
       case 'oferta': return 'Oferta';
       case 'contratado': return 'Contratado';
@@ -293,6 +324,17 @@ export class DataGridController {
       case 'gmail': return 'Gmail';
       case 'referrals': return 'Referencia ESAN';
       default: return 'Portal';
+    }
+  }
+
+  getSourceMark(source) {
+    switch (source) {
+      case 'linkedin': return 'in';
+      case 'computrabajo': return 'CT';
+      case 'bumeran': return 'B';
+      case 'gmail': return '✉';
+      case 'referrals': return 'ES';
+      default: return 'CV';
     }
   }
 
@@ -331,11 +373,16 @@ export class DataGridController {
         appState.setActiveDrawerTab(tab);
       });
     });
-    // Row click -> opens drawer
+    // Row click or keyboard activation opens the candidate drawer.
     this.tableBody.querySelectorAll('.candidate-row').forEach(row => {
       row.addEventListener('click', () => {
         const candId = row.getAttribute('data-id');
         appState.selectCandidate(candId);
+      });
+      row.addEventListener('keydown', event => {
+        if (event.target !== row || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        appState.selectCandidate(row.getAttribute('data-id'));
       });
     });
 
