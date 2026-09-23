@@ -4,30 +4,55 @@
    ========================================================================== */
 
 import { appState } from './state.js';
+import { escapeHTML as esc } from './ui.js';
+import { paginateCandidates } from './pagination.js';
 
 export class DataGridController {
   constructor(tableBodyEl, selectAllCheckboxEl, resultCountEl) {
     this.tableBody = tableBodyEl;
     this.selectAllCheckbox = selectAllCheckboxEl;
     this.resultCount = resultCountEl;
+    this.page = 1;
+    this.pageSize = 25;
+    this.visibleCandidates = [];
+    this.scrollRegion = document.getElementById('rankingScrollRegion');
 
     this.initListeners();
   }
 
   initListeners() {
+    const closeMenus = () => {
+      this.tableBody?.querySelectorAll('.more-actions-menu.show').forEach(menu => menu.classList.remove('show'));
+      this.tableBody?.querySelectorAll('[data-action="toggle-menu"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+    };
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.more-actions-dropdown-wrapper')) {
-        this.tableBody?.querySelectorAll('.more-actions-menu.show').forEach(menu => menu.classList.remove('show'));
-      }
+      if (!e.target.closest('.more-actions-dropdown-wrapper')) closeMenus();
+    });
+    this.scrollRegion?.addEventListener('scroll', closeMenus, { passive: true });
+    this.tableBody?.closest('.app-main')?.addEventListener('scroll', closeMenus, { passive: true });
+    window.addEventListener('resize', closeMenus);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
+    document.getElementById('rankingPageSize')?.addEventListener('change', e => {
+      this.pageSize = Number(e.target.value);
+      this.changePage(1);
+    });
+    document.getElementById('rankingPrevPage')?.addEventListener('click', () => this.changePage(this.page - 1));
+    document.getElementById('rankingNextPage')?.addEventListener('click', () => this.changePage(this.page + 1));
+    document.querySelectorAll('#viewContainer_ranking [data-sort]').forEach(button => {
+      button.addEventListener('click', () => appState.toggleSort(button.dataset.sort));
     });
     if (this.selectAllCheckbox) {
       this.selectAllCheckbox.addEventListener('change', (e) => {
-        appState.toggleSelectAll(e.target.checked);
+        appState.toggleSelectAll(e.target.checked, this.visibleCandidates);
       });
     }
 
     // Subscribe to state updates
     appState.subscribe((event) => {
+      if (['filter_changed', 'job_changed', 'sort_changed'].includes(event)) {
+        this.page = 1;
+        if (this.scrollRegion) this.scrollRegion.scrollTop = 0;
+      }
       if ([
         'topN_changed',
         'filter_changed',
@@ -44,15 +69,41 @@ export class DataGridController {
     });
   }
 
+  changePage(page) {
+    this.page = page;
+    this.render();
+    if (this.scrollRegion) this.scrollRegion.scrollTop = 0;
+  }
+
+  updatePagination(page) {
+    const prev = document.getElementById('rankingPrevPage');
+    const next = document.getElementById('rankingNextPage');
+    const label = document.getElementById('rankingPageLabel');
+    if (prev) prev.disabled = page.page === 1;
+    if (next) next.disabled = page.page === page.pageCount;
+    if (label) label.textContent = `${page.page} / ${page.pageCount}`;
+    document.querySelectorAll('#viewContainer_ranking [data-sort-header]').forEach(th => {
+      const active = th.dataset.sortHeader === appState.sortBy;
+      th.setAttribute('aria-sort', active ? (appState.sortOrder === 'asc' ? 'ascending' : 'descending') : 'none');
+      th.querySelector('span').textContent = active ? (appState.sortOrder === 'asc' ? '↑' : '↓') : '↕';
+    });
+  }
+
   render() {
     if (!this.tableBody) return;
 
-    const candidates = appState.getFilteredCandidates();
+    const page = paginateCandidates(appState.getFilteredCandidates(), this.page, this.pageSize);
+    this.page = page.page;
+    const candidates = page.items;
+    this.visibleCandidates = candidates;
+    this.updatePagination(page);
     const selectedId = appState.selectedCandidateId;
 
     // Update result count
     if (this.resultCount) {
-      this.resultCount.textContent = `Mostrando ${candidates.length} de ${appState.candidates.length} candidatos evaluados en ${appState.jobPosting.title}`;
+      const selected = appState.selectedRows.size ? ` · ${appState.selectedRows.size} seleccionados` : '';
+      const filtered = page.total !== appState.candidates.length ? ` (${appState.candidates.length} en total)` : '';
+      this.resultCount.textContent = `${page.first}–${page.last} de ${page.total} candidatos${filtered}${selected}`;
     }
 
     // Update select all checkbox state
@@ -60,13 +111,13 @@ export class DataGridController {
       const allSelected = candidates.length > 0 && candidates.every(c => appState.selectedRows.has(c.id));
       this.selectAllCheckbox.checked = allSelected;
       this.selectAllCheckbox.indeterminate = !allSelected && candidates.some(c => appState.selectedRows.has(c.id));
+      this.selectAllCheckbox.disabled = candidates.length === 0;
     }
 
     if (candidates.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; padding: 48px; color: var(--text-tertiary);">
-            <div style="font-size: 28px; margin-bottom: 8px;">🔍</div>
+          <td colspan="6" class="ranking-empty">
             <div style="font-weight: 600; font-size: 15px; color: var(--text-main);">${appState.candidates.length ? 'No se encontraron candidatos' : 'Aún no hay CVs en esta convocatoria'}</div>
             <p style="font-size: 12.5px; margin-top: 4px;">${appState.candidates.length ? 'Prueba con otros términos de búsqueda o filtros.' : 'Esta vacante se creó como demostración. La recepción y el procesamiento real de CVs se integrarán más adelante.'}</p>
           </td>
@@ -90,65 +141,36 @@ export class DataGridController {
               type="checkbox" 
               class="custom-checkbox row-select-checkbox" 
               data-id="${candidate.id}" 
+              aria-label="Seleccionar a ${esc(candidate.name)}"
               ${isSelected ? 'checked' : ''} 
             />
           </td>
 
-          <!-- Col 1: Candidato con Podio Top-N (Cambio #18) -->
           <td>
             <div class="candidate-cell">
-              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0;">
-                ${this.renderPodiumBadge(candidate.rank, candidate.inTopN)}
-                <div class="cv-pdf-icon" title="Ver CV extraído en la demo" onclick="event.stopPropagation(); window.openCandidateCV('${candidate.id}')">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                  <span class="cv-pdf-text" style="font-size: 8.5px;">CV</span>
-                </div>
-              </div>
-
+              ${this.renderPodiumBadge(candidate.rank, candidate.inTopN)}
               <div class="candidate-info">
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <span class="candidate-name">${candidate.name}</span>
-                  <span class="role-badge role-${appState.jobPosting.roleType || 'docente'}" style="font-size: 9.5px; padding: 1.5px 6px;">
-                    ${(appState.jobPosting.roleTypeName || 'Docente').toUpperCase()}
-                  </span>
-                  <span class="candidate-source-badge ${candidate.source}">${this.getSourceLabel(candidate.source)}</span>
-                  ${candidate.transferablePotential 
-                    ? `<span class="inclusion-badge" title="Candidato con habilidades transversales transferibles">✦ Transferible</span>`
-                    : ''
-                  }
+                <div class="candidate-title-line">
+                  <button type="button" class="candidate-name" data-action="open" data-id="${esc(candidate.id)}" title="Abrir expediente de ${esc(candidate.name)}">${esc(candidate.name)}</button>
+                  <button type="button" class="candidate-cv-link" data-action="cv" data-id="${esc(candidate.id)}" aria-label="Ver CV de ${esc(candidate.name)}">CV</button>
                 </div>
-                <span class="candidate-role-org">
-                  <span>${candidate.role}</span>
-                  <span>•</span>
-                  <strong>${candidate.company}</strong>
-                </span>
-                <div style="margin-top: 3px;">
-                  <span class="stage-tag stage-${candidate.stage}">
-                    ${this.getStageLabel(candidate.stage)}
-                  </span>
+                <span class="candidate-role-org" title="${esc(candidate.role)} · ${esc(candidate.company)}">${esc(candidate.role)} · ${esc(candidate.company)}</span>
+                <div class="candidate-meta">
+                  <span class="candidate-source-badge ${esc(candidate.source)}">${this.getSourceLabel(candidate.source)}</span>
+                  <span class="stage-tag">${this.getStageLabel(candidate.stage)}</span>
+                  ${candidate.transferablePotential ? '<span class="inclusion-badge" title="Potencial transferible">✦ Transferible</span>' : ''}
                 </div>
               </div>
             </div>
           </td>
 
-          <!-- Col 2: Requisitos Mandatorios / Knockout (Cambio #2) -->
           <td>
-            <div class="pills-row">
-              ${candidate.mandatoryReqs.map((req, idx) => `
-                <div class="capsule-pill pill-${req.status}" tabindex="0" role="img" aria-label="${req.name}: ${req.tooltipTitle}">
-                  <div class="pill-tooltip">
-                    <span class="tooltip-title">${idx + 1}. ${req.tooltipTitle}</span>
-                    <span class="tooltip-reason">${req.tooltipReason}</span>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-            <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 4px;">
-              ${candidate.mandatoryReqs.filter(r => r.status === 'green').length}/${candidate.mandatoryReqs.length} validados
-            </div>
+            <button type="button" class="requirements-summary" data-action="requirements" data-id="${esc(candidate.id)}" aria-label="Revisar requisitos de ${esc(candidate.name)}: ${candidate.mandatoryReqs.filter(r => r.status === 'green').length} de ${candidate.mandatoryReqs.length} cumplen">
+              <span class="pills-row">
+                ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${req.status}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : 'no cumple'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
+              </span>
+              <span class="requirements-count">${candidate.mandatoryReqs.filter(r => r.status === 'green').length}/${candidate.mandatoryReqs.length} cumplen</span>
+            </button>
           </td>
 
           <!-- Col 3: Análisis de Brechas & Alertas (Cambio #10) -->
@@ -157,15 +179,9 @@ export class DataGridController {
           </td>
 
           <!-- Col 4: Score & Ajuste al Perfil (Vista RRHH) -->
-          <td>
-            <div style="display: flex; align-items: center; gap: 10px;">
+          <td class="candidate-score-cell">
+            <div class="score-summary" role="img" aria-label="${candidate.score} de 100 puntos" title="${candidate.score}/100 · Abre el expediente para ver la justificación">
               ${this.renderCircularScore(candidate.score)}
-              <div style="display: flex; flex-direction: column; font-size: 11px;">
-                <span style="font-weight: 700; color: ${candidate.score >= 85 ? '#047857' : '#B45309'};">
-                  ${candidate.score >= 90 ? 'Sobresaliente' : candidate.score >= 80 ? 'Afinidad Alta' : 'Alineamiento Medio'}
-                </span>
-                <span style="color: var(--text-tertiary); font-size: 10.5px;">Ajuste al Perfil</span>
-              </div>
             </div>
           </td>
 
@@ -187,14 +203,14 @@ export class DataGridController {
                   data-action="toggle-menu" 
                   data-id="${candidate.id}"
                   title="Más acciones de selección"
-                  aria-label="Más acciones"
+                  aria-label="Más acciones para ${esc(candidate.name)}"
+                  aria-expanded="false"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <circle cx="12" cy="12" r="1.5"></circle>
                     <circle cx="12" cy="5" r="1.5"></circle>
                     <circle cx="12" cy="19" r="1.5"></circle>
                   </svg>
-                  <span>Más</span>
                 </button>
 
                 <div class="more-actions-menu" id="actionsMenu_${candidate.id}">
@@ -232,76 +248,40 @@ export class DataGridController {
 
   renderPodiumBadge(rank, inTopN) {
     if (rank === 1) {
-      return `<span class="podium-rank-badge podium-1" title="🥇 1er Lugar - Podio Convocatoria">🥇 Top 1</span>`;
+      return `<span class="podium-rank-badge podium-1" title="Puesto 1">1</span>`;
     }
     if (rank === 2) {
-      return `<span class="podium-rank-badge podium-2" title="🥈 2do Lugar - Podio Convocatoria">🥈 Top 2</span>`;
+      return `<span class="podium-rank-badge podium-2" title="Puesto 2">2</span>`;
     }
     if (rank === 3) {
-      return `<span class="podium-rank-badge podium-3" title="🥉 3er Lugar - Podio Convocatoria">🥉 Top 3</span>`;
+      return `<span class="podium-rank-badge podium-3" title="Puesto 3">3</span>`;
     }
     if (inTopN) {
-      return `<span class="podium-rank-badge podium-regular" title="Dentro de corte Top-N">#${rank}</span>`;
+      return `<span class="podium-rank-badge podium-regular" title="Puesto ${rank}, dentro de Top-N">${rank}</span>`;
     }
-    return `<span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary); padding: 2px 6px;">#${rank}</span>`;
+    return `<span class="candidate-rank" title="Puesto ${rank}">${rank}</span>`;
   }
 
   renderGapsSummary(candidate) {
-    if (!candidate.gaps || candidate.gaps.length === 0 || candidate.gaps[0].severity === 'none') {
-      return `
-        <div class="gap-visual-card gap-impact-none" title="El postulante cubre íntegramente los requerimientos obligatorios y preferentes.">
-          <span class="gap-visual-icon">✅</span>
-          <div class="gap-visual-content">
-            <span class="gap-visual-title">Sin brechas críticas</span>
-            <span class="gap-impact-tag impact-none">Impacto: Nulo</span>
-          </div>
-        </div>
-      `;
+    const levels = { none: 0, low: 1, medium: 2, high: 3 };
+    const gap = [...(candidate.gaps || [])].sort((a, b) => (levels[b.severity] || 0) - (levels[a.severity] || 0))[0];
+    if (!gap || gap.severity === 'none') {
+      return `<button type="button" class="gap-compact gap-none" data-action="gaps" data-id="${esc(candidate.id)}" title="Ver detalle de requisitos y brechas"><span aria-hidden="true">✓</span> Sin brechas críticas</button>`;
     }
-
-    const gap = candidate.gaps[0];
-    const severity = (gap.severity || 'low').toLowerCase();
-
-    let icon = '⚠️';
-    let impactLabel = 'Impacto: Bajo';
-    let cardClass = 'gap-impact-low';
-    let tagClass = 'impact-low';
-
-    if (severity === 'high' || gap.item.toLowerCase().includes('sunedu') || gap.item.toLowerCase().includes('maestría')) {
-      icon = '🔴';
-      impactLabel = 'Impacto: Alto';
-      cardClass = 'gap-impact-high';
-      tagClass = 'impact-high';
-    } else if (severity === 'medium' || gap.item.toLowerCase().includes('docente') || gap.item.toLowerCase().includes('gestión')) {
-      icon = '🟡';
-      impactLabel = 'Impacto: Medio';
-      cardClass = 'gap-impact-medium';
-      tagClass = 'impact-medium';
-    }
-
-    return `
-      <div class="gap-visual-card ${cardClass}" title="${gap.tip || gap.item}">
-        <span class="gap-visual-icon">${icon}</span>
-        <div class="gap-visual-content">
-          <span class="gap-visual-title">${gap.item}</span>
-          <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-            <span class="gap-impact-tag ${tagClass}">${impactLabel}</span>
-            ${gap.tip ? `<span class="gap-visual-tip">${gap.tip}</span>` : ''}
-          </div>
-        </div>
-      </div>
-    `;
+    const severity = ['high', 'medium', 'low'].includes(gap.severity) ? gap.severity : 'low';
+    const label = { high: 'Alta', medium: 'Media', low: 'Baja' }[severity];
+    return `<button type="button" class="gap-compact gap-${severity}" data-action="gaps" data-id="${esc(candidate.id)}" title="${esc(gap.item)}. ${esc(gap.tip || '')}"><span class="gap-short-title">${esc(gap.item)}</span><span class="gap-level">${label}</span></button>`;
   }
 
   getStageLabel(stage) {
     switch (stage) {
-      case 'postulado': return '1. Postulado';
-      case 'preseleccionado': return '2. Preseleccionado';
-      case 'entrevista': return '3. En Entrevista';
-      case 'evaluacion': return '4. Evaluación';
-      case 'oferta': return '5. En Oferta';
-      case 'contratado': return '6. Contratado 🎉';
-      default: return stage;
+      case 'postulado': return 'Postulado';
+      case 'preseleccionado': return 'Preselección';
+      case 'entrevista': return 'Entrevista';
+      case 'evaluacion': return 'Evaluación';
+      case 'oferta': return 'Oferta';
+      case 'contratado': return 'Contratado';
+      default: return esc(stage);
     }
   }
 
@@ -341,6 +321,16 @@ export class DataGridController {
   }
 
   bindRowEvents() {
+    const detailTabs = { open: 'explain', cv: 'cv', requirements: 'explain', gaps: 'gaps' };
+    this.tableBody.querySelectorAll('[data-action]').forEach(button => {
+      const tab = detailTabs[button.dataset.action];
+      if (!tab) return;
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        appState.selectCandidate(button.dataset.id);
+        appState.setActiveDrawerTab(tab);
+      });
+    });
     // Row click -> opens drawer
     this.tableBody.querySelectorAll('.candidate-row').forEach(row => {
       row.addEventListener('click', () => {
@@ -368,9 +358,19 @@ export class DataGridController {
         this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
           if (m !== menu) m.classList.remove('show');
         });
+        this.tableBody.querySelectorAll('[data-action="toggle-menu"]').forEach(button => {
+          if (button !== btn) button.setAttribute('aria-expanded', 'false');
+        });
 
         if (menu) {
-          menu.classList.toggle('show');
+          const opened = menu.classList.toggle('show');
+          btn.setAttribute('aria-expanded', String(opened));
+          if (opened) {
+            const trigger = btn.getBoundingClientRect();
+            const size = menu.getBoundingClientRect();
+            menu.style.left = `${Math.max(8, Math.min(window.innerWidth - size.width - 8, trigger.right - size.width))}px`;
+            menu.style.top = `${trigger.bottom + size.height + 8 > window.innerHeight ? Math.max(8, trigger.top - size.height - 4) : trigger.bottom + 4}px`;
+          }
         }
       });
     });

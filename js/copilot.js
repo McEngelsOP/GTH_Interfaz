@@ -143,7 +143,7 @@ export class CopilotController {
     }
 
     if (qLower.includes('3 mejores') || qLower.includes('mejores perfiles') || qLower.includes('top 3')) {
-      const top3 = appState.candidates.slice(0, 3);
+      const top3 = appState.getRankedCandidates().slice(0, 3);
 
       const cardsHtml = `
         Estos son los <strong>${top3.length} perfiles de ejemplo con mayor puntaje</strong> para ${esc(appState.jobPosting.title)}. Los puntajes provienen de datos de demostración:

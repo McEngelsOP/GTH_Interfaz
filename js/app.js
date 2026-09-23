@@ -437,19 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const filterCategorySelect = document.getElementById('filterCategorySelect');
-  if (filterCategorySelect) {
-    filterCategorySelect.addEventListener('change', (e) => {
-      const cat = e.target.value;
-      if (cat !== 'all') {
-        const found = appState.jobPostings.find(j => j.roleType === cat);
-        if (found) {
-          appState.setActiveJobPosting(found.id);
-        }
-      }
-    });
-  }
-
   // 10. Sidebar Collapse Toggle
   const sidebarEl = document.getElementById('appSidebar');
   const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');

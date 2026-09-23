@@ -367,7 +367,7 @@ class AppState {
   }
 
   getComparisonCandidates() {
-    return this.candidates.filter(c => this.comparisonPool.has(c.id));
+    return this.getRankedCandidates().filter(c => this.comparisonPool.has(c.id));
   }
 
   // --- Kanban Pipeline Transitions (Cambio #7) ---
@@ -429,8 +429,13 @@ class AppState {
     });
   }
 
+  getRankedCandidates() {
+    return [...this.candidates].sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
+  }
+
   updateTopNFlags() {
-    this.candidates.forEach((cand, index) => {
+    // The visual sort must never change merit ranking or the Top-N cut.
+    this.getRankedCandidates().forEach((cand, index) => {
       cand.inTopN = index < this.topN;
       cand.rank = index + 1;
     });
@@ -473,7 +478,7 @@ class AppState {
       this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
     } else {
       this.sortBy = field;
-      this.sortOrder = 'desc';
+      this.sortOrder = field === 'name' ? 'asc' : 'desc';
     }
     this.candidates = this.sortCandidates(this.candidates);
     this.updateTopNFlags();
@@ -494,15 +499,17 @@ class AppState {
     this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });
   }
 
-  toggleSelectAll(checked) {
+  toggleSelectAll(checked, visibleCandidates = this.getFilteredCandidates()) {
     if (checked) {
-      this.getFilteredCandidates().forEach(c => {
+      visibleCandidates.forEach(c => {
         this.selectedRows.add(c.id);
         if (this.comparisonPool.size < 5) this.comparisonPool.add(c.id);
       });
     } else {
-      this.selectedRows.clear();
-      this.comparisonPool.clear();
+      visibleCandidates.forEach(c => {
+        this.selectedRows.delete(c.id);
+        this.comparisonPool.delete(c.id);
+      });
     }
     this.notify('selection_changed');
     this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });

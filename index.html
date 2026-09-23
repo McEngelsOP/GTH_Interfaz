@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/copilot.css">
   <link rel="stylesheet" href="css/ingestion.css">
   <link rel="stylesheet" href="css/vacancies.css">
+  <link rel="stylesheet" href="css/ranking.css">
 </head>
 <body>
 
@@ -358,7 +359,7 @@
             <!-- KPI 1: Lote Procesado -->
             <div class="kpi-card kpi-accent-primary">
               <div class="kpi-header">
-                <span class="kpi-label">Lote Procesado</span>
+                <span class="kpi-label">CVs del lote</span>
                 <div class="kpi-icon-wrapper">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -370,15 +371,12 @@
                 <span class="kpi-value" id="kpiProcessedCount">482</span>
                 <span class="kpi-unit">CVs</span>
               </div>
-              <div class="kpi-subtitle">
-                <span>Registros de demostración</span>
-              </div>
             </div>
 
             <!-- KPI 2: Top-N Configurado -->
             <div class="kpi-card kpi-accent-primary">
               <div class="kpi-header">
-                <span class="kpi-label">Top-N Configurado</span>
+                <span class="kpi-label">Corte Top-N</span>
                 <div class="kpi-icon-wrapper" style="color: var(--esan-primary); background: var(--esan-primary-light);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -388,23 +386,20 @@
               <div class="kpi-value-row top-n-value-row">
                 <div class="top-n-badge-pill">
                   <span class="top-n-prefix-tag">N =</span>
-                  <input type="text" class="top-n-input-field" id="topNInput" value="5" readonly />
+                  <input type="text" class="top-n-input-field" id="topNInput" value="5" aria-label="Número de perfiles en Top-N" readonly />
                 </div>
                 <div class="top-n-stepper-btns">
-                  <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Disminuir vacantes" title="Disminuir vacantes">−</button>
-                  <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Aumentar vacantes" title="Aumentar vacantes">+</button>
+                  <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Reducir Top-N" title="Reducir Top-N">−</button>
+                  <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Ampliar Top-N" title="Ampliar Top-N">+</button>
                 </div>
-                <span class="kpi-unit">vacantes</span>
-              </div>
-              <div class="kpi-subtitle">
-                <span>Corte dinámico en la tabla</span>
+                <span class="kpi-unit">perfiles</span>
               </div>
             </div>
 
             <!-- KPI 3: Score Promedio -->
             <div class="kpi-card kpi-accent-info">
               <div class="kpi-header">
-                <span class="kpi-label">Score Promedio Lote</span>
+                <span class="kpi-label">Puntaje medio</span>
                 <div class="kpi-icon-wrapper">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -416,10 +411,6 @@
               <div class="kpi-value-row">
                 <span class="kpi-value" id="kpiAvgScore">78.4</span>
                 <span class="kpi-unit">/ 100</span>
-              </div>
-              <div class="kpi-subtitle">
-                <span style="color: var(--status-success); font-weight: 600;">+8.4%</span>
-                <span>vs. histórico institucional</span>
               </div>
             </div>
 
@@ -433,10 +424,6 @@
               </div>
               <div class="kpi-value-row">
                 <span class="kpi-value" id="kpiRoleMetricValue">92%</span>
-                <span class="kpi-unit">aptos</span>
-              </div>
-              <div class="kpi-subtitle">
-                <span id="kpiRoleMetricSub">Métrica ajustada al tipo de puesto</span>
               </div>
             </div>
           </section>
@@ -449,62 +436,48 @@
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
               <input 
-                type="text" 
+                type="search" 
                 class="search-input" 
                 id="tableSearchInput" 
-                placeholder="Buscar por candidato, cargo o empresa actual..." 
+                placeholder="Buscar candidato, cargo o empresa…"
+                aria-label="Buscar en todos los candidatos de la convocatoria"
               />
             </div>
 
             <div class="filter-group">
-              <select class="filter-select" id="filterCategorySelect">
-                <option value="all">Todas las Categorías</option>
-                <option value="docente">🎓 Docentes & Cátedras</option>
-                <option value="administrativo">💼 Administrativos & Gestión</option>
-                <option value="operativo">🔧 Operativos & Facilities</option>
-                <option value="directivo">🏛️ Directivos & Decanato</option>
-              </select>
-
-              <select class="filter-select" id="filterStatusSelect">
-                <option value="all">Todos los Estados</option>
+              <select class="filter-select" id="filterStatusSelect" aria-label="Filtrar candidatos">
+                <option value="all">Todos los candidatos</option>
                 <option value="topN">Dentro de Top-N</option>
                 <option value="outsideTopN">Fuera de corte</option>
-                <option value="transferable">Con Potencial Transferible</option>
+                <option value="transferable">Potencial transferible</option>
               </select>
 
-              <select class="filter-select" id="filterSourceSelect">
+              <select class="filter-select" id="filterSourceSelect" aria-label="Filtrar por fuente">
                 <option value="all">Todas las Fuentes</option>
                 <option value="linkedin">LinkedIn Recruiter</option>
                 <option value="computrabajo">CompuTrabajo</option>
                 <option value="bumeran">Bumeran</option>
+                <option value="gmail">Gmail</option>
                 <option value="referrals">Referencia ESAN</option>
               </select>
 
-              <button class="btn btn-secondary btn-sm" onclick="alert('Selecciona postulantes con la casilla para comparar cara a cara o avanzar en bloque.')">
-                Acciones Masivas
-              </button>
             </div>
           </section>
 
           <!-- C. Candidate Ranking Data Grid (The Core Engine) -->
           <section class="table-card">
-            <div class="table-responsive">
+            <div class="table-responsive" id="rankingScrollRegion" tabindex="0" role="region" aria-label="Tabla de candidatos, desplazamiento vertical y horizontal">
               <table class="candidate-table">
                 <thead>
                   <tr>
-                    <th style="width: 40px;">
-                      <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar todos los candidatos visibles" />
+                    <th class="col-select">
+                      <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar esta página" aria-label="Seleccionar candidatos de esta página" />
                     </th>
-                    <th class="sortable" style="min-width: 250px;">Candidato / Podio & Empresa</th>
-                    <th style="min-width: 170px;">
-                      Requisitos Mandatorios (Puesto)
-                      <span style="font-size: 10px; font-weight: normal; text-transform: none; color: var(--text-tertiary); display: block;">
-                        (Pasa cursor para justificación técnica)
-                      </span>
-                    </th>
-                    <th style="min-width: 180px;">Análisis de Brechas (Cambio #10)</th>
-                    <th class="sortable" style="width: 130px; text-align: center;">Score Consolidado</th>
-                    <th style="min-width: 190px;">Acciones & Comparador</th>
+                    <th class="col-candidate" data-sort-header="name" aria-sort="none"><button type="button" class="table-sort" data-sort="name">Candidato <span aria-hidden="true">↕</span></button></th>
+                    <th class="col-requirements">Requisitos</th>
+                    <th class="col-gaps">Brecha principal</th>
+                    <th class="col-score" data-sort-header="score" aria-sort="descending"><button type="button" class="table-sort" data-sort="score">Puntaje <span aria-hidden="true">↓</span></button></th>
+                    <th class="col-actions">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="candidateTableBody">
@@ -515,11 +488,13 @@
 
             <!-- Table Footer / Count & Sync indicator -->
             <div class="table-footer">
-              <span id="resultCountDisplay">Cargando postulantes evaluados...</span>
-              <div class="batch-sync-indicator">
-                <span class="live-dot"></span>
-                <span>Resultados de demostración · Matching real pendiente</span>
-              </div>
+              <span id="resultCountDisplay" role="status" aria-live="polite">Cargando candidatos…</span>
+              <nav class="ranking-pagination" aria-label="Páginas del ranking">
+                <label for="rankingPageSize">Filas <select id="rankingPageSize"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+                <button type="button" id="rankingPrevPage" aria-label="Página anterior">‹</button>
+                <span id="rankingPageLabel">1 / 1</span>
+                <button type="button" id="rankingNextPage" aria-label="Página siguiente">›</button>
+              </nav>
             </div>
           </section>
         </div>

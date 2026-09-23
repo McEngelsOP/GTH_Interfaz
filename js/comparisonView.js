@@ -33,7 +33,7 @@ export class ComparisonViewController {
 
     // If no candidate was explicitly checked, auto-select top 3 so recruiter has immediate value
     if (candidates.length === 0) {
-      const topCands = appState.candidates.slice(0, 3);
+      const topCands = appState.getRankedCandidates().slice(0, 3);
       topCands.forEach(c => appState.comparisonPool.add(c.id));
       candidates = topCands;
     }
