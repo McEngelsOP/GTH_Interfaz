@@ -41,7 +41,7 @@ export class ExecutiveDashboardController {
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="btn btn-secondary" onclick="appState.setCurrentView('profilesLibrary')">
+            <button class="btn btn-secondary" onclick="window.executiveController.openProfilesLibrary()">
               📚 Ir a Biblioteca de Perfiles
             </button>
             <button class="btn btn-primary" onclick="alert('Generando informe ejecutivo consolidado en PDF para el Consejo Directivo de ESAN...')">
@@ -200,7 +200,7 @@ export class ExecutiveDashboardController {
               Configura y estandariza los criterios, ponderaciones y knockouts por tipo de puesto (Docente, Administrativo, Operativo, Directivo).
             </p>
           </div>
-          <button class="btn btn-primary" onclick="appState.setCurrentView('profilesLibrary')">
+          <button class="btn btn-primary" onclick="window.executiveController.openProfilesLibrary()">
             Explorar Biblioteca de Perfiles →
           </button>
         </div>

@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/drawer.css">
   <link rel="stylesheet" href="css/copilot.css">
   <link rel="stylesheet" href="css/ingestion.css">
+  <link rel="stylesheet" href="css/vacancies.css">
 </head>
 <body>
 
@@ -73,7 +74,7 @@
               </svg>
             </div>
             <span class="nav-item-label">Biblioteca de Perfiles</span>
-            <span class="nav-item-badge badge-info">8 perfiles</span>
+            <span class="nav-item-badge badge-info" id="navTemplatesCountBadge">7 perfiles</span>
           </a>
 
           <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Abrir Convocatoria desde Plantilla Institucional">
@@ -101,7 +102,7 @@
               </svg>
             </div>
             <span class="nav-item-label">Carga & OCR</span>
-            <span class="nav-item-badge badge-emerald">482 CVs</span>
+            <span class="nav-item-badge badge-emerald" id="navCandidateCountBadge">482 CVs</span>
             <span class="nav-indicator-dot dot-emerald"></span>
           </a>
 
@@ -333,13 +334,13 @@
             </svg>
             Carga OCR
           </button>
-          <button class="btn btn-primary" onclick="alert('Exportando informe consolidado en formato Excel / PDF para Dirección de GTHC...')">
+          <button class="btn btn-primary" id="exportRankingBtn" type="button">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
               <polyline points="16 6 12 2 8 6"></polyline>
               <line x1="12" y1="2" x2="12" y2="15"></line>
             </svg>
-            Exportar Ranking
+            Exportar CSV
           </button>
         </div>
       </header>
@@ -347,8 +348,11 @@
       <!-- Workspace Content Body (Sub-navegación eliminida - consolidada en sidebar) -->
       <div class="workspace-content" id="workspaceContent">
 
-        <!-- VISTA 1: RANKING TOP-N (VISTA PRINCIPAL PREDETERMINADA) -->
-        <div class="view-container active" id="viewContainer_ranking">
+        <!-- CENTRO DE CONVOCATORIAS (INICIO) -->
+        <div class="view-container active" id="viewContainer_convocatorias"></div>
+
+        <!-- VISTA: RANKING TOP-N -->
+        <div class="view-container" id="viewContainer_ranking">
           <!-- A. Header & Summary Metrics -->
           <section class="kpi-grid">
             <!-- KPI 1: Lote Procesado -->
@@ -367,7 +371,7 @@
                 <span class="kpi-unit">CVs</span>
               </div>
               <div class="kpi-subtitle">
-                <span>Procesados vía OCR & Markdown</span>
+                <span>Registros de demostración</span>
               </div>
             </div>
 
@@ -514,7 +518,7 @@
               <span id="resultCountDisplay">Cargando postulantes evaluados...</span>
               <div class="batch-sync-indicator">
                 <span class="live-dot"></span>
-                <span>Motor Dual Conectado · Convocatoria activa sincronizada con GTHC</span>
+                <span>Resultados de demostración · Matching real pendiente</span>
               </div>
             </div>
           </section>
@@ -578,7 +582,7 @@
             <div class="copilot-header-info">
               <span class="copilot-title">ESA IA GTH Assistant</span>
               <span class="copilot-status">
-                <span class="live-dot"></span> Conectado a Base Centralizada
+                <span class="live-dot"></span> Asistente de demostración · Sin conexión IA
               </span>
             </div>
           </div>
@@ -594,8 +598,8 @@
         <div class="copilot-chips-section">
           <span class="copilot-chips-title">Consultas de Reclutamiento Rápidas</span>
           <div class="copilot-chips-list">
-            <button class="copilot-chip-btn" data-query="Dame los 3 mejores perfiles para Desarrollador de Software">
-              <span>✦</span> Dame los 3 mejores perfiles para Desarrollador
+            <button class="copilot-chip-btn" data-query="Dame los 3 mejores perfiles">
+              <span>✦</span> Dame los 3 mejores perfiles
             </button>
             <button class="copilot-chip-btn" data-query="¿Qué candidato del Top-N tiene mayor potencial en liderazgo?">
               <span>✦</span> ¿Qué candidato tiene mayor potencial en liderazgo?
@@ -618,7 +622,7 @@
               type="text" 
               class="copilot-text-input" 
               id="copilotTextInput" 
-              placeholder="Pregunta a la IA sobre candidatos, scores o brechas..." 
+              placeholder="Consulta los perfiles de demostración..." 
               autocomplete="off"
             />
             <button type="submit" class="copilot-send-btn" title="Enviar consulta" aria-label="Enviar mensaje a la IA">
@@ -632,7 +636,7 @@
 
         <!-- Disclaimer Notice Footer -->
         <div class="copilot-disclaimer">
-          La IA analiza y clasifica. La decisión final de contratación y avance corresponde al reclutador de GTHC.
+          Prototipo: respuestas basadas en datos de ejemplo. La decisión final siempre corresponde al equipo de GTHC.
         </div>
       </div>
     </aside>
@@ -997,6 +1001,7 @@
   </div>
 
   <!-- Main JavaScript App Entry Point -->
+  <div id="newJobWizardMount" class="wizard-overlay" aria-hidden="true"></div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

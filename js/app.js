@@ -10,6 +10,9 @@ import { TalentPoolViewController } from './talentPoolView.js';
 import { EffectivenessViewController } from './effectivenessView.js';
 import { ExecutiveDashboardController } from './executiveDashboard.js';
 import { ProfilesLibraryViewController } from './profilesLibraryView.js';
+import { VacanciesViewController } from './vacanciesView.js';
+import { NewJobWizard } from './newJobWizard.js';
+import { escapeHTML as esc } from './ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Core Components
@@ -59,6 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const profilesLibraryController = new ProfilesLibraryViewController(profilesLibraryContainerEl);
   window.profilesLibraryController = profilesLibraryController;
 
+  const wizard = new NewJobWizard(document.getElementById('newJobWizardMount'), () => switchView('convocatorias'));
+  profilesLibraryController.onStartNewJob = templateId => wizard.open(templateId);
+  const vacanciesController = new VacanciesViewController(document.getElementById('viewContainer_convocatorias'), {
+    onNewJob: () => wizard.open(),
+    onOpenJob: id => { appState.setActiveJobPosting(id); switchView('ranking'); }
+  });
+
   // 3. Global PDF CV opener
   window.openCandidateCV = (candId) => {
     appState.selectCandidate(candId);
@@ -81,10 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const kpiRoleMetricValue = document.getElementById('kpiRoleMetricValue');
 
   const categoryMeta = {
-    docente: { label: 'Convocatorias Docentes & Cátedras', icon: '🎓', count: 8 },
-    administrativo: { label: 'Convocatorias Administrativas & Gestión', icon: '💼', count: 5 },
-    operativo: { label: 'Convocatorias Operativas & Soporte', icon: '🔧', count: 3 },
-    directivo: { label: 'Convocatorias Directivas & Jefaturas', icon: '🏛️', count: 2 }
+    Docente: { label: 'Convocatorias Docentes & Cátedras', icon: '🎓' },
+    Administrativo: { label: 'Convocatorias Administrativas & Gestión', icon: '💼' },
+    Operativo: { label: 'Convocatorias Operativas & Soporte', icon: '🔧' },
+    Directivo: { label: 'Convocatorias Directivas & Jefaturas', icon: '🏛️' }
   };
 
   const renderJobDropdownOptions = () => {
@@ -107,11 +117,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="job-option-item ${isSelected ? 'selected' : ''}" data-job-id="${job.id}">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <div style="display: flex; align-items: center; gap: 6px;">
-                      <span class="role-badge role-${job.roleType}">${job.roleTypeName}</span>
-                      <span style="font-size: 11px; font-weight: 700; color: var(--text-tertiary);">${job.id}</span>
+                  <span class="role-badge role-${esc(job.roleType)}">${esc(job.roleTypeName)}</span>
+                      <span style="font-size: 11px; font-weight: 700; color: var(--text-tertiary);">${esc(job.id)}</span>
                     </div>
-                    <strong style="font-size: 13px; color: var(--text-main); margin-top: 2px;">${job.title}</strong>
-                    <span style="font-size: 11px; color: var(--text-secondary);">${job.department} • ${job.period}</span>
+                    <strong style="font-size: 13px; color: var(--text-main); margin-top: 2px;">${esc(job.title)}</strong>
+                    <span style="font-size: 11px; color: var(--text-secondary);">${esc(job.department)} • ${esc(job.period)}</span>
                   </div>
                   <div style="text-align: right; flex-shrink: 0;">
                     <span style="font-size: 13.5px; font-weight: 800; color: #2563EB;">${job.totalProcessed}</span>
@@ -135,6 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   renderJobDropdownOptions();
+  const jobsBadge = document.getElementById('navJobsCountBadge');
+  const templatesBadge = document.getElementById('navTemplatesCountBadge');
+  const candidateCountBadge = document.getElementById('navCandidateCountBadge');
+  const updateNavBadges = () => {
+    if (jobsBadge) jobsBadge.textContent = `${appState.jobPostings.filter(j => j.status !== 'Borrador').length} activas`;
+    if (templatesBadge) templatesBadge.textContent = `${appState.templates.length} perfiles`;
+  };
+  updateNavBadges();
 
   if (activeJobSelectorBtn && activeJobDropdownMenu) {
     activeJobSelectorBtn.addEventListener('click', (e) => {
@@ -151,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Update header and KPIs when job changes
   appState.subscribe((event, data) => {
+    if (event === 'jobs_changed') { renderJobDropdownOptions(); updateNavBadges(); }
     if (event === 'job_changed') {
       const job = data.jobPosting;
       if (headerRoleBadge) {
@@ -163,12 +182,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Update KPIs
       if (kpiProcessedCount) kpiProcessedCount.textContent = job.totalProcessed;
-      if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore;
+      if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore || '—';
+      if (candidateCountBadge) candidateCountBadge.textContent = `${appState.candidates.length} demo`;
 
       if (kpiRoleMetricLabel && job.roleMetrics) {
         kpiRoleMetricLabel.textContent = job.roleMetrics.metric1Label;
         kpiRoleMetricValue.textContent = job.roleMetrics.metric1Value;
       }
+
+      const topNField = document.getElementById('topNInput');
+      if (topNField) topNField.value = appState.topN;
+      const searchField = document.getElementById('tableSearchInput');
+      if (searchField) searchField.value = '';
+      const sourceField = document.getElementById('filterSourceSelect');
+      if (sourceField) sourceField.value = 'all';
+      const statusField = document.getElementById('filterStatusSelect');
+      if (statusField) statusField.value = 'all';
 
       renderJobDropdownOptions();
       dataGrid.render();
@@ -186,20 +215,21 @@ document.addEventListener('DOMContentLoaded', () => {
     appState.setUserRole(roleKey);
     const profile = appState.getUserRoleProfile();
 
-    if (userProfileAvatar) userProfileAvatar.querySelector('span').textContent = profile.avatar;
-    if (userProfileName) userProfileName.textContent = profile.name;
-    if (userProfileRole) userProfileRole.textContent = profile.roleTitle;
+    if (userProfileAvatar) userProfileAvatar.querySelector('span').textContent = profile.initials;
+    if (userProfileName) userProfileName.textContent = profile.userName;
+    if (userProfileRole) userProfileRole.textContent = profile.userRole;
 
     // Filter sidebar stages
     navSectionGroups.forEach(group => {
       const stage = group.getAttribute('data-stage');
-      const isAllowed = profile.allowedStages.includes(stage);
+      const isAllowed = profile.stages.includes(stage);
       group.style.display = isAllowed ? 'block' : 'none';
     });
 
     // Check if current view is allowed in this role
     const currentView = appState.currentView;
     const stageViewMap = {
+      convocatorias: ['convocatorias'],
       ranking: ['convocatorias', 'evaluacion'],
       profilesLibrary: ['convocatorias'],
       kanban: ['seleccion'],
@@ -210,11 +240,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const allowedViews = Object.entries(stageViewMap)
-      .filter(([_, stages]) => stages.some(s => profile.allowedStages.includes(s)))
+      .filter(([_, stages]) => stages.some(s => profile.stages.includes(s)))
       .map(([view]) => view);
 
     if (!allowedViews.includes(currentView)) {
-      switchView(profile.defaultView || 'ranking');
+      switchView('convocatorias');
     }
   };
 
@@ -228,13 +258,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
-  const switchView = (viewName) => {
-    appState.setCurrentView(viewName);
-
+  const renderCurrentView = (viewName) => {
     // Update Sidebar Navigation
     navItems.forEach(item => {
       const navTarget = item.getAttribute('data-nav') || item.getAttribute('data-target');
-      item.classList.toggle('active', navTarget === viewName || (viewName === 'ranking' && navTarget === 'convocatorias'));
+      item.classList.toggle('active', navTarget === viewName);
     });
 
     // Update View Containers
@@ -250,10 +278,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewName === 'effectiveness') effectivenessController.render();
     if (viewName === 'executive') executiveController.render();
     if (viewName === 'profilesLibrary') profilesLibraryController.render();
+    if (viewName === 'convocatorias') vacanciesController.render();
     if (viewName === 'ranking') dataGrid.render();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const switchView = viewName => {
+    if (!document.getElementById(`viewContainer_${viewName}`)) return;
+    if (appState.currentView === viewName) renderCurrentView(viewName);
+    else appState.setCurrentView(viewName);
+  };
+  appState.subscribe((event, data) => {
+    if (event === 'view_changed') renderCurrentView(data.viewName);
+  });
 
   // Sidebar navigation routing
   navItems.forEach(item => {
@@ -265,7 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
         batchIngestion.open();
       } else if (target === 'criteria') {
         criteriaModal.open();
-      } else if (target === 'new-job' || target === 'profilesLibrary') {
+      } else if (target === 'new-job') {
+        wizard.open();
+      } else if (target === 'profilesLibrary') {
         switchView('profilesLibrary');
       } else if (target === 'interviews_star') {
         switchView('ranking');
@@ -442,7 +482,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.getElementById('exportRankingBtn')?.addEventListener('click', () => {
+    const candidates = appState.getFilteredCandidates();
+    if (!candidates.length) {
+      alert('Esta convocatoria todavía no tiene candidatos para exportar.');
+      return;
+    }
+    const safeCell = value => {
+      const raw = String(value ?? '');
+      const neutralized = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+      return `"${neutralized.replace(/"/g, '""')}"`;
+    };
+    const rows = [['ID', 'Candidato', 'Puesto', 'Score', 'Etapa', 'Fuente'], ...candidates.map(c => [c.id, c.name, appState.jobPosting.title, c.score, c.stage, c.source])];
+    const csv = '\ufeff' + rows.map(row => row.map(safeCell).join(';')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ranking-${appState.activeJobPostingId}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
   // 12. Initial Render
-  dataGrid.render();
+  applyUserRole(appState.currentUserRole);
+  if (candidateCountBadge) candidateCountBadge.textContent = `${appState.candidates.length} demo`;
+  renderCurrentView(appState.currentView);
+  if (window.matchMedia('(max-width: 900px)').matches) copilot.collapse();
   console.log("TalentAI Enterprise Architecture initialized with Multi-Role support (GTHC · ESAN 2026).");
 });

@@ -4,6 +4,7 @@
    ========================================================================== */
 
 import { appState } from './state.js';
+import { escapeHTML as esc } from './ui.js';
 
 export class CopilotController {
   constructor(copilotContainerEl, floatingTriggerBtn) {
@@ -57,6 +58,9 @@ export class CopilotController {
     });
 
     appState.subscribe((event, data) => {
+      if (event === 'job_changed') {
+        this.appendMessage('assistant', `Convocatoria seleccionada: <strong>${esc(data.jobPosting.title)}</strong>. ${data.jobPosting.demo ? 'Esta vacante todavía no tiene CVs; el asistente solo muestra datos de demostración.' : 'Responderé con los perfiles de ejemplo asociados a esta vista.'}`);
+      }
       if (event === 'copilot_toggled') {
         if (data.collapsed) {
           this.copilotEl.classList.add('collapsed');
@@ -80,12 +84,7 @@ export class CopilotController {
   initInitialWelcome() {
     if (!this.chatFeed) return;
     
-    // Initial welcome message from AI
-    this.appendMessage('assistant', `
-      Hola Mariana, soy tu asistente de reclutamiento <strong>ESA IA GTH</strong>. He procesado los <strong>482 CVs</strong> de la convocatoria <em>Desarrollador de Software - Semestre 2026-II</em> mediante matching dual (ML + Embeddings LLM).
-      <br><br>
-      Puedes realizar consultas semánticas, solicitar justificaciones de puntaje o usar las sugerencias rápidas arriba.
-    `);
+    this.appendMessage('assistant', `Hola, soy <strong>ESA IA GTH</strong> en modo demostración. Puedes explorar los perfiles de ejemplo de <strong>${esc(appState.jobPosting.title)}</strong> con las sugerencias rápidas. La conexión con modelos de IA y la base de datos está pendiente.`);
   }
 
   appendMessage(role, htmlContent) {
@@ -115,7 +114,7 @@ export class CopilotController {
 
   sendMessage(text) {
     // Append user message
-    this.appendMessage('user', text);
+    this.appendMessage('user', esc(text));
 
     // Show typing placeholder
     const typingIndicator = document.createElement('div');
@@ -123,7 +122,7 @@ export class CopilotController {
     typingIndicator.id = 'copilotTyping';
     typingIndicator.innerHTML = `
       <div class="message-bubble" style="color: var(--text-tertiary); font-style: italic;">
-        Consultando base vectorial y criterios ponderados...
+        Consultando los datos de demostración...
       </div>
     `;
     this.chatFeed.appendChild(typingIndicator);
@@ -138,12 +137,16 @@ export class CopilotController {
 
   generateAIResponse(query) {
     const qLower = query.toLowerCase();
+    if (!appState.candidates.length) {
+      this.appendMessage('assistant', `Todavía no hay candidatos de demostración para <strong>${esc(appState.jobPosting.title)}</strong>. Cuando se conecte la carga de CVs, aquí aparecerán sus evaluaciones.`);
+      return;
+    }
 
     if (qLower.includes('3 mejores') || qLower.includes('mejores perfiles') || qLower.includes('top 3')) {
       const top3 = appState.candidates.slice(0, 3);
 
       const cardsHtml = `
-        A continuación, presento los <strong>3 perfiles con mayor compatibilidad ponderada</strong> para la vacante de Desarrollador de Software según los pesos institucionales (30% ML reglas + 70% Embeddings LLM):
+        Estos son los <strong>${top3.length} perfiles de ejemplo con mayor puntaje</strong> para ${esc(appState.jobPosting.title)}. Los puntajes provienen de datos de demostración:
         
         <div class="recommendation-cards-container">
           ${top3.map((cand, idx) => `
@@ -151,12 +154,12 @@ export class CopilotController {
               <div class="rec-card-header">
                 <div class="rec-candidate-info">
                   <span class="rec-rank-badge">#${idx + 1}</span>
-                  <span class="rec-name">${cand.name}</span>
+                  <span class="rec-name">${esc(cand.name)}</span>
                 </div>
                 <span class="rec-score-badge">${cand.score}/100</span>
               </div>
               <div class="rec-justification">
-                <strong>Justificación objetiva:</strong> ${cand.narrative.selectionReason.substring(0, 140)}...
+                <strong>Motivo de ejemplo:</strong> ${esc(cand.narrative.selectionReason.substring(0, 140))}...
               </div>
               <div class="rec-actions">
                 <button class="btn-rec-action" data-id="${cand.id}">
@@ -173,13 +176,13 @@ export class CopilotController {
     }
 
     if (qLower.includes('liderazgo') || qLower.includes('potencial en liderazgo')) {
-      const cand = appState.candidates.find(c => c.name === 'Carlos Mendoza') || appState.candidates[0];
+      const cand = appState.candidates.find(c => /liderazgo/i.test(c.narrative?.selectionReason || '')) || appState.candidates[0];
       this.appendMessage('assistant', `
-        Analizando la dimensión de liderazgo y gestión:
+        Revisión de los perfiles de ejemplo para esta convocatoria:
         <br><br>
-        El postulante con mayor solvencia comprobada es <strong>${cand.name}</strong> (Score: ${cand.score}/100), quien registra dirección de equipos ágiles de 14 ingenieros en banca y cuenta con experiencia previa impartiendo cátedra en ESAN.
+        <strong>${esc(cand.name)}</strong> figura con ${cand.score}/100. ${esc(cand.narrative?.selectionReason || 'Consulta su expediente para ver más detalles.')}
         <div style="margin-top: 8px;">
-          <button class="btn-rec-action" data-id="${cand.id}">Ver expediente de ${cand.name} →</button>
+          <button class="btn-rec-action" data-id="${esc(cand.id)}">Ver expediente de ${esc(cand.name)} →</button>
         </div>
       `);
       return;
@@ -190,19 +193,14 @@ export class CopilotController {
       this.appendMessage('assistant', `
         He identificado <strong>${transferable.length} candidatos destacados con Potencial Transferible</strong> bajo el Principio de Inclusión.
         <br><br>
-        Estos postulantes (como <em>Paul Ladern</em> o <em>Roberto Cáceres</em>) poseen competencias arquitectónicas avanzadas que compensan desviaciones menores de certificaciones formales.
-        <div style="margin-top: 8px;">
-          <button class="btn-rec-action" data-id="CAND-002">Examinar caso de Paul Ladern (83 pts) →</button>
-        </div>
+        ${transferable.length ? `Entre ellos: ${transferable.slice(0, 3).map(c => esc(c.name)).join(', ')}. Revisa sus expedientes antes de decidir.` : 'No hay perfiles marcados como transferibles en los datos de esta convocatoria.'}
       `);
       return;
     }
 
     // Default response
     this.appendMessage('assistant', `
-      He analizado tu consulta <em>"${query}"</em> contrastando la base de 482 candidatos con los criterios de la convocatoria.
-      <br><br>
-      Los filtros aplicados confirman que el <strong>Score Promedio del lote es de 74.2/100</strong>, cumpliendo con los estándares de rigor técnico de GTHC · ESAN.
+      La consulta <em>"${esc(query)}"</em> no coincide con una sugerencia disponible en este prototipo. Prueba «3 mejores perfiles», «liderazgo» o «potencial transferible». La consulta semántica estará disponible cuando se conecte la IA.
     `);
   }
 }

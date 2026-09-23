@@ -15,6 +15,11 @@ export class DataGridController {
   }
 
   initListeners() {
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.more-actions-dropdown-wrapper')) {
+        this.tableBody?.querySelectorAll('.more-actions-menu.show').forEach(menu => menu.classList.remove('show'));
+      }
+    });
     if (this.selectAllCheckbox) {
       this.selectAllCheckbox.addEventListener('change', (e) => {
         appState.toggleSelectAll(e.target.checked);
@@ -60,10 +65,10 @@ export class DataGridController {
     if (candidates.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="7" style="text-align: center; padding: 48px; color: var(--text-tertiary);">
+          <td colspan="6" style="text-align: center; padding: 48px; color: var(--text-tertiary);">
             <div style="font-size: 28px; margin-bottom: 8px;">🔍</div>
-            <div style="font-weight: 600; font-size: 15px; color: var(--text-main);">No se encontraron candidatos</div>
-            <p style="font-size: 12.5px; margin-top: 4px;">Intenta ajustar los términos de búsqueda o los filtros aplicados para esta convocatoria.</p>
+            <div style="font-weight: 600; font-size: 15px; color: var(--text-main);">${appState.candidates.length ? 'No se encontraron candidatos' : 'Aún no hay CVs en esta convocatoria'}</div>
+            <p style="font-size: 12.5px; margin-top: 4px;">${appState.candidates.length ? 'Prueba con otros términos de búsqueda o filtros.' : 'Esta vacante se creó como demostración. La recepción y el procesamiento real de CVs se integrarán más adelante.'}</p>
           </td>
         </tr>
       `;
@@ -94,12 +99,12 @@ export class DataGridController {
             <div class="candidate-cell">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0;">
                 ${this.renderPodiumBadge(candidate.rank, candidate.inTopN)}
-                <div class="cv-pdf-icon" title="Ver CV original en PDF" onclick="event.stopPropagation(); window.openCandidateCV ? window.openCandidateCV('${candidate.id}') : alert('Visualizando CV oficial de ${candidate.name}...')">
+                <div class="cv-pdf-icon" title="Ver CV extraído en la demo" onclick="event.stopPropagation(); window.openCandidateCV('${candidate.id}')">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
                   </svg>
-                  <span class="cv-pdf-text" style="font-size: 8.5px;">PDF</span>
+                  <span class="cv-pdf-text" style="font-size: 8.5px;">CV</span>
                 </div>
               </div>
 
@@ -368,15 +373,6 @@ export class DataGridController {
           menu.classList.toggle('show');
         }
       });
-    });
-
-    // Close any open actions menu when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.more-actions-dropdown-wrapper')) {
-        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
-          m.classList.remove('show');
-        });
-      }
     });
 
     // Compare Toggle
