@@ -12,7 +12,7 @@ import { ExecutiveDashboardController } from './executiveDashboard.js';
 import { ProfilesLibraryViewController } from './profilesLibraryView.js';
 import { VacanciesViewController } from './vacanciesView.js';
 import { NewJobWizard } from './newJobWizard.js';
-import { escapeHTML as esc } from './ui.js';
+import { escapeHTML as esc, notify } from './ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Core Components
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const profilesLibraryController = new ProfilesLibraryViewController(profilesLibraryContainerEl);
   window.profilesLibraryController = profilesLibraryController;
 
-  const wizard = new NewJobWizard(document.getElementById('newJobWizardMount'), () => switchView('convocatorias'));
+  const wizard = new NewJobWizard(document.getElementById('newJobWizardMount'), job => switchView(job.status === 'Borrador' ? 'convocatorias' : 'ranking'));
   profilesLibraryController.onStartNewJob = templateId => wizard.open(templateId);
   const vacanciesController = new VacanciesViewController(document.getElementById('viewContainer_convocatorias'), {
     onNewJob: () => wizard.open(),
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${jobs.map(job => {
               const isSelected = job.id === appState.activeJobPostingId;
               return `
-                <div class="job-option-item ${isSelected ? 'selected' : ''}" data-job-id="${job.id}">
+                <button type="button" class="job-option-item ${isSelected ? 'selected' : ''}" data-job-id="${esc(job.id)}">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <div style="display: flex; align-items: center; gap: 6px;">
                   <span class="role-badge role-${esc(job.roleType)}">${esc(job.roleTypeName)}</span>
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span style="font-size: 13.5px; font-weight: 800; color: #2563EB;">${job.totalProcessed}</span>
                     <div style="font-size: 10px; color: var(--text-tertiary);">CVs</div>
                   </div>
-                </div>
+                </button>
               `;
             }).join('')}
           </div>
@@ -170,8 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update header and KPIs when job changes
   appState.subscribe((event, data) => {
     if (event === 'jobs_changed') { renderJobDropdownOptions(); updateNavBadges(); }
-    if (event === 'job_changed') {
-      const job = data.jobPosting;
+    if (['job_changed','criteria_updated','candidates_updated','jobs_changed'].includes(event)) {
+      const job = appState.jobPosting;
       if (headerRoleBadge) {
         headerRoleBadge.className = `role-badge role-${job.roleType}`;
         headerRoleBadge.textContent = job.roleTypeName.toUpperCase();
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Update KPIs
       if (kpiProcessedCount) kpiProcessedCount.textContent = job.totalProcessed;
-      if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore || '—';
+      if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore ?? '—';
       if (candidateCountBadge) candidateCountBadge.textContent = `${appState.candidates.length} demo`;
 
       if (kpiRoleMetricLabel && job.roleMetrics) {
@@ -192,12 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const topNField = document.getElementById('topNInput');
       if (topNField) topNField.value = appState.topN;
+      if (event === 'job_changed') {
       const searchField = document.getElementById('tableSearchInput');
       if (searchField) searchField.value = '';
       const sourceField = document.getElementById('filterSourceSelect');
       if (sourceField) sourceField.value = 'all';
       const statusField = document.getElementById('filterStatusSelect');
       if (statusField) statusField.value = 'all';
+      }
 
       renderJobDropdownOptions();
       dataGrid.render();
@@ -233,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ranking: ['convocatorias', 'evaluacion'],
       profilesLibrary: ['convocatorias'],
       kanban: ['seleccion'],
-      comparison: ['evaluacion'],
+      comparison: ['evaluacion','seleccion'],
       talentPool: ['talento'],
       effectiveness: ['gobernanza'],
       executive: ['direccion']
@@ -243,6 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(([_, stages]) => stages.some(s => profile.stages.includes(s)))
       .map(([view]) => view);
 
+    document.getElementById('openIngestionBtn').disabled = !appState.can('ingestion');
+    ['topNInput','topNDecrementBtn','topNIncrementBtn'].forEach(id => { document.getElementById(id).disabled = !appState.can('selection'); });
+    document.getElementById('navNewJobBtn').setAttribute('aria-disabled', String(!appState.can('jobs')));
     if (!allowedViews.includes(currentView)) {
       switchView('convocatorias');
     }
@@ -279,13 +284,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewName === 'executive') executiveController.render();
     if (viewName === 'profilesLibrary') profilesLibraryController.render();
     if (viewName === 'convocatorias') vacanciesController.render();
-    if (viewName === 'ranking') dataGrid.render();
+    if (viewName === 'ranking') { dataGrid.scrollRegion.scrollTop = 0; dataGrid.render(); }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('.app-main').scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const switchView = viewName => {
-    if (!document.getElementById(`viewContainer_${viewName}`)) return;
+    if (!appState.canView(viewName) || !document.getElementById(`viewContainer_${viewName}`)) return;
     if (appState.currentView === viewName) renderCurrentView(viewName);
     else appState.setCurrentView(viewName);
   };
@@ -307,31 +312,17 @@ document.addEventListener('DOMContentLoaded', () => {
         wizard.open();
       } else if (target === 'profilesLibrary') {
         switchView('profilesLibrary');
-      } else if (target === 'interviews_star') {
+      } else if (target === 'interviews_star' || target === 'decisions') {
         switchView('ranking');
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('gaps');
-        }
-      } else if (target === 'decisions') {
-        switchView('ranking');
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('audit');
-        }
-      } else if (target === 'crossmatch') {
+        appState.setActiveDrawerTab(target === 'interviews_star' ? 'gaps' : 'audit');
+        notify('Selecciona un candidato para abrir su expediente.');      } else if (target === 'crossmatch') {
         switchView('talentPool');
       } else if (target === 'reports') {
-        alert('📊 Generando informe consolidado de cobertura institucional y contrataciones en formato PDF para Decanatura...');
+        switchView('executive');
+        notify('Puedes exportar el resumen de convocatorias en CSV.');
       } else if (target === 'audit') {
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('audit');
-        }
-      } else if (target) {
+        switchView('ranking'); appState.setActiveDrawerTab('audit');
+        notify('Selecciona una postulación para revisar su historial.');      } else if (target) {
         switchView(target);
       }
     });
@@ -353,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (dockAvatarGroup) {
         dockAvatarGroup.innerHTML = cands.map(c => `
-          <div class="dock-avatar" title="${c.name}">${c.name.split(' ').map(n=>n[0]).join('')}</div>
+          <div class="dock-avatar" title="${esc(c.name)}">${esc(c.name.split(' ').map(n=>n[0]).join(''))}</div>
         `).join('');
       }
 
@@ -490,10 +481,41 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
+  // Bookmarkable context. Back/forward restores the job, view and candidate.
+  let restoringRoute = false;
+  const writeRoute = () => {
+    if (restoringRoute) return;
+    const params = new URLSearchParams({ view: appState.currentView, job: appState.activeJobPostingId });
+    if (appState.selectedCandidateId) { params.set('candidate',appState.selectedCandidateId); params.set('tab',appState.activeDrawerTab); }
+    const hash = `#${params}`;
+    if (location.hash !== hash) history.pushState(null,'',hash);
+  };
+  const readRoute = () => {
+    const params = new URLSearchParams(location.hash.slice(1));
+    restoringRoute = true;
+    try {
+      if (params.get('job')) appState.setActiveJobPosting(params.get('job'));
+      switchView(appState.canView(params.get('view')) ? params.get('view') : 'convocatorias');
+      appState.setActiveDrawerTab(['explain','gaps','weights','cv','audit'].includes(params.get('tab')) ? params.get('tab') : 'explain');
+      appState.selectCandidate(appState.candidates.some(c=>c.id===params.get('candidate')) ? params.get('candidate') : null);
+    } finally { restoringRoute = false; }
+  };
+  window.addEventListener('popstate',readRoute);
+  window.addEventListener('hashchange',readRoute);
+  let routeWritePending = false;
+  appState.subscribe(event => {
+    if (restoringRoute || routeWritePending || !['view_changed','candidate_selected','drawer_tab_changed','job_changed'].includes(event)) return;
+    routeWritePending = true;
+    queueMicrotask(() => { routeWritePending = false; writeRoute(); });
+  });
+
   // 12. Initial Render
   applyUserRole(appState.currentUserRole);
   if (candidateCountBadge) candidateCountBadge.textContent = `${appState.candidates.length} demo`;
   renderCurrentView(appState.currentView);
-  if (window.matchMedia('(max-width: 900px)').matches) copilot.collapse();
+  appState.notify('job_changed', { jobPosting: appState.jobPosting });
+  copilot.collapse();
+  if (window.matchMedia('(max-width: 650px)').matches) toggleSidebar();
+  if(location.hash) readRoute(); else writeRoute();
   console.log("TalentAI Enterprise Architecture initialized with Multi-Role support (GTHC · ESAN 2026).");
 });

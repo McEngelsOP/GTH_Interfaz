@@ -1,0 +1,90 @@
+/* Review workspace: readable density, predictable controls and bounded lists. */
+[hidden] { display: none !important; }
+button:disabled { opacity: .48; cursor: not-allowed; }
+:is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid #356ab0; outline-offset: 3px; }
+.demo-note { color: #52677e; background: #f1f6fc; border-left: 3px solid #6c93c1; padding: 10px 14px; font-size: 12px; line-height: 1.6; margin: 12px 0; }
+.app-notice { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000; width: max-content; max-width: min(600px,90vw); padding: 14px 20px; border-radius: 10px; background: #142b49; color: #fff; box-shadow: 0 6px 24px #142b4933; font-size: 13px; }
+.review-actions, .review-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.review-toolbar { padding: 14px; background: #fff; border: 1px solid var(--border-light); border-radius: 10px; }
+.review-toolbar label, .review-picker label, .kanban-header-bar label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; min-width: 190px; }
+.review-toolbar input, .review-toolbar select, .review-picker input, .kanban-header-bar input, .weight-input { width: 100%; min-height: 36px; border: 1px solid #ccd8e6; border-radius: 6px; padding: 7px 10px; color: #1c3553; background: white; font: inherit; }
+.weight-input { margin-top: 8px; max-width: 120px; }
+.criteria-weight-item { display: flex; flex-direction: column; align-items: flex-start; font-size: 13px; }
+.review-picker { padding: 16px; border-bottom: 1px solid var(--border-light); }
+.candidate-picker { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 6px; margin-top: 10px; max-height: 170px; overflow-y: auto; }
+.picker-candidate { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #dbe4ee; background: #f8fafc; border-radius: 6px; font-size: 12px; color: #1b395b; text-align: left; }
+.comparison-view-header, .kanban-header-bar, .talent-pool-header, .executive-header { flex-wrap: wrap; gap: 14px; }
+.comparison-matrix-table { min-width: 620px; }
+.comparison-matrix-table td, .comparison-matrix-table th { overflow-wrap: anywhere; }
+.comparison-view-card > .ranking-empty { padding: 36px 20px; text-align: center; }
+.talent-results-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 12px; }
+.talent-card { padding: 16px; border-left: 3px solid #4079bd; border-radius: 9px; background: white; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
+.talent-card h3 { font-size: 15px; margin: 0 0 4px; }.talent-card p { font-size: 12px; line-height: 1.5; margin: 8px 0; }.talent-card header span { font-size: 11px; color: #63758b; }
+#kanbanBoard { display: flex; overflow-x: auto; align-items: flex-start; gap: 12px; padding-bottom: 12px; }
+#kanbanBoard .kanban-column { width: 245px; min-width: 245px; }
+#kanbanBoard .kanban-cards-list { max-height: 65vh; overflow-y: auto; }
+#kanbanBoard .kanban-card { padding: 12px; }
+.kanban-card-title { display: block; border: 0; background: none; text-align: left; color: #193451; font: 650 13px var(--font-body); padding: 5px 0; cursor: pointer; }
+.kanban-card-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-option-item { width: 100%; font: inherit; text-align: left; background: none; }
+.vacancies-hero { min-height: 0; padding: 24px; background: #fff; color: #142c49; border-radius: 8px; box-shadow: none; border-left: 4px solid #be1646; }
+.vacancies-hero::before, .vacancies-hero::after { display: none; }
+.vacancies-hero-copy { max-width: none; }
+.vacancies-hero h1 { font-size: 26px; color: #142c49; margin: 8px 0; }
+.vacancies-hero p, .vacancies-eyebrow { color: #586981; }
+.vacancies-hero .btn-hero { background: #142c49; color: #fff; }
+.nav-item-text { white-space: normal; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); overflow: visible; }
+.kpi-card { min-width: 0; border-radius: 8px; }
+.drawer-candidate-meta, .drawer-title-group { min-width: 0; }
+.drawer-candidate-sub { display: block; overflow-wrap: anywhere; }
+.drawer-candidate-sub > span { display: block; }
+.drawer-candidate-sub > span:nth-child(2) { display: none; }
+.drawer-header-actions { flex-shrink: 0; }
+.audit-drawer { height: 100dvh; }
+@media (max-width: 650px) {
+  .kpi-card { padding: 12px; min-height: 124px; }
+  .kpi-header { gap: 4px; flex-wrap: wrap; }
+  .kpi-icon-wrapper { display: none; }
+  .kpi-label { font-size: 11px; }
+  .kpi-value { font-size: 26px; }
+  .kpi-value-row { flex-wrap: wrap; gap: 4px; }
+  .kpi-subtitle { font-size: 10px; }
+  .audit-drawer { width: 100%; max-width: 100%; }
+  .drawer-header { padding: 12px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+  .drawer-avatar { display: none; }
+  .drawer-candidate-name { font-size: 16px; overflow-wrap: anywhere; }
+  .drawer-candidate-sub { font-size: 11px; }
+  .drawer-header-actions { flex-direction: column-reverse; align-items: flex-end; gap: 8px; }
+  .drawer-body { padding: 12px; }
+  .drawer-footer { padding: 12px; gap: 8px; }
+  .drawer-footer .btn { flex: 1 1 130px; font-size: 11px; }
+}
+.safe-cv { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 var(--font-body); }
+.gap-detail, .audit-entry { margin: 10px 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 13px; line-height: 1.6; }
+.drawer-card h4 { margin: 14px 0 8px; }.drawer-card p { font-size: 13px; line-height: 1.6; }
+progress { width: 100%; height: 10px; accent-color: #377aba; }.batch-steps { padding-left: 24px; line-height: 2; }
+.profile-details-box summary { cursor: pointer; font-size: 12px; font-weight: 600; padding: 8px 0; }
+#viewContainer_ranking .candidate-table .col-candidate { width: auto; }
+#viewContainer_ranking .candidate-name { font-size: 13px; min-width: 90px; }
+#viewContainer_ranking .candidate-role-org { font-size: 11.5px; }
+#viewContainer_ranking .stage-pill { font-size: 10px; max-width: 110px; }
+#viewContainer_ranking .candidate-cv-link { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 26px; font-size: 10px; }
+#viewContainer_ranking .meta-icon { font-size: 10px; width: 18px; height: 18px; }
+#viewContainer_ranking .candidate-table .col-actions { width: 122px; }
+#viewContainer_ranking .candidate-actions-cell { position: sticky; right: 0; background: #fff; box-shadow: -2px 0 3px #dbe4ef44; z-index: 2; }
+#viewContainer_ranking .in-top-n .candidate-actions-cell { background: #eff6ff; }
+#viewContainer_ranking .col-actions { right: 0; z-index: 6; }
+#viewContainer_ranking .candidate-primary-cell { position: sticky; left: 0; z-index: 1; background: #fff; }
+#viewContainer_ranking .in-top-n .candidate-primary-cell { background: #eff6ff; }
+.pill-unknown, .requirement-status-mark.unknown { background: #94a3b8; }
+.gap-unknown, .score-pending { background: #edf2f7; color: #63758b; }
+.score-pending { display: flex; align-items: center; justify-content: center; border: 1px dashed #aab8c8; border-radius: 50%; }
+.stage-liberado { background: #f1f1f3; color: #696779; }
+@media (max-width: 650px) {
+  #viewContainer_ranking .candidate-actions-cell { position: static; }
+  #viewContainer_ranking .col-actions { right: auto; }
+}
+@media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.workspace-header { flex-wrap: wrap; }.comparison-view-header { padding: 16px; } }
+@media (max-width: 650px) { .workspace-header { padding: 10px; }.workspace-content { padding: 10px; }.talent-results-grid { grid-template-columns: 1fr; }#viewContainer_ranking .candidate-table { min-width: 1020px; }#viewContainer_ranking .candidate-primary-cell { position: static; }.criteria-weights-grid { grid-template-columns: 1fr; }.drawer-footer { flex-wrap: wrap; }.review-actions .btn { font-size: 12px; }.kpi-grid { gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

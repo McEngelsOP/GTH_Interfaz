@@ -1,233 +1,52 @@
-/* ==========================================================================
-   TalentAI - GTHC · ESAN
-   Criteria & Weights Configuration Modal Controller (con Simulador Reactivo)
-   ========================================================================== */
-
 import { appState } from './state.js';
+import { escapeHTML as esc, openDialog, closeDialog, notify } from './ui.js';
+import { validateWeights } from './domain.js';
 
 export class CriteriaModalController {
-  constructor(backdropEl, modalEl) {
-    this.backdrop = backdropEl;
-    this.modal = modalEl;
-
-    this.initElements();
-    this.initListeners();
-  }
-
-  initElements() {
-    this.closeBtn = this.modal.querySelector('#criteriaCloseBtn');
-    this.cancelBtn = this.modal.querySelector('#cancelCriteriaBtn');
-    this.saveBtn = this.modal.querySelector('#saveCriteriaBtn');
-    this.resetBtn = this.modal.querySelector('#resetCriteriaBtn');
-
-    // Dual Engine Sliders
-    this.mlDualSlider = this.modal.querySelector('#mlDualSlider');
-    this.mlDualBadge = this.modal.querySelector('#mlDualBadge');
-    this.llmDualSlider = this.modal.querySelector('#llmDualSlider');
-    this.llmDualBadge = this.modal.querySelector('#llmDualBadge');
-
-    // Variables Sliders
-    this.sliderExp = this.modal.querySelector('#sliderWeightExp');
-    this.valExp = this.modal.querySelector('#valWeightExp');
-
-    this.sliderSem = this.modal.querySelector('#sliderWeightSem');
-    this.valSem = this.modal.querySelector('#valWeightSem');
-
-    this.sliderTech = this.modal.querySelector('#sliderWeightTech');
-    this.valTech = this.modal.querySelector('#valWeightTech');
-
-    this.sliderTeach = this.modal.querySelector('#sliderWeightTeach');
-    this.valTeach = this.modal.querySelector('#valWeightTeach');
-
-    this.sliderPref = this.modal.querySelector('#sliderWeightPref');
-    this.valPref = this.modal.querySelector('#valWeightPref');
-
-    this.balanceBar = this.modal.querySelector('#weightsBalanceBar');
-    this.checkInclusion = this.modal.querySelector('#checkInclusionEnable');
-
-    // Simulator mount
-    this.simulatorMount = this.modal.querySelector('#simulatorResultsListMount');
-  }
-
-  initListeners() {
-    // Open/Close
-    if (this.closeBtn) this.closeBtn.addEventListener('click', () => this.close());
-    if (this.cancelBtn) this.cancelBtn.addEventListener('click', () => this.close());
-    if (this.backdrop) {
-      this.backdrop.addEventListener('click', (e) => {
-        if (e.target === this.backdrop) this.close();
-      });
-    }
-
-    // Dual Engine Balance synchronization
-    if (this.mlDualSlider && this.llmDualSlider) {
-      this.mlDualSlider.addEventListener('input', (e) => {
-        const mlVal = parseInt(e.target.value, 10);
-        const llmVal = 100 - mlVal;
-        this.llmDualSlider.value = llmVal;
-        this.mlDualBadge.textContent = `${mlVal}%`;
-        this.llmDualBadge.textContent = `${llmVal}%`;
-      });
-
-      this.llmDualSlider.addEventListener('input', (e) => {
-        const llmVal = parseInt(e.target.value, 10);
-        const mlVal = 100 - llmVal;
-        this.mlDualSlider.value = mlVal;
-        this.llmDualBadge.textContent = `${llmVal}%`;
-        this.mlDualBadge.textContent = `${mlVal}%`;
-      });
-    }
-
-    // Specific Variables Listeners with Simulator Trigger
-    const variableSliders = [
-      { slider: this.sliderExp, val: this.valExp, name: 'Experiencia' },
-      { slider: this.sliderSem, val: this.valSem, name: 'Similitud Semántica' },
-      { slider: this.sliderTech, val: this.valTech, name: 'Stack Técnico' },
-      { slider: this.sliderTeach, val: this.valTeach, name: 'Docencia' },
-      { slider: this.sliderPref, val: this.valPref, name: 'Preferentes' }
-    ];
-
-    variableSliders.forEach(item => {
-      if (item.slider) {
-        item.slider.addEventListener('input', (e) => {
-          const v = parseInt(e.target.value, 10);
-          if (item.val) item.val.textContent = `${v} pts (${v}%)`;
-          this.updateBalanceValidation();
-          this.updateSimulation();
-        });
-      }
+  constructor(backdrop, modal) {
+    this.backdrop = backdrop; this.modal = modal;
+    backdrop.addEventListener('click', e => { if (e.target === backdrop) this.close(); });
+    modal.addEventListener('keydown', e => { if (e.key === 'Escape') this.close(); });
+    modal.addEventListener('click', e => {
+      const action = e.target.closest('[data-criteria-action]')?.dataset.criteriaAction;
+      if (action === 'close') this.close();
+      if (action === 'reset') { this.weights = structuredClone(this.original); this.render(); }
+      if (action === 'save') this.save();
     });
-
-    // Reset Defaults
-    if (this.resetBtn) {
-      this.resetBtn.addEventListener('click', () => {
-        this.resetToDefaults();
-      });
-    }
-
-    // Save & Recalculate
-    if (this.saveBtn) {
-      this.saveBtn.addEventListener('click', () => {
-        this.saveAndRecalculate();
-      });
-    }
+    modal.addEventListener('input', e => {
+      if (!e.target.matches('[data-weight]')) return;
+      this.weights[Number(e.target.dataset.weight)].weightPct = Number(e.target.value);
+      this.preview();
+    });
+    appState.subscribe(event => { if (['job_changed','role_changed'].includes(event)) this.close(); });
   }
-
-  updateSimulation() {
-    if (!this.simulatorMount) return;
-    const weights = {
-      exp: parseInt(this.sliderExp.value, 10) || 30,
-      sem: parseInt(this.sliderSem.value, 10) || 30,
-      tech: parseInt(this.sliderTech.value, 10) || 20,
-      teach: parseInt(this.sliderTeach.value, 10) || 10,
-      pref: parseInt(this.sliderPref.value, 10) || 10
-    };
-
-    const simulated = appState.simulateWeightsImpact(weights);
-    const topSim = simulated.slice(0, 5);
-
-    this.simulatorMount.innerHTML = topSim.map(item => {
-      let deltaBadge = '<span class="sim-delta equal">= Mantiene posición</span>';
-      if (item.rankDelta > 0) {
-        deltaBadge = `<span class="sim-delta up">↑ +${item.rankDelta} posiciones</span>`;
-      } else if (item.rankDelta < 0) {
-        deltaBadge = `<span class="sim-delta down">↓ ${item.rankDelta} posición${Math.abs(item.rankDelta) > 1 ? 'es' : ''}</span>`;
-      }
-
-      return `
-        <div class="sim-candidate-row">
-          <div class="sim-cand-info">
-            <span class="sim-cand-rank">#${item.simulatedRank}</span>
-            <div style="display: flex; flex-direction: column;">
-              <span class="sim-cand-name">${item.name}</span>
-              <span class="sim-cand-sub">${item.role} • ${item.company}</span>
-            </div>
-          </div>
-          <div class="sim-cand-scores">
-            <span class="sim-cand-score-tag">Score: ${item.currentScore} → <strong>${item.simulatedScore} pts</strong></span>
-            ${deltaBadge}
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  updateBalanceValidation() {
-    const total = 
-      parseInt(this.sliderExp.value, 10) +
-      parseInt(this.sliderSem.value, 10) +
-      parseInt(this.sliderTech.value, 10) +
-      parseInt(this.sliderTeach.value, 10) +
-      parseInt(this.sliderPref.value, 10);
-
-    if (total === 100) {
-      this.balanceBar.className = 'balance-status-bar';
-      this.balanceBar.innerHTML = `✓ Suma de variables: 100 pts (Balance Óptimo)`;
-      this.saveBtn.disabled = false;
-    } else {
-      this.balanceBar.className = 'balance-status-bar invalid';
-      this.balanceBar.innerHTML = `⚠ Suma actual: ${total} pts (Debe sumar exactamente 100 pts)`;
-      this.saveBtn.disabled = true;
-    }
-  }
-
-  resetToDefaults() {
-    this.mlDualSlider.value = 30;
-    this.llmDualSlider.value = 70;
-    this.mlDualBadge.textContent = '30%';
-    this.llmDualBadge.textContent = '70%';
-
-    this.sliderExp.value = 30;
-    this.valExp.textContent = '30 pts (30%)';
-
-    this.sliderSem.value = 30;
-    this.valSem.textContent = '30 pts (30%)';
-
-    this.sliderTech.value = 20;
-    this.valTech.textContent = '20 pts (20%)';
-
-    this.sliderTeach.value = 10;
-    this.valTeach.textContent = '10 pts (10%)';
-
-    this.sliderPref.value = 10;
-    this.valPref.textContent = '10 pts (10%)';
-
-    this.checkInclusion.checked = true;
-    this.updateBalanceValidation();
-    this.updateSimulation();
-  }
-
-  saveAndRecalculate() {
-    this.saveBtn.disabled = true;
-    this.saveBtn.textContent = 'Recalculando scoring dual...';
-
-    setTimeout(() => {
-      // Update criteria version in state
-      appState.jobPosting.criteriaVersion = 'v2.5 (Ponderación Personalizada GTHC)';
-
-      // Trigger recalculation notification
-      appState.notify('criteria_updated', {
-        mlWeight: parseInt(this.mlDualSlider.value, 10),
-        llmWeight: parseInt(this.llmDualSlider.value, 10),
-        inclusion: this.checkInclusion.checked
-      });
-
-      this.saveBtn.disabled = false;
-      this.saveBtn.textContent = 'Guardar y Re-calcular Ranking';
-      this.close();
-
-      alert('✅ ¡Criterios y Pesos guardados con éxito! Se ha recalculado la matriz de scoring dual (v2.5) para los postulantes.');
-    }, 600);
-  }
-
   open() {
-    this.backdrop.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    this.updateSimulation();
+    if (!appState.can('criteria')) { notify('Selecciona un rol de coordinación o administración para editar criterios.', true); return; }
+    this.jobId = appState.activeJobPostingId;
+    this.original = structuredClone(appState.jobPosting.weights);
+    this.weights = structuredClone(this.original);
+    this.render(); this.backdrop.classList.add('active'); openDialog(this.backdrop,this.modal);
   }
-
-  close() {
-    this.backdrop.classList.remove('active');
-    document.body.style.overflow = '';
+  close() { this.backdrop.classList.remove('active'); closeDialog(this.backdrop); }
+  render() {
+    this.modal.innerHTML = `<header class="modal-header"><div><h3 id="criteriaModalTitle">Criterios y pesos</h3><p>${esc(appState.jobPosting.title)}</p></div><button class="btn btn-ghost" data-criteria-action="close" aria-label="Cerrar criterios">×</button></header>
+      <div class="modal-body"><p class="demo-note">Simulación: repondera evidencias ficticias. Cada cambio conserva la evaluación anterior. Los criterios sin evidencia quedan pendientes.</p>
+      <div class="criteria-weights-grid">${this.weights.map((w,i) => `<label class="criteria-weight-item">${esc(w.label)} <small>${esc(w.type)}</small><input class="weight-input" type="number" min="0" max="100" step="1" data-weight="${i}" value="${w.weightPct}" aria-label="Peso de ${esc(w.label)}"></label>`).join('')}</div>
+      <p id="criteriaBalance" role="status"></p><h4>Vista previa del ranking</h4><div id="criteriaPreview"></div></div>
+      <footer class="modal-footer"><button class="btn btn-secondary" data-criteria-action="reset">Restablecer</button><button class="btn btn-ghost" data-criteria-action="close">Cancelar</button><button class="btn btn-primary" data-criteria-action="save">Guardar y recalcular demo</button></footer>`;
+    this.preview();
+  }
+  preview() {
+    const balance = this.modal.querySelector('#criteriaBalance');
+    const save = this.modal.querySelector('[data-criteria-action="save"]');
+    try {
+      validateWeights(this.weights); balance.textContent = 'Total: 100 %'; save.disabled = false;
+      const results = appState.simulateWeightsImpact(this.weights).slice(0,5);
+      this.modal.querySelector('#criteriaPreview').innerHTML = results.length ? results.map(c => `<div class="sim-candidate-row"><strong>${esc(c.name)}</strong><span>${c.currentScore ?? 'Pendiente'} → ${c.simulatedScore ?? 'Pendiente'}</span></div>`).join('') : '<p class="empty-copy">No hay candidatos. Se guardarán los criterios para esta convocatoria.</p>';
+    } catch (e) { balance.textContent = e.message; save.disabled = true; this.modal.querySelector('#criteriaPreview').textContent = 'Ajusta los pesos para calcular la vista previa.'; }
+  }
+  save() {
+    try { appState.applyCriteria(this.jobId,this.weights); this.close(); notify('Criterios guardados. Ranking de demostración recalculado.'); }
+    catch (error) { notify(error.message,true); }
   }
 }

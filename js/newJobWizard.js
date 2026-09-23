@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { escapeHTML as esc } from './ui.js';
+import { escapeHTML as esc, openDialog, closeDialog, notify } from './ui.js';
 
 const fallbackCriteria = [
   { label: 'Experiencia relevante', weightPct: 30, type: 'ML' },
@@ -18,7 +18,7 @@ export class NewJobWizard {
       if (e.target === this.mount || e.target.closest('[data-wizard="close"]')) return this.close();
       const action = e.target.closest('[data-wizard]')?.dataset.wizard;
       if (action === 'next') this.next();
-      if (action === 'back') { this.step--; this.render(); }
+      if (action === 'back') { this.capture(); this.step--; this.render(); }
       if (action === 'draft') this.finish(false);
       if (action === 'activate') this.finish(true);
     });
@@ -30,6 +30,7 @@ export class NewJobWizard {
   }
 
   open(templateId = '') {
+    if (!appState.can('jobs')) { notify('Este rol tiene acceso de consulta.',true); return; }
     this.returnFocus = document.activeElement;
     this.step = 1;
     this.draft = { templateId, roleType: '' };
@@ -43,6 +44,7 @@ export class NewJobWizard {
   close() {
     this.mount.classList.remove('show');
     this.mount.setAttribute('aria-hidden', 'true');
+    closeDialog(this.mount);
     this.mount.innerHTML = '';
     this.returnFocus?.focus?.();
   }
@@ -65,6 +67,7 @@ export class NewJobWizard {
   }
 
   render() {
+    closeDialog(this.mount);
     const d = this.draft;
     const labels = ['Perfil', 'Datos', 'Criterios', 'Revisión'];
     const body = this.step === 1 ? `
@@ -104,6 +107,17 @@ export class NewJobWizard {
         <div>${this.step === 4 ? '<button type="button" class="btn btn-secondary" data-wizard="draft">Guardar borrador</button><button type="button" class="btn btn-primary" data-wizard="activate">Activar convocatoria</button>' : '<button type="button" class="btn btn-primary" data-wizard="next">Continuar →</button>'}</div></footer>
     </section>`;
     if (this.step === 3) this.showWeightTotal();
+    if (this.mount.classList.contains('show')) openDialog(this.mount,this.mount.querySelector('.wizard-dialog'));
+  }
+
+  capture() {
+    if (this.step === 2) Object.assign(this.draft,Object.fromEntries([...this.mount.querySelectorAll('.wizard-body [name]')].map(el=>[el.name,el.value])));
+    if (this.step === 3) {
+      const labels=[...this.mount.querySelectorAll('[name="weightLabel"]')];
+      const values=[...this.mount.querySelectorAll('[name="weightPct"]')];
+      this.draft.weights=labels.map((el,i)=>({...this.draft.weights[i],label:el.value,weightPct:Number(values[i].value)}));
+      this.draft.knockoutRule=this.mount.querySelector('[name="knockoutRule"]').value;
+    }
   }
 
   showError(message) {

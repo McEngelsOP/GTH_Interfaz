@@ -88,9 +88,9 @@ test('ordenar por nombre o puntaje ascendente no altera ranking ni Top-N', () =>
   const state = new appState.constructor();
   state.topN = 2;
   state.candidates = [
-    { id: 'c', name: 'Zoe', score: 98 },
-    { id: 'b', name: 'Beto', score: 87 },
-    { id: 'a', name: 'Ana', score: 72 }
+    { id: 'c', name: 'Zoe', score: 98, knockoutMet: true },
+    { id: 'b', name: 'Beto', score: 87, knockoutMet: true },
+    { id: 'a', name: 'Ana', score: 72, knockoutMet: true }
   ];
   state.updateTopNFlags();
   state.toggleSort('name');

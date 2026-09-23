@@ -4,7 +4,8 @@
    ========================================================================== */
 
 import { appState } from './state.js';
-import { escapeHTML as esc } from './ui.js';
+import { escapeHTML as esc, notify } from './ui.js';
+import { normalizeCandidate, isEligible } from './domain.js';
 import { getVirtualWindow, paginateCandidates } from './pagination.js';
 
 export class DataGridController {
@@ -70,6 +71,7 @@ export class DataGridController {
         if (this.scrollRegion) this.scrollRegion.scrollTop = 0;
       }
       if ([
+        'criteria_updated', 'candidates_updated', 'role_changed',
         'topN_changed',
         'filter_changed',
         'sort_changed',
@@ -143,8 +145,11 @@ export class DataGridController {
     const candidates = this.pageCandidates.slice(start, end);
     const topSpacer = this.renderSpacer(start * this.getRowHeight());
     const bottomSpacer = this.renderSpacer((this.pageCandidates.length - end) * this.getRowHeight());
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    const focus = active && this.tableBody.contains?.(active) ? { id: active.dataset.id, action: active.dataset.action, checkbox: active.matches?.('.row-select-checkbox') } : null;
     this.tableBody.innerHTML = `${topSpacer}${candidates.map((candidate, index) => this.renderCandidateRow(candidate, start + index)).join('')}${bottomSpacer}`;
     this.bindRowEvents();
+    if (focus) [...this.tableBody.querySelectorAll('[data-id]')].find(el => el.dataset.id === focus.id && (focus.checkbox ? el.matches('.row-select-checkbox') : el.dataset.action === focus.action))?.focus({ preventScroll: true });
   }
 
   renderSpacer(height) {
@@ -154,6 +159,8 @@ export class DataGridController {
   }
 
   renderCandidateRow(candidate, rowOffset = 0) {
+    candidate = { ...normalizeCandidate(candidate, appState.activeJobPostingId), rank: candidate.rank, inTopN: candidate.inTopN };
+    const scoreLabel = Number.isFinite(candidate.score) ? `${candidate.score}/100` : 'Evaluación pendiente';
     const isSelected = appState.selectedRows.has(candidate.id);
     const inComparison = appState.comparisonPool.has(candidate.id);
     const isActiveRow = appState.selectedCandidateId === candidate.id;
@@ -164,7 +171,7 @@ export class DataGridController {
 
     return `
       <tr class="candidate-row ${rowTopNClass} ${activeClass}" data-id="${esc(candidate.id)}" aria-rowindex="${this.pageFirst + rowOffset + 1}" tabindex="0" aria-label="Abrir expediente de ${esc(candidate.name)}">
-        <td class="candidate-select-cell" onclick="event.stopPropagation()">
+        <td class="candidate-select-cell">
           <input type="checkbox" class="custom-checkbox row-select-checkbox" data-id="${esc(candidate.id)}" aria-label="Seleccionar a ${esc(candidate.name)}" ${isSelected ? 'checked' : ''} />
         </td>
 
@@ -187,8 +194,8 @@ export class DataGridController {
 
         <td class="requirements-cell">
           <button type="button" class="requirements-summary" data-action="requirements" data-id="${esc(candidate.id)}" aria-label="Revisar requisitos de ${esc(candidate.name)}: ${mandatoryCount} de ${candidate.mandatoryReqs.length} cumplen">
-            <span class="pills-row">
-              ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${esc(req.status)}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : 'no cumple'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
+            <span class="pills-row">${!candidate.mandatoryReqs.length ? '<span title="Requisitos pendientes">—</span>' : ''}
+              ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${esc(req.status)}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : req.status === 'red' ? 'no cumple' : 'sin verificar'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
             </span>
           </button>
         </td>
@@ -196,14 +203,14 @@ export class DataGridController {
         <td class="candidate-gap-cell">${this.renderGapsSummary(candidate)}</td>
 
         <td class="candidate-score-cell">
-          <div class="score-summary" role="img" aria-label="${candidate.score} de 100 puntos" title="${candidate.score}/100 · ${candidate.score >= 85 ? 'Sobresaliente' : candidate.score >= 75 ? 'Ajuste alto' : 'Abre el expediente para ver el detalle'}">
+          <div class="score-summary" role="img" aria-label="${esc(scoreLabel)}" title="${esc(scoreLabel)}">
             ${this.renderCircularScore(candidate.score)}
           </div>
         </td>
 
-        <td class="candidate-actions-cell" onclick="event.stopPropagation()">
+        <td class="candidate-actions-cell">
           <div class="row-actions-cluster">
-            <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar etapa en el pipeline Kanban">Avanzar</button>
+            <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar etapa tras verificar elegibilidad" ${!appState.can('selection') || !isEligible(candidate) || candidate.stage === 'contratado' ? 'disabled' : ''}>Avanzar</button>
             <div class="more-actions-dropdown-wrapper">
               <button class="btn-more-actions" data-action="toggle-menu" data-id="${esc(candidate.id)}" title="Más acciones de selección" aria-label="Más acciones para ${esc(candidate.name)}" aria-expanded="false">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
@@ -212,9 +219,9 @@ export class DataGridController {
                 <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}"><span class="action-icon">⚖️</span><span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span></button>
                 <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}"><span class="action-icon">👥</span><span>Guardar en Banco</span></button>
                 <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">📋</span><span>Ver expediente & auditoría</span></button>
-                <button class="more-action-item" data-action="star" data-id="${esc(candidate.id)}"><span class="action-icon">🪄</span><span>Generar entrevista STAR</span></button>
+                <button class="more-action-item" data-action="star" data-id="${esc(candidate.id)}"><span class="action-icon">🪄</span><span>Ver guía de entrevista</span></button>
                 <div class="more-action-divider"></div>
-                <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}"><span class="action-icon">📨</span><span>Liberar y notificar</span></button>
+                <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}" ${!appState.can('selection') || ['contratado','liberado'].includes(candidate.stage) ? 'disabled' : ''}><span class="action-icon">📨</span><span>Liberar postulación</span></button>
               </div>
             </div>
           </div>
@@ -291,9 +298,10 @@ export class DataGridController {
   }
 
   renderGapsSummary(candidate) {
-    const levels = { none: 0, low: 1, medium: 2, high: 3 };
+    const levels = { none: 0, low: 1, medium: 2, unknown: 3, high: 4 };
     const gap = [...(candidate.gaps || [])].sort((a, b) => (levels[b.severity] || 0) - (levels[a.severity] || 0))[0];
-    if (!gap || gap.severity === 'none') {
+    if (!gap || gap.severity === 'unknown') return `<button type="button" class="gap-indicator gap-unknown" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="Brechas pendientes de evaluar" title="Brechas pendientes de evaluar">?</button>`;
+    if (gap.severity === 'none') {
       return `<button type="button" class="gap-indicator gap-none" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="${esc(candidate.name)}: sin brechas críticas" title="Sin brechas críticas. Abrir detalle"><span aria-hidden="true">✓</span></button>`;
     }
     const severity = ['high', 'medium', 'low'].includes(gap.severity) ? gap.severity : 'low';
@@ -312,6 +320,7 @@ export class DataGridController {
       case 'evaluacion': return 'Evaluación';
       case 'oferta': return 'Oferta';
       case 'contratado': return 'Contratado';
+      case 'liberado': return 'Liberado';
       default: return esc(stage);
     }
   }
@@ -339,6 +348,7 @@ export class DataGridController {
   }
 
   renderCircularScore(score) {
+    if (!Number.isFinite(score)) return '<span class="score-circle-badge score-pending" title="Evaluación pendiente">—</span>';
     const radius = 17;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (score / 100) * circumference;
@@ -375,7 +385,8 @@ export class DataGridController {
     });
     // Row click or keyboard activation opens the candidate drawer.
     this.tableBody.querySelectorAll('.candidate-row').forEach(row => {
-      row.addEventListener('click', () => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('button, input')) return;
         const candId = row.getAttribute('data-id');
         appState.selectCandidate(candId);
       });
@@ -399,7 +410,7 @@ export class DataGridController {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const candId = btn.getAttribute('data-id');
-        const menu = this.tableBody.querySelector(`#actionsMenu_${candId}`);
+        const menu = document.getElementById(`actionsMenu_${candId}`);
         
         // Close other menus
         this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
@@ -439,9 +450,8 @@ export class DataGridController {
         e.stopPropagation();
         const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
-        if (cand) {
-          appState.addToTalentPool(candId);
-          alert(`👥 ${cand.name} ha sido preservado en el Banco de Talento Institucional con categoría "${appState.jobPosting.roleTypeName}".`);
+        if (cand && appState.addToTalentPool(candId)) {
+          notify(`👥 ${cand.name} ha sido preservado en el Banco de Talento Institucional con categoría "${appState.jobPosting.roleTypeName}".`);
         }
         const menu = btn.closest('.more-actions-menu');
         if (menu) menu.classList.remove('show');
@@ -479,15 +489,7 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
-          const stages = ['postulado', 'preseleccionado', 'entrevista', 'evaluacion', 'oferta', 'contratado'];
-          const currentIndex = stages.indexOf(cand.stage);
-          if (currentIndex < stages.length - 1) {
-            const nextStage = stages[currentIndex + 1];
-            appState.moveCandidateStage(candId, nextStage);
-            alert(`✅ ${cand.name} avanzó a la etapa: "${nextStage.toUpperCase()}". Registrado en trazabilidad de auditoría.`);
-          } else {
-            alert(`🎉 ${cand.name} ya está en la etapa final de Contratado.`);
-          }
+          if (appState.advanceCandidate(candId)) notify(`${cand.name}: etapa actualizada.`);
         }
       });
     });
@@ -499,12 +501,8 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
-          const confirmRelease = confirm(`¿Deseas liberar al postulante ${cand.name}? Se registrará en la auditoría y se ofrecerá enviarlo al Banco de Talento.`);
-          if (confirmRelease) {
-            appState.recordDecision(candId, `Liberado de la convocatoria activa`);
-            appState.addToTalentPool(candId, "Liberado de convocatoria activa con potencial transferible.");
-            alert(`📨 Decisión registrada. ${cand.name} ha sido notificado y resguardado en el Banco de Talento.`);
-          }
+          const confirmRelease = confirm(`¿Deseas liberar al postulante ${cand.name}? Se conservará en el Banco de Talento. La demo no envía correos.`);
+          if (confirmRelease && appState.releaseCandidate(candId)) notify("Postulación liberada y conservada en el banco. No se enviaron correos.");
         }
         const menu = btn.closest('.more-actions-menu');
         if (menu) menu.classList.remove('show');

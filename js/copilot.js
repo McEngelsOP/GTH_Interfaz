@@ -4,6 +4,7 @@
    ========================================================================== */
 
 import { appState } from './state.js';
+import { isEligible } from './domain.js';
 import { escapeHTML as esc } from './ui.js';
 
 export class CopilotController {
@@ -59,7 +60,7 @@ export class CopilotController {
 
     appState.subscribe((event, data) => {
       if (event === 'job_changed') {
-        this.appendMessage('assistant', `Convocatoria seleccionada: <strong>${esc(data.jobPosting.title)}</strong>. ${data.jobPosting.demo ? 'Esta vacante todavía no tiene CVs; el asistente solo muestra datos de demostración.' : 'Responderé con los perfiles de ejemplo asociados a esta vista.'}`);
+        this.appendMessage('assistant', `Convocatoria seleccionada: <strong>${esc(data.jobPosting.title)}</strong>. ${appState.candidates.length ? 'Responderé con los perfiles de ejemplo asociados a esta vista.' : 'Esta vacante todavía no tiene perfiles de demostración.'}`);
       }
       if (event === 'copilot_toggled') {
         if (data.collapsed) {
@@ -103,9 +104,12 @@ export class CopilotController {
 
     // Attach inline events if recommendation cards exist
     messageEl.querySelectorAll('.btn-rec-action').forEach(btn => {
+      btn.dataset.jobId = appState.activeJobPostingId;
       btn.addEventListener('click', () => {
         const candId = btn.getAttribute('data-id');
         if (candId) {
+          appState.setActiveJobPosting(btn.dataset.jobId);
+          appState.setCurrentView('ranking');
           appState.selectCandidate(candId);
         }
       });
@@ -119,7 +123,7 @@ export class CopilotController {
     // Show typing placeholder
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'chat-message assistant';
-    typingIndicator.id = 'copilotTyping';
+    typingIndicator.setAttribute('aria-label','Preparando respuesta');
     typingIndicator.innerHTML = `
       <div class="message-bubble" style="color: var(--text-tertiary); font-style: italic;">
         Consultando los datos de demostración...
@@ -128,9 +132,10 @@ export class CopilotController {
     this.chatFeed.appendChild(typingIndicator);
     this.chatFeed.scrollTop = this.chatFeed.scrollHeight;
 
+    const jobId = appState.activeJobPostingId;
     setTimeout(() => {
-      const el = document.getElementById('copilotTyping');
-      if (el) el.remove();
+      typingIndicator.remove();
+      if (jobId !== appState.activeJobPostingId) { this.appendMessage('assistant', 'La convocatoria cambió mientras se preparaba la respuesta. Repite la consulta en el contexto actual.'); return; }
       this.generateAIResponse(text);
     }, 700);
   }
@@ -143,7 +148,7 @@ export class CopilotController {
     }
 
     if (qLower.includes('3 mejores') || qLower.includes('mejores perfiles') || qLower.includes('top 3')) {
-      const top3 = appState.getRankedCandidates().slice(0, 3);
+      const top3 = appState.getRankedCandidates().filter(isEligible).slice(0, 3);
 
       const cardsHtml = `
         Estos son los <strong>${top3.length} perfiles de ejemplo con mayor puntaje</strong> para ${esc(appState.jobPosting.title)}. Los puntajes provienen de datos de demostración:
@@ -162,7 +167,7 @@ export class CopilotController {
                 <strong>Motivo de ejemplo:</strong> ${esc(cand.narrative.selectionReason.substring(0, 140))}...
               </div>
               <div class="rec-actions">
-                <button class="btn-rec-action" data-id="${cand.id}">
+                <button class="btn-rec-action" data-id="${esc(cand.id)}">
                   Cargar en tabla principal & Ver detalle →
                 </button>
               </div>
@@ -189,7 +194,7 @@ export class CopilotController {
     }
 
     if (qLower.includes('transferible') || qLower.includes('fuera del top-n')) {
-      const transferable = appState.candidates.filter(c => c.transferablePotential);
+      const transferable = appState.candidates.filter(c => c.transferablePotential && (!qLower.includes('fuera del top-n') || !c.inTopN));
       this.appendMessage('assistant', `
         He identificado <strong>${transferable.length} candidatos destacados con Potencial Transferible</strong> bajo el Principio de Inclusión.
         <br><br>

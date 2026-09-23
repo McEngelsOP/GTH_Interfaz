@@ -4,6 +4,7 @@
    ========================================================================== */
 
 import { appState } from './state.js';
+import { escapeRecord, exportCSV } from './ui.js';
 
 export class ProfilesLibraryViewController {
   constructor(containerEl) {
@@ -24,7 +25,7 @@ export class ProfilesLibraryViewController {
   render() {
     if (!this.container) return;
 
-    const templates = appState.templates;
+    const templates = escapeRecord(appState.templates);
     const filtered = this.activeCategory === 'all'
       ? templates
       : templates.filter(t => t.roleType.toLowerCase() === this.activeCategory.toLowerCase());
@@ -47,8 +48,8 @@ export class ProfilesLibraryViewController {
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="btn btn-secondary" id="btnExportProfilesCatalog" onclick="alert('Exportando catálogo institucional de perfiles en formato PDF para Dirección de GTHC...')">
-              Exportar Catálogo PDF
+            <button class="btn btn-secondary" id="btnExportProfilesCatalog" data-export-profiles>
+              Exportar catálogo CSV
             </button>
             <button class="btn btn-primary" id="btnNewProfileTemplate" type="button">
               + Nueva Convocatoria
@@ -93,7 +94,7 @@ export class ProfilesLibraryViewController {
               </div>
 
               <!-- Accordion / Details Section -->
-              <div class="profile-details-box">
+              <details class="profile-details-box"><summary>Ver requisitos y ponderaciones</summary>
                 <!-- Knockout Rule -->
                 <div class="profile-detail-row knockout-row">
                   <div class="profile-detail-label">
@@ -110,7 +111,7 @@ export class ProfilesLibraryViewController {
                     <strong>Efectividad Predictiva:</strong>
                   </div>
                   <div class="profile-detail-val" style="color: #047857; font-weight: 600;">
-                    ${tpl.historicalEffectiveness || '92.5% de satisfacción a 6 meses'}
+                    Pendiente de seguimiento real
                   </div>
                 </div>
 
@@ -121,7 +122,7 @@ export class ProfilesLibraryViewController {
                     <strong>Historial de Convocatorias:</strong>
                   </div>
                   <div class="profile-detail-val">
-                    ${tpl.historyCount || 3} convocatorias ejecutadas exitosamente
+                    Plantilla institucional de demostración
                   </div>
                 </div>
 
@@ -139,16 +140,14 @@ export class ProfilesLibraryViewController {
                     `).join('')}
                   </div>
                 </div>
-              </div>
+              </details>
 
               <!-- Actions -->
               <div class="profile-card-actions">
                 <button class="btn btn-primary" style="flex: 1; font-size: 12px; padding: 7px 12px;" data-launch-template="${tpl.id}">
                   ⚡ Abrir Convocatoria
                 </button>
-                <button class="btn btn-secondary" style="font-size: 12px; padding: 7px 12px;" onclick="window.profilesLibraryController.openEditModal('${tpl.id}')">
-                  ⚙️ Configurar Criterios
-                </button>
+
               </div>
             </div>
           `).join('')}
@@ -160,6 +159,7 @@ export class ProfilesLibraryViewController {
   }
 
   bindEvents() {
+    this.container.querySelector('[data-export-profiles]')?.addEventListener('click',()=>exportCSV('perfiles-demo.csv',[['ID','Perfil','Categoría','Requisito'],...appState.templates.map(t=>[t.id,t.title,t.roleType,t.knockoutRule])]));
     this.container.querySelectorAll('.profiles-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.activeCategory = btn.getAttribute('data-cat');
@@ -172,9 +172,4 @@ export class ProfilesLibraryViewController {
     });
   }
 
-  openEditModal(tplId) {
-    const tpl = appState.templates.find(t => t.id === tplId);
-    if (!tpl) return;
-    alert(`⚙️ Matriz de Criterios para [${tpl.id}] ${tpl.title}:\n\n` + tpl.criteria.map(c => `• ${c.name}: ${c.weight}%`).join('\n') + `\n\nKnockout: ${tpl.knockoutRule}`);
-  }
 }

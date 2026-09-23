@@ -9,7 +9,7 @@ export class VacanciesViewController {
     this.query = '';
     this.category = 'all';
     appState.subscribe(event => {
-      if (['jobs_changed', 'job_changed'].includes(event) && appState.currentView === 'convocatorias') this.render();
+      if (['jobs_changed', 'job_changed','role_changed','candidate_stage_changed'].includes(event) && appState.currentView === 'convocatorias') this.render();
     });
   }
 
@@ -19,16 +19,15 @@ export class VacanciesViewController {
     const active = jobs.filter(j => j.status !== 'Borrador').length;
     const drafts = jobs.length - active;
     const processed = jobs.reduce((sum, j) => sum + (Number(j.totalProcessed) || 0), 0);
-    const matching = jobs.filter(j => /matching|evaluación|preselección/i.test(j.phase || '')).length;
+    const matching = jobs.filter(j => (appState.candidatesByJob[j.id] || []).some(c => ['preseleccionado','entrevista','evaluacion'].includes(c.stage))).length;
     this.container.innerHTML = `
       <div class="vacancies-hero">
         <div class="vacancies-hero-copy">
           <span class="vacancies-eyebrow">GTHC · ESAN <span class="demo-pill">PROTOTIPO</span></span>
-          <h1>El talento empieza con una buena convocatoria.</h1>
-          <p>Organiza cada búsqueda, define criterios explicables y acompaña a las personas durante todo el proceso.</p>
-          <button type="button" class="btn btn-hero" data-action="new">+ Nueva convocatoria <span aria-hidden="true">→</span></button>
+          <h1>Convocatorias</h1>
+          <p>Procesos de selección y seguimiento de postulaciones.</p>
+          <button type="button" class="btn btn-hero" data-action="new" ${!appState.can('jobs')?'disabled':''}>+ Nueva convocatoria <span aria-hidden="true">→</span></button>
         </div>
-        <div class="vacancies-hero-art" aria-hidden="true"><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div><span class="hero-center">✦</span><span class="hero-node node-one">01</span><span class="hero-node node-two">02</span><span class="hero-node node-three">03</span></div>
       </div>
       <div class="vacancies-stats" aria-label="Resumen de convocatorias de demostración">
         <div class="vacancy-stat"><span class="stat-kicker">Convocatorias activas</span><strong>${active}</strong><small>Procesos abiertos</small></div>

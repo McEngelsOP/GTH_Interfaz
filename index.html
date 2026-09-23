@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/ingestion.css">
   <link rel="stylesheet" href="css/vacancies.css">
   <link rel="stylesheet" href="css/ranking.css">
+  <link rel="stylesheet" href="css/refinements.css">
 </head>
 <body>
 
@@ -103,7 +104,7 @@
               </svg>
             </div>
             <span class="nav-item-label">Carga & OCR</span>
-            <span class="nav-item-badge badge-emerald" id="navCandidateCountBadge">482 CVs</span>
+            <span class="nav-item-badge badge-emerald" id="navCandidateCountBadge">0 demo</span>
             <span class="nav-indicator-dot dot-emerald"></span>
           </a>
 
@@ -148,7 +149,7 @@
             <span class="nav-item-label">Pipeline (Kanban)</span>
           </a>
 
-          <a href="#entrevistas-star" class="nav-item" data-nav="interviews_star" data-tooltip="Preguntas Situacionales STAR Generadas por IA">
+          <a href="#entrevistas-star" class="nav-item" data-nav="interviews_star" data-tooltip="Preguntas Situacionales STAR de demostración">
             <div class="nav-item-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
@@ -212,7 +213,7 @@
             <span class="nav-item-label">Criterios & Pesos</span>
           </a>
 
-          <a href="#auditoria" class="nav-item" data-nav="audit" data-target="audit" data-tooltip="Auditoría Inmutable & Trazabilidad de Decisiones">
+          <a href="#auditoria" class="nav-item" data-nav="audit" data-target="audit" data-tooltip="Historial de decisiones & Trazabilidad de Decisiones">
             <div class="nav-item-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -245,7 +246,7 @@
               </svg>
             </div>
             <span class="nav-item-label">Dashboard Ejecutivo</span>
-            <span class="nav-item-badge badge-emerald">94%</span>
+            <span class="nav-item-badge">Demo</span>
           </a>
 
           <a href="#reportes" class="nav-item" data-nav="reports" data-tooltip="Reportes e Informes Consolidados para Decanatura">
@@ -368,10 +369,10 @@
                 </div>
               </div>
               <div class="kpi-value-row">
-                <span class="kpi-value" id="kpiProcessedCount">482</span>
+                <span class="kpi-value" id="kpiProcessedCount">—</span>
                 <span class="kpi-unit">CVs</span>
               </div>
-              <div class="kpi-subtitle"><span>Registros de demostración</span></div>
+              <div class="kpi-subtitle"><span>Perfiles ficticios disponibles</span></div>
             </div>
 
             <!-- KPI 2: Top-N Configurado -->
@@ -393,9 +394,9 @@
                   <button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Reducir Top-N" title="Reducir Top-N">−</button>
                   <button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Ampliar Top-N" title="Ampliar Top-N">+</button>
                 </div>
-                <span class="kpi-unit">vacantes</span>
+                <span class="kpi-unit">perfiles</span>
               </div>
-              <div class="kpi-subtitle"><span>Corte dinámico en la tabla</span></div>
+              <div class="kpi-subtitle"><span>Perfiles elegibles en preselección</span></div>
             </div>
 
             <!-- KPI 3: Score Promedio -->
@@ -415,8 +416,8 @@
                 <span class="kpi-unit">/ 100</span>
               </div>
               <div class="kpi-subtitle">
-                <span style="color: var(--status-success); font-weight: 600;">+8.4%</span>
-                <span>vs. histórico institucional</span>
+                <span>Promedio de perfiles evaluados</span>
+                
               </div>
             </div>
 
@@ -432,7 +433,7 @@
                 <span class="kpi-value" id="kpiRoleMetricValue">92%</span>
                 <span class="kpi-unit">aptos</span>
               </div>
-              <div class="kpi-subtitle"><span id="kpiRoleMetricSub">Métrica ajustada al tipo de puesto</span></div>
+              <div class="kpi-subtitle"><span id="kpiRoleMetricSub">Verificación registrada en la demo</span></div>
             </div>
           </section>
 
@@ -455,7 +456,7 @@
             <div class="filter-group">
               <select class="filter-select" id="filterStatusSelect" aria-label="Filtrar candidatos">
                 <option value="all">Todos los candidatos</option>
-                <option value="topN">Dentro de Top-N</option>
+                <option value="active">Postulaciones activas</option><option value="released">Liberados</option><option value="pending">Pendientes de verificar</option><option value="topN">Dentro de Top-N</option>
                 <option value="outsideTopN">Fuera de corte</option>
                 <option value="transferable">Potencial transferible</option>
               </select>
@@ -556,7 +557,7 @@
     <!-- ==========================================================================
          3. COLLAPSIBLE RIGHT COPILOT PANEL: ESA IA GTH ASSISTANT
          ========================================================================== -->
-    <aside class="app-copilot" id="copilotPanel">
+    <aside class="app-copilot collapsed" id="copilotPanel">
       <div class="copilot-container">
         <!-- Copilot Header -->
         <div class="copilot-header">
@@ -630,7 +631,7 @@
     </aside>
 
     <!-- Floating Trigger to reopen Copilot when collapsed -->
-    <button class="copilot-floating-trigger hidden" id="copilotFloatingTrigger" title="Abrir Asistente Copiloto IA">
+    <button class="copilot-floating-trigger" id="copilotFloatingTrigger" title="Abrir Asistente Copiloto IA">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       </svg>
@@ -675,7 +676,7 @@
         <button class="drawer-tab-btn" data-tab="gaps">Brechas & Guía STAR</button>
         <button class="drawer-tab-btn" data-tab="weights">Desglose por Pesos</button>
         <button class="drawer-tab-btn" data-tab="cv">CV Markdown</button>
-        <button class="drawer-tab-btn" data-tab="audit">Registro de Auditoría</button>
+        <button class="drawer-tab-btn" data-tab="audit">Historial de decisiones</button>
       </div>
 
       <!-- Drawer Body -->
@@ -690,7 +691,7 @@
       <!-- Drawer Footer Action Buttons -->
       <div class="drawer-footer">
         <button class="btn btn-ghost" id="drawerBtnRelease">
-          Liberar y Notificar Agradecimiento
+          Liberar postulación
         </button>
         <button class="btn btn-primary" id="drawerBtnAdvance">
           Avanzar a Siguiente Paso
@@ -703,289 +704,14 @@
        5. MODAL / SUB-VIEW: CARGA MASIVA & OCR INTELIGENTE
        ========================================================================== -->
   <div class="modal-backdrop" id="ingestionBackdrop">
-    <div class="ingestion-modal" id="ingestionModal" role="dialog" aria-modal="true" aria-labelledby="ingestionModalTitle">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 class="modal-title" id="ingestionModalTitle">
-            <span style="color: var(--esan-primary);">📥</span> Carga Masiva de CVs & Extracción OCR
-          </h3>
-          <span class="modal-subtitle">
-            Ingestión multi-fuente, extracción OCR inteligente y generación de embeddings vectoriales
-          </span>
-        </div>
-        <button class="modal-close-btn" id="ingestionCloseBtn" title="Cerrar modal" aria-label="Cerrar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Multi-Source Badges -->
-        <div class="sources-bar">
-          <span class="sources-label">Bandejas y Canales Sincronizados</span>
-          <div class="sources-badges-row">
-            <div class="source-sync-card connected">
-              <div class="source-icon" style="background: #0077B5; color: #FFF;">in</div>
-              <div class="source-info">
-                <span class="source-name">LinkedIn Recruiter</span>
-                <span class="source-status">✓ 214 CVs sincronizados</span>
-              </div>
-            </div>
-
-            <div class="source-sync-card connected">
-              <div class="source-icon" style="background: #EA4335; color: #FFF;">M</div>
-              <div class="source-info">
-                <span class="source-name">Gmail Convocatoria</span>
-                <span class="source-status">✓ 89 CVs recibidos</span>
-              </div>
-            </div>
-
-            <div class="source-sync-card connected">
-              <div class="source-icon" style="background: #F59E0B; color: #FFF;">CT</div>
-              <div class="source-info">
-                <span class="source-name">CompuTrabajo API</span>
-                <span class="source-status">✓ 112 CVs conectados</span>
-              </div>
-            </div>
-
-            <div class="source-sync-card connected">
-              <div class="source-icon" style="background: #EC4899; color: #FFF;">B</div>
-              <div class="source-info">
-                <span class="source-name">Bumeran Portal</span>
-                <span class="source-status">✓ 67 CVs conectados</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Massive Dropzone -->
-        <div class="massive-dropzone" id="massiveDropzone">
-          <input type="file" id="cvFileInput" multiple accept=".pdf,.docx,.doc" style="display: none;" />
-          <div class="dropzone-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-          </div>
-          <div class="dropzone-title">Arrastra cientos de CVs (PDF, DOCX) aquí</div>
-          <div class="dropzone-subtitle">o haz clic para explorar archivos en tu computadora (Soporta procesamiento por lotes de hasta 500 archivos simultáneos)</div>
-        </div>
-
-        <!-- Pipeline Progress Tracker -->
-        <div class="batch-pipeline-container">
-          <div class="pipeline-header">
-            <span class="pipeline-title">Estado del Pipeline de Ingestión Automática</span>
-            <span class="pipeline-stats">482 / 482 Procesados</span>
-          </div>
-
-          <div class="pipeline-steps-list">
-            <div class="pipeline-step">
-              <div class="step-indicator done" id="step1Indicator">✓</div>
-              <span class="step-name">1. Extracción con OCR Inteligente</span>
-              <div class="step-bar-wrap">
-                <div class="step-bar-fill" id="step1Bar" style="width: 100%;"></div>
-              </div>
-              <span class="step-pct" id="step1Pct">100%</span>
-            </div>
-
-            <div class="pipeline-step">
-              <div class="step-indicator done" id="step2Indicator">✓</div>
-              <span class="step-name">2. Estructuración y Conversión a Markdown</span>
-              <div class="step-bar-wrap">
-                <div class="step-bar-fill" id="step2Bar" style="width: 100%;"></div>
-              </div>
-              <span class="step-pct" id="step2Pct">100%</span>
-            </div>
-
-            <div class="pipeline-step">
-              <div class="step-indicator done" id="step3Indicator">✓</div>
-              <span class="step-name">3. Indexación de Embeddings Vectoriales en Base Centralizada</span>
-              <div class="step-bar-wrap">
-                <div class="step-bar-fill" id="step3Bar" style="width: 100%;"></div>
-              </div>
-              <span class="step-pct" id="step3Pct">100%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- OCR Status Breakdown & Incidences Panel (Cognitive Simplification) -->
-        <div class="ocr-status-summary-bar">
-          <div class="ocr-status-counters">
-            <span class="ocr-stat-chip success">✓ 482 Exitosos</span>
-            <span class="ocr-stat-chip warning">⚠️ 5 En Revisión</span>
-            <span class="ocr-stat-chip error">🔴 2 Con Error</span>
-          </div>
-          <button class="btn btn-secondary btn-sm" id="btnToggleOcrIncidences">
-            ⚠️ Mostrar incidencias (7)
-          </button>
-        </div>
-
-        <div class="ocr-incidences-panel hidden" id="ocrIncidencesPanel">
-          <div class="incidences-panel-header">
-            <strong>Incidencias de Extracción & Legibilidad</strong>
-            <span style="font-size: 11px; color: var(--text-secondary);">Requieren verificación manual o reemplazo de documento</span>
-          </div>
-          <div class="incidences-list" id="ocrIncidencesListMount">
-            <!-- Rellenado reactivamente por batchIngestion.js -->
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelBatchBtn">Cerrar</button>
-        <button class="btn btn-primary" id="startBatchBtn">
-          Simular Re-procesamiento OCR
-        </button>
-      </div>
-    </div>
+    <section class="ingestion-modal" id="ingestionModal" role="dialog" aria-modal="true" aria-labelledby="ingestionModalTitle"></section>
   </div>
 
   <!-- ==========================================================================
        6. MODAL: CONFIGURACIÓN DE CRITERIOS & PESOS (v2.4)
        ========================================================================== -->
   <div class="modal-backdrop" id="criteriaBackdrop">
-    <div class="criteria-modal" id="criteriaModal" role="dialog" aria-modal="true" aria-labelledby="criteriaModalTitle">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 class="modal-title" id="criteriaModalTitle">
-            <span style="color: var(--esan-primary);">⚙️</span> Matriz de Criterios & Ponderaciones (v2.4)
-          </h3>
-          <span class="modal-subtitle">
-            Convocatoria Docente / Desarrollador de Software · Configuración de pesos para el Matching Dual
-          </span>
-        </div>
-        <button class="modal-close-btn" id="criteriaCloseBtn" title="Cerrar modal" aria-label="Cerrar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <!-- 1. Distribución Dual -->
-        <div>
-          <div class="criteria-section-title">
-            <span>Distribución de Carga del Motor Dual</span>
-            <span style="font-size: 11.5px; font-weight: 600; color: var(--text-tertiary);">Total Ponderado: 100%</span>
-          </div>
-          <p class="criteria-section-desc">
-            Balance entre verificación determinista de reglas (ML) y análisis semántico de experiencia mediante LLM.
-          </p>
-
-          <div class="criteria-dual-box">
-            <div class="dual-engine-card">
-              <div class="engine-header">
-                <span class="engine-title">Camino 1 · ML Tradicional</span>
-                <span class="engine-pct-badge ml" id="mlDualBadge">30%</span>
-              </div>
-              <input type="range" class="criteria-slider" id="mlDualSlider" min="10" max="90" step="5" value="30" />
-              <span style="font-size: 11px; color: var(--text-secondary);">Reglas NLP, años experiencia, títulos y filtros duros.</span>
-            </div>
-
-            <div class="dual-engine-card">
-              <div class="engine-header">
-                <span class="engine-title">Camino 2 · LLM Embeddings</span>
-                <span class="engine-pct-badge llm" id="llmDualBadge">70%</span>
-              </div>
-              <input type="range" class="criteria-slider" id="llmDualSlider" min="10" max="90" step="5" value="70" />
-              <span style="font-size: 11px; color: var(--text-secondary);">Similitud semántica vectorial Claude 3.5 Sonnet / OpenAI.</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Variables Específicas Ponderadas -->
-        <div>
-          <div class="criteria-section-title">
-            <span>Variables Ponderadas por Convocatoria</span>
-            <span class="balance-status-bar" id="weightsBalanceBar">
-              ✓ Suma de variables: 100 pts
-            </span>
-          </div>
-          <p class="criteria-section-desc">
-            Ajusta los puntos asignados a cada dimensión técnica para recalcular el score de corte.
-          </p>
-
-          <div class="criteria-weights-grid">
-            <div class="criteria-weight-item">
-              <div class="weight-item-header">
-                <span class="weight-item-name">1. Experiencia Laboral Requerida (5+ años)</span>
-                <span class="weight-item-val" id="valWeightExp">30 pts (30%)</span>
-              </div>
-              <input type="range" class="criteria-slider" id="sliderWeightExp" min="10" max="50" step="5" value="30" />
-            </div>
-
-            <div class="criteria-weight-item">
-              <div class="weight-item-header">
-                <span class="weight-item-name">2. Similitud Semántica de Proyectos (LLM)</span>
-                <span class="weight-item-val" id="valWeightSem">30 pts (30%)</span>
-              </div>
-              <input type="range" class="criteria-slider" id="sliderWeightSem" min="10" max="50" step="5" value="30" />
-            </div>
-
-            <div class="criteria-weight-item">
-              <div class="weight-item-header">
-                <span class="weight-item-name">3. Stack Tecnológico Específico (Node/Python/Go/Cloud)</span>
-                <span class="weight-item-val" id="valWeightTech">20 pts (20%)</span>
-              </div>
-              <input type="range" class="criteria-slider" id="sliderWeightTech" min="5" max="40" step="5" value="20" />
-            </div>
-
-            <div class="criteria-weight-item">
-              <div class="weight-item-header">
-                <span class="weight-item-name">4. Experiencia Docente o Mentoring Universitario</span>
-                <span class="weight-item-val" id="valWeightTeach">10 pts (10%)</span>
-              </div>
-              <input type="range" class="criteria-slider" id="sliderWeightTeach" min="5" max="30" step="5" value="10" />
-            </div>
-
-            <div class="criteria-weight-item">
-              <div class="weight-item-header">
-                <span class="weight-item-name">5. Criterios Preferentes / Certificaciones</span>
-                <span class="weight-item-val" id="valWeightPref">10 pts (10%)</span>
-              </div>
-              <input type="range" class="criteria-slider" id="sliderWeightPref" min="5" max="30" step="5" value="10" />
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. Principio de Inclusión -->
-        <div style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: var(--radius-lg); padding: 14px 16px;">
-          <label class="switch-label">
-            <input type="checkbox" id="checkInclusionEnable" checked style="width: 18px; height: 18px; accent-color: var(--esan-primary);" />
-            <span>Habilitar Principio de Inclusión ("No descartar talento" · Potencial Transferible)</span>
-          </label>
-          <p style="font-size: 12px; color: #0369A1; margin-top: 6px; margin-left: 28px;">
-            Permite que candidatos con alta competencia arquitectónica y desviaciones menores en certificaciones secundarias mantengan un score de corte competitivo.
-          </p>
-        </div>
-
-        <!-- 4. Simulador de Impacto en Ranking en Tiempo Real -->
-        <div class="criteria-simulator-section">
-          <div class="simulator-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">⚡</span>
-              <strong style="font-size: 13.5px; color: var(--text-main);">Simulador de Impacto en Ranking en Tiempo Real (Top 5)</strong>
-            </div>
-            <span style="font-size: 11px; color: var(--text-tertiary);">Proyección reactiva de cambios en el podio antes de guardar</span>
-          </div>
-          <div class="simulator-list" id="simulatorResultsListMount">
-            <!-- Rellenado reactivamente por criteriaModal.js -->
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="resetCriteriaBtn">Restablecer Predeterminados</button>
-        <button class="btn btn-ghost" id="cancelCriteriaBtn">Cancelar</button>
-        <button class="btn btn-primary" id="saveCriteriaBtn">
-          Guardar y Re-calcular Ranking
-        </button>
-      </div>
-    </div>
+    <section class="criteria-modal" id="criteriaModal" role="dialog" aria-modal="true" aria-labelledby="criteriaModalTitle"></section>
   </div>
 
   <!-- Main JavaScript App Entry Point -->

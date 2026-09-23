@@ -1,76 +1,60 @@
-# TalentAI | GTHC · ESAN
-### Plataforma de Reclutamiento Masivo & Evaluación Explicable de Candidatos
+# TalentAI | GTHC - ESAN
 
-Sistema Enterprise SaaS de alta densidad de datos para la gestión y evaluación de convocatorias de talento en **ESAN Graduate School of Business (GTHC)**.
+Prototipo de interfaz para convocatorias, evaluacion explicable y seguimiento de postulaciones. **No es todavia un sistema de reclutamiento conectado a servicios reales.**
 
-Implementa un **Motor de Matching Dual**:
-1. **Camino 1 · ML Tradicional (30%)**: Reglas duras, verificación de años de experiencia comprobada, stacks técnicos específicos y ponderación determinista.
-2. **Camino 2 · Embeddings LLM (70%)**: Similitud semántica vectorial a partir del CV estructurado en Markdown contrastado contra el syllabus y perfil de la cátedra mediante modelos Claude / OpenAI.
+## Estado actual
 
----
+- HTML, CSS y JavaScript con modulos ES; no necesita compilacion.
+- Creacion de convocatorias, biblioteca de perfiles y selector de contexto.
+- Ranking compacto de 52 px, densidad comoda de 66 px, paginacion y filas virtualizadas.
+- Comparador explicito de hasta cinco postulaciones y expediente con evidencias, brechas, CV e historial.
+- Criterios reponderables sobre evidencias ficticias, con version e historial anterior.
+- Etapas compartidas entre ranking, comparador, expediente y Kanban; banco de talento paginado.
+- Indicadores calculados a partir de los registros disponibles, sin extrapolar datos de ejemplo.
+- Lotes sinteticos de 25, 100 o 500 perfiles; limite demostrativo de 1000 por convocatoria.
+- Navegacion por URL con convocatoria, vista, candidato y pestana; soporte para atras/adelante.
 
-## 🚀 Características Principales
+Los datos iniciales contienen 18 convocatorias, pero solo tres tienen postulaciones de ejemplo (10 en total). Las demas empiezan vacias. No se reutilizan automaticamente candidatos de otros puestos.
 
-- **Diseño Institucional ESAN**: Paleta moderna con Rojo Carmesí ESAN (`#C8102E`), fondo neutro slate (`#F8FAFC`), acentos esmeralda (`#10B981`) y ámbar (`#F59E0B`).
-- **Data Grid de Candidatos de Alta Densidad**:
-  - Cápsulas verticales de requisitos obligatorios con **tooltips interactivos con justificación técnica contextual** al pasar el cursor.
-  - Indicador circular SVG de **Score Dual Consolidado (0-100)**.
-  - Badge de **Principio de Inclusión ("Potencial Transferible")** para perfiles con altas capacidades transferibles.
-  - **Top-N Dinámico**: Selector de vacantes en tiempo real que recalcula automáticamente los cortes de la convocatoria.
-  - Botones de acción directa: *"Avanzar a Siguiente Paso"* y *"Liberar y Notificar"*.
-- **Panel Desplegable (Slide-Over Drawer) de Auditoría y Explicabilidad**:
-  - *Explicación del Score*: Bloque narrativo transparente de selección, fortalezas y análisis de brechas.
-  - *Desglose por Pesos*: Gráfico analítico de pesos configurados vs puntuaciones obtenidas.
-  - *CV Markdown*: Visor del CV estructurado obtenido tras el OCR inteligente.
-  - *Registro de Auditoría*: Sello inmutable de trazabilidad con ID de lote `#ESAN-2026-088`, fecha/hora y registro de decisiones del reclutador.
-- **Copiloto IA ("ESA IA GTH Assistant")**:
-  - Asistente conversacional con chips de consulta rápida, generación de tarjetas de recomendación del Top 3 y aviso legal de supervisión humana.
-- **Módulo de Carga Masiva & OCR**:
-  - Conexión simulada multi-canal con LinkedIn Recruiter, Gmail, CompuTrabajo y Bumeran.
-  - Pipeline interactivo de extracción OCR, conversión Markdown e indexación de embeddings.
+## Limites importantes
 
----
+No hay autenticacion real, OCR, motor ML/LLM, correo, almacenamiento de documentos ni auditoria de servidor. El copiloto responde con logica de demostracion. Los roles son controles de interfaz, no una barrera de seguridad.
 
-## 💻 Tecnologías Utilizadas
+La demo guarda datos ficticios en `localStorage` (`talentai.demo.workspace.v2`) y migra convocatorias de `talentai.demo.jobs.v1`. No introducir CVs ni datos personales reales. Borrar ambas claves reinicia la demo. Si el navegador bloquea el almacenamiento, los cambios duran solo la sesion y se muestra un aviso.
 
-- **HTML5 Semántico**: Estructura accesible y modular.
-- **CSS3 Puro**: Custom Properties (Design Tokens), Grid y Flexbox, sin dependencias de frameworks externos.
-- **JavaScript Moderno (ES Modules)**: Arquitectura limpia y reactiva con gestión de estado centralizada (`state.js`).
-- **Google Fonts**: Tipografías corporativas *Outfit* e *Inter*.
+## Ejecucion
 
----
+Desde la carpeta del repositorio:
 
-## 🛠️ Ejecución Local
+```bash
+git switch codex/convocatorias-demo-flow
+python -m http.server 8080
+```
 
-Para visualizar el proyecto localmente:
+Abrir `http://localhost:8080`. No abrir `index.html` con `file://`: los modulos necesitan un servidor HTTP.
 
-1. Clona el repositorio:
-   ```bash
-   git clone https://github.com/McEngelsOP/GTH_Interfaz.git
-   ```
-2. Abre la carpeta del proyecto y ejecuta cualquier servidor local estático:
-   - Con Python:
-     ```bash
-     python -m http.server 8080
-     ```
-   - O con Node:
-     ```bash
-     npx serve .
-     ```
-3. Abre en tu navegador preferido:
-   ```
-   http://localhost:8080/index.html
-   ```
+## Verificacion
 
----
+Con Node.js 22 o posterior:
 
-## 🌐 Despliegue en GitHub Pages
+```bash
+node --test tests/*.test.mjs
+```
 
-Este proyecto está listo para ser publicado inmediatamente con **GitHub Pages**:
-1. En GitHub, dirígete a **Settings** > **Pages**.
-2. En **Build and deployment** > **Branch**, selecciona `main` y la carpeta `/ (root)`.
-3. Haz clic en **Save**. En un par de minutos estará disponible en vivo en:
-   `https://mcengelsop.github.io/GTH_Interfaz/`
+El recorrido opcional `tests/browser-smoke.mjs` usa Playwright y un servidor local en el puerto 4173. Con Playwright y Chromium instalados:
 
----
-*Desarrollado para la Dirección de Gestión del Talento Humano y Conocimiento (GTHC) · ESAN 2026.*
+```bash
+python -m http.server 4173
+# En otra terminal:
+node tests/browser-smoke.mjs
+```
+
+Variables opcionales: `TEST_URL`, `SCREENSHOT_DIR`, `PLAYWRIGHT_MODULE` (ruta al modulo instalado) y `CHROMIUM_MODULE` (adaptador opcional de Chromium). El script usa un contexto de navegador aislado y solo datos ficticios.
+
+## Publicacion
+
+La rama de trabajo es `codex/convocatorias-demo-flow`, con los cambios propuestos en el PR #2. El despliegue de produccion asociado a `main` no cambia hasta integrar la rama o cambiar expresamente su configuracion. Una Preview de la rama permite revisar antes de hacerlo. No se necesita un backend para alojar esta demo estatica.
+
+## Integracion futura
+
+Consultar [docs/integracion.md](docs/integracion.md). El cliente de lectura `js/services/apiClient.js` es una base probada, **todavia no esta conectado al arranque de la aplicacion**. No basta con sustituir `mockData.js` por datos reales: la autoridad del ranking, permisos, transiciones y auditoria debe pasar al servidor.
