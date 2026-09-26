@@ -3,6 +3,8 @@
 
 Sistema Enterprise SaaS de alta densidad de datos para la gestión y evaluación de convocatorias de talento en **ESAN Graduate School of Business (GTHC)**.
 
+La interfaz experimental usa un **perfil principal del equipo de GTHC** para gestionar convocatorias y postulaciones, consultar las recomendaciones explicadas por IA y registrar las etapas y decisiones humanas. Las acciones y los datos están simulados en el navegador: esta versión no envía notificaciones ni conecta con un sistema de contratación real.
+
 Implementa un **Motor de Matching Dual**:
 1. **Camino 1 · ML Tradicional (30%)**: Reglas duras, verificación de años de experiencia comprobada, stacks técnicos específicos y ponderación determinista.
 2. **Camino 2 · Embeddings LLM (70%)**: Similitud semántica vectorial a partir del CV estructurado en Markdown contrastado contra el syllabus y perfil de la cátedra mediante modelos Claude / OpenAI.
