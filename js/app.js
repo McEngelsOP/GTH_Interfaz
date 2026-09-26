@@ -175,55 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. Adaptive Multi-Role Switcher (Mariana Córdova / Dr. Talavera / Decana / Admin)
-  const globalRoleSelect = document.getElementById('globalRoleSelect');
-  const userProfileAvatar = document.getElementById('userProfileAvatar');
-  const userProfileName = document.getElementById('userProfileName');
-  const userProfileRole = document.getElementById('userProfileRole');
-  const navSectionGroups = document.querySelectorAll('.nav-section-group');
-
-  const applyUserRole = (roleKey) => {
-    appState.setUserRole(roleKey);
-    const profile = appState.getUserRoleProfile();
-
-    if (userProfileAvatar) userProfileAvatar.querySelector('span').textContent = profile.avatar;
-    if (userProfileName) userProfileName.textContent = profile.name;
-    if (userProfileRole) userProfileRole.textContent = profile.roleTitle;
-
-    // Filter sidebar stages
-    navSectionGroups.forEach(group => {
-      const stage = group.getAttribute('data-stage');
-      const isAllowed = profile.allowedStages.includes(stage);
-      group.style.display = isAllowed ? 'block' : 'none';
-    });
-
-    // Check if current view is allowed in this role
-    const currentView = appState.currentView;
-    const stageViewMap = {
-      ranking: ['convocatorias', 'evaluacion'],
-      profilesLibrary: ['convocatorias'],
-      kanban: ['seleccion'],
-      comparison: ['evaluacion'],
-      talentPool: ['talento'],
-      effectiveness: ['gobernanza'],
-      executive: ['direccion']
-    };
-
-    const allowedViews = Object.entries(stageViewMap)
-      .filter(([_, stages]) => stages.some(s => profile.allowedStages.includes(s)))
-      .map(([view]) => view);
-
-    if (!allowedViews.includes(currentView)) {
-      switchView(profile.defaultView || 'ranking');
-    }
-  };
-
-  if (globalRoleSelect) {
-    globalRoleSelect.addEventListener('change', (e) => {
-      applyUserRole(e.target.value);
-    });
-  }
-
+  // 5. GTHC uses one workspace to review recommendations and record decisions.
   // 6. View Routing & Sidebar Navigation (6 Etapas del Ciclo del Talento)
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -444,5 +396,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 12. Initial Render
   dataGrid.render();
-  console.log("TalentAI Enterprise Architecture initialized with Multi-Role support (GTHC · ESAN 2026).");
+  console.log("TalentAI GTHC workspace initialized (demo · ESAN 2026).");
 });
