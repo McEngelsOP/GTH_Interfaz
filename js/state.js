@@ -27,45 +27,12 @@ class AppState {
     this.copilotCollapsed = true;
     this.activeDrawerTab = 'explain';
 
-    // Role-based state: 'reclutador' | 'coordinador' | 'director' | 'admin'
-    this.currentUserRole = 'reclutador';
+    // One operational workspace; production authorization belongs on the server.
+    this.currentUserRole = 'gthc';
     this.rolesConfig = {
-      reclutador: {
-        roleId: 'reclutador',
-        roleLabel: 'Reclutador Operativo',
-        userName: 'Mariana Córdova',
-        userRole: 'Reclutadora GTHC · ESAN',
-        initials: 'MC',
-        description: 'Enfocado en ingestión OCR, ranking Top-N, entrevistas y pipeline Kanban.',
-        stages: ['convocatorias', 'evaluacion', 'seleccion']
-      },
-      coordinador: {
-        roleId: 'coordinador',
-        roleLabel: 'Coordinador GTH',
-        userName: 'Jorge Benavides',
-        userRole: 'Coordinador de Selección & Talento',
-        initials: 'JB',
-        description: 'Supervisión de movilidad interna, banco de talento institucional y matriz de ponderaciones.',
-        stages: ['convocatorias', 'seleccion', 'talento', 'gobernanza']
-      },
-      director: {
-        roleId: 'director',
-        roleLabel: 'Director / Decano',
-        userName: 'Dr. Armando Valdés',
-        userRole: 'Director de Escuela & Claustro',
-        initials: 'AV',
-        description: 'Visión estratégica: Cobertura de vacantes, KPIs gerenciales y Biblioteca de Perfiles.',
-        stages: ['convocatorias', 'direccion', 'talento']
-      },
-      admin: {
-        roleId: 'admin',
-        roleLabel: 'Administrador Global',
-        userName: 'Gobernanza TI ESAN',
-        userRole: 'Super Administrador · Matching Dual',
-        initials: 'SA',
-        description: 'Acceso irrestricto: Calibración de modelos LLM, auditoría inmutable y todos los módulos.',
-        stages: ['convocatorias', 'evaluacion', 'seleccion', 'talento', 'gobernanza', 'direccion']
-      }
+      gthc: { roleId: 'gthc', roleLabel: 'Equipo de GTHC', userName: 'Equipo de GTHC',
+        userRole: 'Gestión del talento · ESAN', initials: 'GT',
+        stages: ['convocatorias', 'evaluacion', 'seleccion', 'talento', 'gobernanza', 'direccion'] }
     };
 
     // Architecture States
@@ -194,7 +161,7 @@ class AppState {
   }
 
   getUserRoleProfile() {
-    return this.rolesConfig[this.currentUserRole] || this.rolesConfig.reclutador;
+    return this.rolesConfig[this.currentUserRole] || this.rolesConfig.gthc;
   }
 
   isStageVisibleForCurrentRole(stageId) {
@@ -247,12 +214,7 @@ class AppState {
   }
 
   can(action) {
-    const permissions = {
-      reclutador: ['jobs','selection','talent','ingestion'],
-      coordinador: ['jobs','selection','talent','criteria','ingestion'],
-      director: [], admin: ['jobs','selection','talent','criteria','ingestion']
-    };
-    return permissions[this.currentUserRole]?.includes(action) || false;
+    return this.currentUserRole === 'gthc' && ['jobs','selection','talent','criteria','ingestion'].includes(action);
   }
 
   persist() {
@@ -394,7 +356,7 @@ class AppState {
 
   // --- View Routing System ---
   canView(view) {
-    const map = { convocatorias: ['convocatorias'], ranking: ['convocatorias'], profilesLibrary: ['convocatorias'], comparison: ['evaluacion','seleccion'], kanban: ['seleccion'], talentPool: ['talento'], effectiveness: ['gobernanza'], executive: ['direccion'] };
+    const map = { audit: ['gobernanza'], convocatorias: ['convocatorias'], ranking: ['convocatorias'], profilesLibrary: ['convocatorias'], comparison: ['evaluacion','seleccion'], kanban: ['seleccion'], talentPool: ['talento'], effectiveness: ['gobernanza'], executive: ['direccion'] };
     return (map[view] || []).some(stage => this.isStageVisibleForCurrentRole(stage));
   }
 

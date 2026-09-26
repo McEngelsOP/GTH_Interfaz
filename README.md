@@ -18,7 +18,7 @@ Los datos iniciales contienen 18 convocatorias, pero solo tres tienen postulacio
 
 ## Limites importantes
 
-No hay autenticacion real, OCR, motor ML/LLM, correo, almacenamiento de documentos ni auditoria de servidor. El copiloto responde con logica de demostracion. Los roles son controles de interfaz, no una barrera de seguridad.
+No hay autenticacion real, OCR, motor ML/LLM, correo, almacenamiento de documentos ni auditoria de servidor. El copiloto responde con logica de demostracion. El único perfil de interfaz es Equipo de GTHC. No constituye autenticación ni una barrera de seguridad.
 
 La demo guarda datos ficticios en `localStorage` (`talentai.demo.workspace.v2`) y migra convocatorias de `talentai.demo.jobs.v1`. No introducir CVs ni datos personales reales. Borrar ambas claves reinicia la demo. Si el navegador bloquea el almacenamiento, los cambios duran solo la sesion y se muestra un aviso.
 

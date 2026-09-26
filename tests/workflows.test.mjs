@@ -46,12 +46,12 @@ test('limpiar el comparador no repuebla la selección', () => {
 
 test('avance, liberación, banco e historial comparten estado persistido', () => {
   const s = fresh();
-  s.setUserRole('coordinador');
+  s.setUserRole('gthc');
   const c = s.candidates.find(isEligible), initial = c.stage;
   assert.equal(s.moveCandidateStage(c.id, 'contratado'), false);
   assert.equal(c.stage, initial);
   assert.equal(s.advanceCandidate(c.id), true);
-  assert.match(c.audit.decisionHistory.at(-1).user, /Jorge/);
+  assert.match(c.audit.decisionHistory.at(-1).user, /Equipo de GTHC/);
   assert.equal(s.releaseCandidate(c.id), true);
   assert.equal(c.stage, 'liberado');
   assert.equal(c.inTopN, false);
@@ -62,16 +62,15 @@ test('avance, liberación, banco e historial comparten estado persistido', () =>
   assert.equal(restored.candidates.find(row => row.id === c.id).stage, 'liberado');
 });
 
-test('roles de consulta no alteran pesos, lotes, Top N ni etapas', () => {
-  const s = fresh(), c = s.candidates[0], topN = s.topN;
-  s.setUserRole('director');
-  s.setTopN(99);
-  assert.equal(s.topN, topN);
-  assert.equal(s.advanceCandidate(c.id), false);
-  assert.equal(s.releaseCandidate(c.id), false);
-  assert.throws(() => s.applyCriteria(s.activeJobPostingId, s.jobPosting.weights));
-  assert.throws(() => s.addDemoBatch(s.activeJobPostingId, 25));
-  assert.equal(s.setCurrentView('kanban'), false);
+test('un único perfil GTHC concentra acciones y vistas', () => {
+  const s = fresh();
+  assert.deepEqual(Object.keys(s.rolesConfig), ['gthc']);
+  for (const oldRole of ['director','coordinador','admin','reclutador']) s.setUserRole(oldRole);
+  assert.equal(s.currentUserRole, 'gthc');
+  for (const action of ['jobs','selection','talent','criteria','ingestion']) assert.equal(s.can(action), true);
+  assert.equal(s.can('unknown'), false);
+  for (const view of ['convocatorias','ranking','comparison','kanban','talentPool','audit','executive','effectiveness']) assert.equal(s.canView(view), true);
+  assert.equal(s.canView('unknown'), false);
 });
 
 test('lotes grandes tienen IDs únicos y límites verificables', () => {
@@ -108,7 +107,7 @@ test('reponderar preserva evidencia al pasar por cero y no inventa dimensiones',
 });
 
 test('guardar criterios cambia scores, versión, promedio e historial', () => {
-  const s = fresh(); s.setUserRole('admin');
+  const s = fresh(); s.setUserRole('gthc');
   const id = s.candidates[0].id, old = s.candidates[0].score;
   const weights = s.jobPosting.weights.map((w,i) => ({...w,weightPct:i===0?100:0}));
   const expected = s.simulateWeightsImpact(weights).find(c => c.id === id).simulatedScore;

@@ -1,3 +1,4 @@
+import { AuditViewController } from './auditView.js';
 import { appState } from './state.js';
 import { DataGridController } from './dataGrid.js';
 import { DrawerController } from './drawer.js';
@@ -68,6 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     onNewJob: () => wizard.open(),
     onOpenJob: id => { appState.setActiveJobPosting(id); switchView('ranking'); }
   });
+
+  const auditController = new AuditViewController(document.getElementById('viewContainer_audit'));
 
   // 3. Global PDF CV opener
   window.openCandidateCV = (candId) => {
@@ -206,8 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. Adaptive Multi-Role Switcher (Mariana Córdova / Dr. Talavera / Decana / Admin)
-  const globalRoleSelect = document.getElementById('globalRoleSelect');
+  // 5. Unified GTHC workspace
   const userProfileAvatar = document.getElementById('userProfileAvatar');
   const userProfileName = document.getElementById('userProfileName');
   const userProfileRole = document.getElementById('userProfileRole');
@@ -238,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       comparison: ['evaluacion','seleccion'],
       talentPool: ['talento'],
       effectiveness: ['gobernanza'],
-      executive: ['direccion']
+      executive: ['direccion'], audit: ['gobernanza']
     };
 
     const allowedViews = Object.entries(stageViewMap)
@@ -253,17 +255,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  if (globalRoleSelect) {
-    globalRoleSelect.addEventListener('change', (e) => {
-      applyUserRole(e.target.value);
-    });
-  }
-
   // 6. View Routing & Sidebar Navigation (6 Etapas del Ciclo del Talento)
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
 
   const renderCurrentView = (viewName) => {
+    dataGrid.closeMenu();
     // Update Sidebar Navigation
     navItems.forEach(item => {
       const navTarget = item.getAttribute('data-nav') || item.getAttribute('data-target');
@@ -277,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Trigger render for the active view
+    if (viewName === 'audit') auditController.render();
     if (viewName === 'kanban') kanbanController.render();
     if (viewName === 'comparison') comparisonController.render();
     if (viewName === 'talentPool') talentPoolController.render();
@@ -312,17 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         wizard.open();
       } else if (target === 'profilesLibrary') {
         switchView('profilesLibrary');
-      } else if (target === 'interviews_star' || target === 'decisions') {
-        switchView('ranking');
-        appState.setActiveDrawerTab(target === 'interviews_star' ? 'gaps' : 'audit');
-        notify('Selecciona un candidato para abrir su expediente.');      } else if (target === 'crossmatch') {
-        switchView('talentPool');
-      } else if (target === 'reports') {
-        switchView('executive');
-        notify('Puedes exportar el resumen de convocatorias en CSV.');
-      } else if (target === 'audit') {
-        switchView('ranking'); appState.setActiveDrawerTab('audit');
-        notify('Selecciona una postulación para revisar su historial.');      } else if (target) {
+      } else if (target) {
         switchView(target);
       }
     });
@@ -517,5 +505,5 @@ document.addEventListener('DOMContentLoaded', () => {
   copilot.collapse();
   if (window.matchMedia('(max-width: 650px)').matches) toggleSidebar();
   if(location.hash) readRoute(); else writeRoute();
-  console.log("TalentAI Enterprise Architecture initialized with Multi-Role support (GTHC · ESAN 2026).");
+  console.log("TalentAI Enterprise Architecture initialized with unified GTHC profile (GTHC · ESAN 2026).");
 });

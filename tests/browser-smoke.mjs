@@ -48,7 +48,7 @@ try {
   await page.locator('[data-nav="kanban"]').click();
   assert.equal(await page.locator('.kanban-column-count').allTextContents().then(a=>a.reduce((sum,n)=>sum+Number(n),0)),505);
   assert.equal(await page.locator('.kanban-column').last().locator('.kanban-column-count').textContent(),'1');
-  await page.locator('#globalRoleSelect').selectOption('admin');
+  assert.equal(await page.locator('#globalRoleSelect').count(), 0);
   await page.locator('[data-nav="talentPool"]').click();
   assert.ok(await page.locator('.talent-card').count()>0);
   await page.locator('[data-nav="criteria"]').click();
@@ -82,9 +82,9 @@ try {
   assert.equal((await snapshot()).view,'ranking');
   await page.goBack();
   assert.equal((await snapshot()).count,505);
-  await page.locator('#globalRoleSelect').selectOption('director');
-  assert.equal(await page.locator('#openIngestionBtn').isDisabled(),true);
-  assert.equal(await page.locator('#topNInput').isDisabled(),true);
+  assert.match(await page.locator('#userProfileName').textContent(), /Equipo de GTHC/);
+  assert.equal(await page.locator('#openIngestionBtn').isDisabled(),false);
+  assert.equal(await page.locator('#topNInput').isDisabled(),false);
   await page.locator('[data-nav="executive"]').click();
   assert.match(await page.locator('#viewContainer_executive').textContent(),/510/);
   const mobile = await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});

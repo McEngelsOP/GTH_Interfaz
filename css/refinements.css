@@ -88,3 +88,32 @@ progress { width: 100%; height: 10px; accent-color: #377aba; }.batch-steps { pad
 @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.workspace-header { flex-wrap: wrap; }.comparison-view-header { padding: 16px; } }
 @media (max-width: 650px) { .workspace-header { padding: 10px; }.workspace-content { padding: 10px; }.talent-results-grid { grid-template-columns: 1fr; }#viewContainer_ranking .candidate-table { min-width: 1020px; }#viewContainer_ranking .candidate-primary-cell { position: static; }.criteria-weights-grid { grid-template-columns: 1fr; }.drawer-footer { flex-wrap: wrap; }.review-actions .btn { font-size: 12px; }.kpi-grid { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Portaled actions stay above sticky cells and outside the clipped ranking. */
+body > .more-actions-menu {
+  position: fixed; right: auto; width: min(260px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px); overflow-y: auto; z-index: 10050; animation: none;
+}
+body > .more-actions-menu .more-action-item { white-space: normal; overflow-wrap: anywhere; }
+.more-action-item:focus-visible { outline: 2px solid #3269ed; outline-offset: -2px; }
+.gthc-profile-label { display: block; color: #f8fafc; font-size: 12px; padding: 7px 0; }
+.process-view-heading { padding: 20px; margin-bottom: 20px; background: white; border: 1px solid #e0e8f2; border-radius: 12px; }
+.process-view-heading h2 { font: 700 22px var(--font-heading); }
+.process-view-heading p { color: #65778d; margin-top: 6px; }
+.audit-view-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.audit-view-toolbar select { max-width: 100%; }
+.process-table { min-width: 850px; }
+.process-table th { white-space: normal; }
+.process-table small { display: block; margin-top: 4px; color: #65778d; }
+.comparison-radar-section { padding: 20px; border-top: 1px solid #e6edf5; }
+.comparison-radar-section h3 { font-size: 14px; }
+.comparison-radar-section p { font-size: 12px; color: #65778d; margin-top: 5px; }
+.comparison-radar-layout { display: grid; grid-template-columns: minmax(250px, 360px) minmax(0,1fr); gap: 24px; align-items: center; }
+.comparison-radar { width: 100%; height: auto; }
+.comparison-legend-card { border-left: 3px solid; border-radius: 4px; padding: 12px; margin: 8px 0; background: #f7f9fc; font-size: 12px; }
+.comparison-legend-score { float: right; font-weight: 700; color: #3269ed; }
+.comparison-profile-avatar { display: grid; place-items: center; width: 38px; height: 38px; margin: 8px auto; border-radius: 50%; color: white; background: #122d4d; }
+.comparison-profile-role { display: block; font-weight: 400; color: #65778d; margin: 8px 0; }
+.comparison-profile-score { display: block; color: #3269ed; font-size: 25px; margin: 10px 0; }
+.comparison-profile-score small { font-size: 11px; color: #65778d; }
+@media (max-width: 750px) { .comparison-radar-layout { grid-template-columns: 1fr; }.comparison-radar { max-width: 360px; margin: auto; }.process-view-heading { padding: 14px; } }

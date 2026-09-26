@@ -24,13 +24,41 @@ export class DataGridController {
     this.initListeners();
   }
 
+  closeMenu() {
+    if (!this.openMenu) return;
+    const { menu, wrapper, button } = this.openMenu;
+    menu.classList.remove('show');
+    menu.style.left = '';
+    menu.style.top = '';
+    button.setAttribute('aria-expanded', 'false');
+    if (wrapper.isConnected) wrapper.appendChild(menu);
+    else menu.remove();
+    this.openMenu = null;
+  }
+
+  showMenu(button, menu) {
+    this.closeMenu();
+    const wrapper = button.closest('.more-actions-dropdown-wrapper');
+    document.body.appendChild(menu);
+    menu.classList.add('show');
+    const rect = button.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.max(margin, Math.min(rect.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - margin));
+    const below = rect.bottom + margin;
+    const top = below + menu.offsetHeight <= window.innerHeight - margin
+      ? below
+      : Math.max(margin, rect.top - menu.offsetHeight - margin);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    button.setAttribute('aria-expanded', 'true');
+    this.openMenu = { menu, wrapper, button };
+    menu.querySelector('button')?.focus({ preventScroll: true });
+  }
+
   initListeners() {
-    const closeMenus = () => {
-      this.tableBody?.querySelectorAll('.more-actions-menu.show').forEach(menu => menu.classList.remove('show'));
-      this.tableBody?.querySelectorAll('[data-action="toggle-menu"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
-    };
+    const closeMenus = () => this.closeMenu();
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.more-actions-dropdown-wrapper')) closeMenus();
+      if (!e.target.closest('.more-actions-dropdown-wrapper, .more-actions-menu')) closeMenus();
     });
     this.scrollRegion?.addEventListener('scroll', () => {
       closeMenus();
@@ -133,6 +161,7 @@ export class DataGridController {
   }
 
   renderVisibleRows() {
+    this.closeMenu();
     if (!this.tableBody || !this.pageCandidates) return;
     if (!this.pageCandidates.length) return;
 
@@ -212,7 +241,7 @@ export class DataGridController {
           <div class="row-actions-cluster">
             <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar etapa tras verificar elegibilidad" ${!appState.can('selection') || !isEligible(candidate) || candidate.stage === 'contratado' ? 'disabled' : ''}>Avanzar</button>
             <div class="more-actions-dropdown-wrapper">
-              <button class="btn-more-actions" data-action="toggle-menu" data-id="${esc(candidate.id)}" title="Más acciones de selección" aria-label="Más acciones para ${esc(candidate.name)}" aria-expanded="false">
+              <button class="btn-more-actions" data-action="toggle-menu" data-id="${esc(candidate.id)}" aria-label="Más acciones para ${esc(candidate.name)}" aria-expanded="false" aria-controls="actionsMenu_${esc(candidate.id)}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
               </button>
               <div class="more-actions-menu" id="actionsMenu_${esc(candidate.id)}">
@@ -412,24 +441,8 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         const menu = document.getElementById(`actionsMenu_${candId}`);
         
-        // Close other menus
-        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
-          if (m !== menu) m.classList.remove('show');
-        });
-        this.tableBody.querySelectorAll('[data-action="toggle-menu"]').forEach(button => {
-          if (button !== btn) button.setAttribute('aria-expanded', 'false');
-        });
-
-        if (menu) {
-          const opened = menu.classList.toggle('show');
-          btn.setAttribute('aria-expanded', String(opened));
-          if (opened) {
-            const trigger = btn.getBoundingClientRect();
-            const size = menu.getBoundingClientRect();
-            menu.style.left = `${Math.max(8, Math.min(window.innerWidth - size.width - 8, trigger.right - size.width))}px`;
-            menu.style.top = `${trigger.bottom + size.height + 8 > window.innerHeight ? Math.max(8, trigger.top - size.height - 4) : trigger.bottom + 4}px`;
-          }
-        }
+        if (this.openMenu?.menu === menu) this.closeMenu();
+        else if (menu) this.showMenu(btn, menu);
       });
     });
 
@@ -439,8 +452,7 @@ export class DataGridController {
         e.stopPropagation();
         const candId = btn.getAttribute('data-id');
         appState.toggleComparisonCandidate(candId);
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -453,8 +465,7 @@ export class DataGridController {
         if (cand && appState.addToTalentPool(candId)) {
           notify(`👥 ${cand.name} ha sido preservado en el Banco de Talento Institucional con categoría "${appState.jobPosting.roleTypeName}".`);
         }
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -465,8 +476,7 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         appState.selectCandidate(candId);
         appState.setActiveDrawerTab('audit');
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -477,8 +487,7 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         appState.selectCandidate(candId);
         appState.setActiveDrawerTab('gaps');
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -504,8 +513,7 @@ export class DataGridController {
           const confirmRelease = confirm(`¿Deseas liberar al postulante ${cand.name}? Se conservará en el Banco de Talento. La demo no envía correos.`);
           if (confirmRelease && appState.releaseCandidate(candId)) notify("Postulación liberada y conservada en el banco. No se enviaron correos.");
         }
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
   }
