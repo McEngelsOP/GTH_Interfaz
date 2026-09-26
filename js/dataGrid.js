@@ -17,10 +17,14 @@ export class DataGridController {
       if (!e.target.closest('.more-actions-dropdown-wrapper, .more-actions-menu')) this.closeMenu();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.closeMenu();
+      if (e.key === 'Escape' && this.openMenu) {
+        const button = this.openMenu.button;
+        this.closeMenu();
+        button.focus();
+      }
     });
     window.addEventListener('resize', () => this.closeMenu());
-    document.querySelector('.table-responsive')?.addEventListener('scroll', () => this.closeMenu());
+    this.tableBody?.closest('.table-responsive')?.addEventListener('scroll', () => this.closeMenu());
     document.querySelector('.app-main')?.addEventListener('scroll', () => this.closeMenu());
   }
 
@@ -192,8 +196,7 @@ export class DataGridController {
                   class="btn-more-actions" 
                   data-action="toggle-menu" 
                   data-id="${candidate.id}"
-                  title="Más acciones de selección"
-                  aria-label="Más acciones"
+                  aria-label="Más acciones de ${candidate.name}"
                   aria-expanded="false"
                   aria-controls="actionsMenu_${candidate.id}"
                 >
@@ -282,6 +285,7 @@ export class DataGridController {
     menu.style.top = `${top}px`;
     button.setAttribute('aria-expanded', 'true');
     this.openMenu = { menu, wrapper, button };
+    menu.querySelector('button')?.focus({ preventScroll: true });
   }
 
   renderGapsSummary(candidate) {
@@ -383,6 +387,7 @@ export class DataGridController {
     this.tableBody.querySelectorAll('.candidate-row').forEach(row => {
       row.addEventListener('click', () => {
         const candId = row.getAttribute('data-id');
+        appState.setActiveDrawerTab('explain');
         appState.selectCandidate(candId);
       });
     });
@@ -400,7 +405,7 @@ export class DataGridController {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const candId = btn.getAttribute('data-id');
-        const menu = this.tableBody.querySelector(`#actionsMenu_${candId}`);
+        const menu = document.getElementById(`actionsMenu_${candId}`);
         
         if (this.openMenu?.menu === menu) this.closeMenu();
         else if (menu) this.showMenu(btn, menu);
@@ -413,8 +418,7 @@ export class DataGridController {
         e.stopPropagation();
         const candId = btn.getAttribute('data-id');
         appState.toggleComparisonCandidate(candId);
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -428,8 +432,7 @@ export class DataGridController {
           appState.addToTalentPool(candId);
           alert(`👥 ${cand.name} ha sido preservado en el Banco de Talento Institucional con categoría "${appState.jobPosting.roleTypeName}".`);
         }
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -440,8 +443,7 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         appState.selectCandidate(candId);
         appState.setActiveDrawerTab('audit');
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -452,8 +454,7 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         appState.selectCandidate(candId);
         appState.setActiveDrawerTab('gaps');
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
 
@@ -491,8 +492,7 @@ export class DataGridController {
             alert(`📨 Decisión registrada en esta demo. ${cand.name} fue añadido al Banco de Talento; no se envió ninguna notificación.`);
           }
         }
-        const menu = btn.closest('.more-actions-menu');
-        if (menu) menu.classList.remove('show');
+        this.closeMenu();
       });
     });
   }

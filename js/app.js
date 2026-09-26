@@ -10,6 +10,7 @@ import { TalentPoolViewController } from './talentPoolView.js';
 import { EffectivenessViewController } from './effectivenessView.js';
 import { ExecutiveDashboardController } from './executiveDashboard.js';
 import { ProfilesLibraryViewController } from './profilesLibraryView.js';
+import { ConvocatoriasViewController, AuditViewController } from './processViews.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Core Components
@@ -58,6 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const profilesLibraryContainerEl = document.getElementById('viewContainer_profilesLibrary');
   const profilesLibraryController = new ProfilesLibraryViewController(profilesLibraryContainerEl);
   window.profilesLibraryController = profilesLibraryController;
+
+  const convocatoriasController = new ConvocatoriasViewController(document.getElementById('viewContainer_convocatorias'));
+  const auditController = new AuditViewController(document.getElementById('viewContainer_audit'));
 
   // 3. Global PDF CV opener
   window.openCandidateCV = (candId) => {
@@ -175,77 +179,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. GTHC uses one workspace to review recommendations and record decisions.
-  // 6. View Routing & Sidebar Navigation (6 Etapas del Ciclo del Talento)
+  // One destination per sidebar item. State navigation and URL navigation share this path.
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
-
-  const switchView = (viewName) => {
-    appState.setCurrentView(viewName);
-
-    // Update Sidebar Navigation
-    navItems.forEach(item => {
-      const navTarget = item.getAttribute('data-nav') || item.getAttribute('data-target');
-      item.classList.toggle('active', navTarget === viewName || (viewName === 'ranking' && navTarget === 'convocatorias'));
-    });
-
-    // Update View Containers
-    viewContainers.forEach(container => {
-      const containerView = container.id.replace('viewContainer_', '');
-      container.classList.toggle('active', containerView === viewName);
-    });
-
-    // Trigger render for the active view
-    if (viewName === 'kanban') kanbanController.render();
-    if (viewName === 'comparison') comparisonController.render();
-    if (viewName === 'talentPool') talentPoolController.render();
-    if (viewName === 'effectiveness') effectivenessController.render();
-    if (viewName === 'executive') executiveController.render();
-    if (viewName === 'profilesLibrary') profilesLibraryController.render();
-    if (viewName === 'ranking') dataGrid.render();
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const controllers = {
+    convocatorias: convocatoriasController, audit: auditController, ranking: dataGrid,
+    kanban: kanbanController, comparison: comparisonController, talentPool: talentPoolController,
+    effectiveness: effectivenessController, executive: executiveController, profilesLibrary: profilesLibraryController
   };
-
-  // Sidebar navigation routing
+  const routeAliases = {
+    decisiones: 'audit', decisions: 'audit', auditoria: 'audit',
+    'biblioteca-perfiles': 'profilesLibrary', 'nueva-convocatoria': 'profilesLibrary', 'new-job': 'profilesLibrary',
+    'banco-talento': 'talentPool', 'movilidad-interna': 'talentPool', crossmatch: 'talentPool',
+    comparador: 'comparison', efectividad: 'effectiveness', 'dashboard-ejecutivo': 'executive'
+  };
+  let readingRoute = false;
+  const writeRoute = () => {
+    if (readingRoute) return;
+    const route = new URLSearchParams({ view: appState.currentView, job: appState.activeJobPostingId });
+    history.replaceState(null, '', `#${route}`);
+  };
+  const showCurrentView = () => {
+    dataGrid.closeMenu();
+    drawer.close();
+    activeJobDropdownMenu?.classList.remove('show');
+    navItems.forEach(item => {
+      const active = item.dataset.nav === appState.currentView;
+      item.classList.toggle('active', active);
+      if (active) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+    viewContainers.forEach(container => {
+      container.classList.toggle('active', container.id === `viewContainer_${appState.currentView}`);
+    });
+    writeRoute();
+  };
+  const switchView = (viewName) => {
+    const target = controllers[viewName] ? viewName : 'convocatorias';
+    if (appState.currentView === target) {
+      showCurrentView();
+      controllers[target].render();
+    } else {
+      appState.setCurrentView(target);
+    }
+  };
+  appState.subscribe(event => {
+    if (event === 'view_changed') {
+      showCurrentView();
+      if (appState.currentView === 'ranking') dataGrid.render();
+    }
+    if (event === 'job_changed') {
+      drawer.close();
+      writeRoute();
+    }
+  });
+  const readRoute = () => {
+    readingRoute = true;
+    const hash = location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    const requested = params.get('view') || (hash && !hash.includes('=') ? hash : 'convocatorias');
+    const job = params.get('job');
+    if (job) appState.setActiveJobPosting(job);
+    switchView(routeAliases[requested] || requested);
+    readingRoute = false;
+    writeRoute();
+  };
+  window.addEventListener('hashchange', readRoute);
   navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      const target = item.getAttribute('data-nav') || item.getAttribute('data-target');
-
-      if (target === 'ingestion') {
-        batchIngestion.open();
-      } else if (target === 'criteria') {
-        criteriaModal.open();
-      } else if (target === 'new-job' || target === 'profilesLibrary') {
-        switchView('profilesLibrary');
-      } else if (target === 'interviews_star') {
-        switchView('ranking');
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('gaps');
-        }
-      } else if (target === 'decisions') {
-        switchView('ranking');
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('audit');
-        }
-      } else if (target === 'crossmatch') {
-        switchView('talentPool');
-      } else if (target === 'reports') {
-        alert('📊 Generando informe consolidado de cobertura institucional y contrataciones en formato PDF para Decanatura...');
-      } else if (target === 'audit') {
-        const first = appState.candidates[0];
-        if (first) {
-          appState.selectCandidate(first.id);
-          appState.setActiveDrawerTab('audit');
-        }
-      } else if (target) {
-        switchView(target);
-      }
+    item.addEventListener('click', event => {
+      event.preventDefault();
+      const target = item.dataset.nav;
+      if (target === 'ingestion') batchIngestion.open();
+      else if (target === 'criteria') criteriaModal.open();
+      else switchView(target);
     });
   });
 
@@ -394,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 12. Initial Render
-  dataGrid.render();
+  // 12. Restore the requested view and active job.
+  readRoute();
   console.log("TalentAI GTHC workspace initialized (demo · ESAN 2026).");
 });
