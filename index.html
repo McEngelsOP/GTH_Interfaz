@@ -263,28 +263,19 @@
 
       <!-- Role Switcher & User Profile Footer -->
       <div class="sidebar-footer">
-        <div class="role-selector-box">
-          <label for="globalRoleSelect" class="role-selector-label">
-            <span>Rol Activo:</span>
-          </label>
-          <div class="role-select-wrapper">
-            <select class="role-selector-select" id="globalRoleSelect" aria-label="Cambiar Rol de Usuario">
-              <option value="reclutador" selected>💼 Reclutador (Operativo)</option>
-              <option value="coordinador">🎓 Coordinador Académico</option>
-              <option value="director">🏛️ Director / Decano</option>
-              <option value="admin">⚙️ Administrador / GTHC</option>
-            </select>
-          </div>
+        <div class="role-selector-box" aria-label="Perfil activo: equipo de GTHC">
+          <span class="role-selector-label">PERFIL PRINCIPAL</span>
+          <span class="role-selector-static">💼 Equipo de GTHC</span>
         </div>
 
         <div class="recruiter-profile" id="userProfileCard" title="Sesión activa">
           <div class="recruiter-avatar" id="userProfileAvatar">
-            <span>MC</span>
+            <span>GT</span>
             <span class="recruiter-online-dot"></span>
           </div>
           <div class="recruiter-meta">
-            <span class="recruiter-name" id="userProfileName">Mariana Córdova</span>
-            <span class="recruiter-role" id="userProfileRole">Reclutadora GTHC · ESAN</span>
+            <span class="recruiter-name" id="userProfileName">Equipo de GTHC</span>
+            <span class="recruiter-role" id="userProfileRole">Gestión del talento · ESAN</span>
           </div>
         </div>
       </div>
@@ -438,6 +429,7 @@
           </section>
 
           <!-- B. Candidate Data Grid Toolbar -->
+          <p class="decision-guidance">La IA recomienda perfiles y explica puntajes y brechas. El equipo de GTHC revisa cada expediente y registra el avance y la decisión final.</p>
           <section class="table-toolbar" id="candidateGridSection">
             <div class="search-input-wrapper">
               <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -499,8 +491,8 @@
                       </span>
                     </th>
                     <th style="min-width: 180px;">Análisis de Brechas (Cambio #10)</th>
-                    <th class="sortable" style="width: 130px; text-align: center;">Score Consolidado</th>
-                    <th style="min-width: 190px;">Acciones & Comparador</th>
+                    <th class="sortable" style="width: 130px; text-align: center;">Puntaje sugerido por IA</th>
+                    <th style="min-width: 190px;">Acciones GTHC</th>
                   </tr>
                 </thead>
                 <tbody id="candidateTableBody">
@@ -632,7 +624,7 @@
 
         <!-- Disclaimer Notice Footer -->
         <div class="copilot-disclaimer">
-          La IA analiza y clasifica. La decisión final de contratación y avance corresponde al reclutador de GTHC.
+          La IA analiza y recomienda. El equipo de GTHC revisa la evidencia y decide el avance y la contratación.
         </div>
       </div>
     </aside>
