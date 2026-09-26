@@ -10,8 +10,18 @@ export class DataGridController {
     this.tableBody = tableBodyEl;
     this.selectAllCheckbox = selectAllCheckboxEl;
     this.resultCount = resultCountEl;
+    this.openMenu = null;
 
     this.initListeners();
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.more-actions-dropdown-wrapper, .more-actions-menu')) this.closeMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.closeMenu();
+    });
+    window.addEventListener('resize', () => this.closeMenu());
+    document.querySelector('.table-responsive')?.addEventListener('scroll', () => this.closeMenu());
+    document.querySelector('.app-main')?.addEventListener('scroll', () => this.closeMenu());
   }
 
   initListeners() {
@@ -41,6 +51,7 @@ export class DataGridController {
 
   render() {
     if (!this.tableBody) return;
+    this.closeMenu();
 
     const candidates = appState.getFilteredCandidates();
     const selectedId = appState.selectedCandidateId;
@@ -159,7 +170,7 @@ export class DataGridController {
                 <span style="font-weight: 700; color: ${candidate.score >= 85 ? '#047857' : '#B45309'};">
                   ${candidate.score >= 90 ? 'Sobresaliente' : candidate.score >= 80 ? 'Afinidad Alta' : 'Alineamiento Medio'}
                 </span>
-                <span style="color: var(--text-tertiary); font-size: 10.5px;">Ajuste al Perfil</span>
+                <span style="color: var(--text-tertiary); font-size: 10.5px;">Sugerencia IA · revisar</span>
               </div>
             </div>
           </td>
@@ -183,6 +194,8 @@ export class DataGridController {
                   data-id="${candidate.id}"
                   title="Más acciones de selección"
                   aria-label="Más acciones"
+                  aria-expanded="false"
+                  aria-controls="actionsMenu_${candidate.id}"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <circle cx="12" cy="12" r="1.5"></circle>
@@ -212,7 +225,7 @@ export class DataGridController {
                   <div class="more-action-divider"></div>
                   <button class="more-action-item text-danger" data-action="release" data-id="${candidate.id}">
                     <span class="action-icon">📨</span>
-                    <span>Liberar y notificar</span>
+                    <span>Liberar y guardar en Banco</span>
                   </button>
                 </div>
               </div>
@@ -239,6 +252,36 @@ export class DataGridController {
       return `<span class="podium-rank-badge podium-regular" title="Dentro de corte Top-N">#${rank}</span>`;
     }
     return `<span style="font-size: 11px; font-weight: 600; color: var(--text-tertiary); padding: 2px 6px;">#${rank}</span>`;
+  }
+
+  closeMenu() {
+    if (!this.openMenu) return;
+    const { menu, wrapper, button } = this.openMenu;
+    menu.classList.remove('show');
+    menu.style.left = '';
+    menu.style.top = '';
+    button.setAttribute('aria-expanded', 'false');
+    if (wrapper.isConnected) wrapper.appendChild(menu);
+    else menu.remove();
+    this.openMenu = null;
+  }
+
+  showMenu(button, menu) {
+    this.closeMenu();
+    const wrapper = button.closest('.more-actions-dropdown-wrapper');
+    document.body.appendChild(menu);
+    menu.classList.add('show');
+    const rect = button.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.max(margin, Math.min(rect.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - margin));
+    const below = rect.bottom + margin;
+    const top = below + menu.offsetHeight <= window.innerHeight - margin
+      ? below
+      : Math.max(margin, rect.top - menu.offsetHeight - margin);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    button.setAttribute('aria-expanded', 'true');
+    this.openMenu = { menu, wrapper, button };
   }
 
   renderGapsSummary(candidate) {
@@ -359,24 +402,9 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         const menu = this.tableBody.querySelector(`#actionsMenu_${candId}`);
         
-        // Close other menus
-        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
-          if (m !== menu) m.classList.remove('show');
-        });
-
-        if (menu) {
-          menu.classList.toggle('show');
-        }
+        if (this.openMenu?.menu === menu) this.closeMenu();
+        else if (menu) this.showMenu(btn, menu);
       });
-    });
-
-    // Close any open actions menu when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.more-actions-dropdown-wrapper')) {
-        this.tableBody.querySelectorAll('.more-actions-menu.show').forEach(m => {
-          m.classList.remove('show');
-        });
-      }
     });
 
     // Compare Toggle
@@ -460,7 +488,7 @@ export class DataGridController {
           if (confirmRelease) {
             appState.recordDecision(candId, `Liberado de la convocatoria activa`);
             appState.addToTalentPool(candId, "Liberado de convocatoria activa con potencial transferible.");
-            alert(`📨 Decisión registrada. ${cand.name} ha sido notificado y resguardado en el Banco de Talento.`);
+            alert(`📨 Decisión registrada en esta demo. ${cand.name} fue añadido al Banco de Talento; no se envió ninguna notificación.`);
           }
         }
         const menu = btn.closest('.more-actions-menu');
