@@ -21,7 +21,7 @@ try {
   await page.locator('[data-nav="comparison"]').click();
   assert.equal((await snapshot()).pool,0);
   await page.locator('[data-compare-action="suggest"]').click();
-  assert.equal((await snapshot()).pool,5);
+  assert.equal((await snapshot()).pool,await page.evaluate(()=>testState.candidates.filter(c=>c.inTopN).length));
   await page.locator('[data-compare-action="clear"]').click();
   assert.equal((await snapshot()).pool,0);
   await page.locator('[data-nav="ranking"]').click();

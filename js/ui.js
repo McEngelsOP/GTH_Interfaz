@@ -28,7 +28,10 @@ export function notify(message, isError = false) {
 const dialogs = [];
 export function openDialog(overlay, dialog) {
   if (dialogs.some(d => d.overlay === overlay)) return;
+  document.getElementById('appNotice')?.setAttribute('hidden', '');
   const previous = document.activeElement;
+  const overlayInert = overlay.inert;
+  overlay.inert = false;
   const suppressed = [];
   for (const sibling of document.body.children) {
     if (sibling === overlay || sibling.contains(overlay)) continue;
@@ -42,7 +45,7 @@ export function openDialog(overlay, dialog) {
     if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
   };
-  dialogs.push({ overlay, previous, suppressed, trap });
+  dialogs.push({ overlay, overlayInert, previous, suppressed, trap });
   document.addEventListener('keydown', trap);
   document.body.style.overflow = 'hidden';
   dialog.tabIndex = -1;
@@ -54,6 +57,7 @@ export function closeDialog(overlay) {
   if (index < 0) return;
   const [entry] = dialogs.splice(index,1);
   document.removeEventListener('keydown',entry.trap);
+  overlay.inert = entry.overlayInert;
   entry.suppressed.forEach(([el,previous]) => { el.inert = previous; });
   document.body.style.overflow = dialogs.length ? 'hidden' : '';
   if (entry.previous?.isConnected) entry.previous.focus({ preventScroll: true });

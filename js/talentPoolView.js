@@ -1,8 +1,9 @@
 import { appState } from './state.js';
 import { escapeHTML as esc, exportCSV, notify } from './ui.js';
-import { candidateCSVRows, catalogCSVRows } from './csvData.js';
+import { candidateCSVRows, catalogCSVRows, comparisonCSVRows } from './csvData.js';
 import { paginateCandidates } from './pagination.js';
-import { STAGE_LABELS } from './domain.js';
+import { STAGE_LABELS, isEligible } from './domain.js';
+import { icon } from './icons.js';
 
 export class TalentPoolViewController {
   constructor(container) {
@@ -24,6 +25,7 @@ export class TalentPoolViewController {
       if(action==='link')try{appState.linkTalent(b.dataset.id);notify('Perfil vinculado a este puesto. Su evaluación queda pendiente.');}catch(error){notify(error.message,true);}
       if(action==='catalog')exportCSV('perfiles-demo.csv',catalogCSVRows(appState.templates));
       if(action==='export')exportCSV(`perfiles-${appState.activeJobPostingId}.csv`,candidateCSVRows(appState.jobPosting,this.getExportCandidates()));
+      if(action==='comparison-export')exportCSV(`comparativa-${appState.activeJobPostingId}.csv`,comparisonCSVRows(appState.jobPosting,this.getBestExportCandidates()));
       if(action==='bank-export')exportCSV('banco-talento.csv',[['ID','Candidato','Categoría','Convocatoria anterior','Puntaje según Machine Learning','Puntaje según LLM (embeddings)','Motivo'],...appState.getFilteredTalentPool(this.category).map(t=>[t.id,t.name,t.roleCategory,t.previousVacancy,t.mlScore,t.llmScore,t.matchReason])]);
       if(action==='compare'){
         const rows=this.getExportCandidates();
@@ -35,6 +37,9 @@ export class TalentPoolViewController {
   getExportCandidates() {
     return appState.getRankedCandidates().filter(c=>this.exportScope==='all'||(this.exportScope==='topN'?c.inTopN:appState.selectedRows.has(c.id)));
   }
+  getBestExportCandidates() {
+    return this.getExportCandidates().filter(c=>isEligible(c,appState.rankingModel)).slice(0,appState.topN);
+  }
   render() {
     this.container.innerHTML=`<section class="talent-pool-wrapper"><header class="talent-pool-header"><div><span class="section-kicker">PERFILES Y DESCARGAS</span><h2>Banco de Talento</h2><p>Consulta candidatos guardados y descarga los perfiles que necesitas.</p></div></header>
       <section class="export-workspace"><div class="export-heading"><div><h3>Perfiles de esta convocatoria</h3><p>${esc(appState.jobPosting.title)} <small>· ${esc(appState.activeJobPostingId)}</small></p></div><label>Qué perfiles descargar<select id="exportProfileScope">${[['all','Todos los candidatos del puesto'],['topN',`Los mejores ${appState.topN}`],['selected','Los perfiles que seleccionaste']].map(([v,label])=>`<option value="${v}" ${this.exportScope===v?'selected':''}>${label}</option>`).join('')}</select></label></div><div id="exportPreview"></div></section>
@@ -45,7 +50,9 @@ export class TalentPoolViewController {
   }
   renderExportPreview() {
     const rows=this.getExportCandidates(),mount=this.container.querySelector('#exportPreview');if(!mount)return;
-    mount.innerHTML=`<p class="export-count" role="status">${rows.length} perfiles para descargar <span>· ML y LLM en columnas separadas</span></p>${rows.length?`<div class="export-preview-scroll"><table class="export-preview-table"><thead><tr><th>Candidato</th><th>Machine Learning</th><th>LLM (embeddings)</th><th>Etapa</th></tr></thead><tbody>${rows.slice(0,5).map(c=>`<tr><td>${esc(c.name)}</td><td>${c.mlScore??'Pendiente'}</td><td>${c.llmScore??'Pendiente'}</td><td>${STAGE_LABELS[c.stage]}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty-copy">Todavía no hay perfiles en esta selección. Revisa el ranking o cambia la opción de descarga.</p>'}${rows.length>5?'<p class="helper-copy">Vista previa de cinco filas. El archivo incluye todos los perfiles indicados.</p>':''}<div class="review-actions"><button class="btn btn-primary" data-talent="export" ${!rows.length?'disabled':''}>Descargar perfiles · CSV</button><button class="btn btn-secondary" data-talent="compare" ${rows.length<2?'disabled':''}>Comparar estos perfiles</button></div>`;
+    const best=this.getBestExportCandidates();
+    mount.innerHTML=`<p class="export-count" role="status">${rows.length} perfiles para descargar <span>· ML y LLM en columnas separadas</span></p>${rows.length?`<div class="export-preview-scroll"><table class="export-preview-table"><thead><tr><th>Candidato</th><th>Machine Learning</th><th>LLM (embeddings)</th><th>Etapa</th></tr></thead><tbody>${rows.slice(0,5).map(c=>`<tr><td>${esc(c.name)}</td><td>${c.mlScore??'Pendiente'}</td><td>${c.llmScore??'Pendiente'}</td><td>${STAGE_LABELS[c.stage]}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty-copy">Todavía no hay perfiles en esta selección. Revisa el ranking o cambia la opción de descarga.</p>'}${rows.length>5?'<p class="helper-copy">Vista previa de cinco filas. El archivo incluye todos los perfiles indicados.</p>':''}<div class="review-actions"><button class="btn btn-primary" data-talent="export" ${!rows.length?'disabled':''}>${icon('download')}Descargar perfiles · CSV</button><button class="btn btn-secondary" data-talent="compare" ${rows.length<2?'disabled':''}>Comparar estos perfiles</button></div>
+      <section class="export-comparison"><div class="export-heading"><div><span class="section-kicker">UNA MIRADA RÁPIDA</span><h3>Los mejores perfiles de esta descarga</h3><p>Hasta ${appState.topN} perfiles activos con requisitos verificados, ordenados según ${appState.rankingModel==='llm'?'LLM':'ML'}.</p></div><button class="btn btn-secondary" data-talent="comparison-export" ${!best.length?'disabled':''}>${icon('download')}Descargar comparativa · CSV</button></div>${best.length?`<div class="best-export-list">${best.slice(0,3).map((c,index)=>`<article><span class="best-export-rank">${index+1}</span><div><strong>${esc(c.name)}</strong><small>ML ${c.mlScore??'—'} · LLM ${c.llmScore??'—'} · ${esc(STAGE_LABELS[c.stage])}</small><p>${esc(c.narrative.strengths[0] || c.narrative.selectionReason)}</p></div></article>`).join('')}</div><p class="helper-copy">El archivo comparativo incluye ${best.length} perfiles de esta descarga, sus fortalezas y el detalle de criterios para ${esc(appState.jobPosting.title)}.</p>`:'<p class="empty-copy">No hay perfiles activos con requisitos y puntaje verificados en esta descarga.</p>'}</section>`;
   }
   renderResults() {
     const result=paginateCandidates(appState.getFilteredTalentPool(this.category),this.page,25);this.page=result.page;

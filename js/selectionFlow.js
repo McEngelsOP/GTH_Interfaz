@@ -1,6 +1,7 @@
 import { appState } from './state.js';
 import { MODEL_LABELS } from './domain.js';
 import { escapeHTML as esc, openDialog, closeDialog, notify } from './ui.js';
+import { icon } from './icons.js';
 
 const advanceText = 'Hola {nombre}, tu postulación para {puesto} avanza a la siguiente etapa. Pronto te compartiremos los próximos pasos. ¡Gracias por tu interés!';
 const declineText = 'Hola {nombre}, gracias por postular a {puesto}. En esta ocasión tu postulación no continuará en este proceso. Agradecemos tu tiempo y tu interés.';
@@ -35,16 +36,16 @@ export class SelectionFlowController {
   updateControls() {
     const preview = appState.getDecisionPreview(), total = preview.selected.length;
     const ready = appState.candidates.filter(c=>c.inTopN).length;
-    document.getElementById('selectionSummary').textContent = total ? `${total} perfiles elegidos${preview.blocked.length ? ` · ${preview.blocked.length} requieren revisión` : ''}` : 'Marca perfiles para comparar o decidir quién avanza.';
+    document.getElementById('selectionSummary').textContent = total ? `${total} perfiles marcados para revisar${preview.blocked.length ? ` · ${preview.blocked.length} ya avanzaron o requieren verificación` : ''}` : 'Marcar perfiles no cambia su etapa. Revisa y confirma quién avanza.';
     document.querySelector('.selection-action-row').classList.toggle('has-selection', total > 0);
-    document.getElementById('topNAvailable').textContent = `${ready} perfiles disponibles para elegir · ordenados según ${MODEL_LABELS[appState.rankingModel]}`;
+    document.getElementById('topNAvailable').textContent = `${ready} perfiles pendientes de decisión · según ${MODEL_LABELS[appState.rankingModel]}`;
     document.getElementById('selectTopNBtn').disabled = !ready;
     document.getElementById('topNDecrementBtn').disabled = appState.topN <= 1;
     document.getElementById('clearSelectionBtn').disabled = !total;
     document.getElementById('compareSelectedBtn').disabled = total < 2;
     document.getElementById('advanceSelectedBtn').disabled = !total || !!preview.blocked.length;
     document.getElementById('viewSelectedBtn').disabled = !total;
-    document.getElementById('viewSelectedBtn').textContent = appState.filterStatus === 'selected' ? 'Ver en proceso' : 'Ver elegidos';
+    document.getElementById('viewSelectedBtn').innerHTML = `${icon('users')}${appState.filterStatus === 'selected' ? 'Ver en proceso' : 'Ver marcados'}`;
   }
   open() {
     const preview = appState.getDecisionPreview();
@@ -54,7 +55,7 @@ export class SelectionFlowController {
       <div class="decision-counts"><div><strong>${preview.selected.length}</strong><span>Avanzan</span></div><div><strong>${preview.declined.length}</strong><span>Otros perfiles evaluados</span></div><div><strong>${preview.pending.length}</strong><span>Siguen pendientes</span></div></div>
       <details class="decision-list" open><summary>Perfiles que elegiste</summary><ul>${preview.selected.map(c=>`<li>${esc(c.name)} <span>ML ${c.mlScore ?? '—'} · LLM ${c.llmScore ?? '—'}</span></li>`).join('')}</ul></details>
       <label class="decision-check"><input type="checkbox" id="declineOthers"> Marcar que los otros ${preview.declined.length} perfiles evaluados no avanzan y preparar su mensaje.</label>
-      <p class="helper-copy">Los perfiles con información pendiente conservarán su estado para que puedas revisarlos después.</p>
+      <p class="helper-copy">Quienes avanzan pasan a Preseleccionado y dejan la lista de mejores pendientes. Siguen disponibles en En proceso y Avance de candidatos. Los perfiles con información pendiente conservan su estado.</p>
       <label class="wizard-field">Mensaje para quienes avanzan<textarea id="advanceMessage" rows="3">${esc(advanceText)}</textarea></label>
       <label class="wizard-field" id="declineMessageField" hidden>Mensaje para quienes no avanzan<textarea id="declineMessage" rows="3">${esc(declineText)}</textarea></label>
       <p class="helper-copy">Usa {nombre} y {puesto}; se completan para cada persona.</p><div id="decisionMessagePreview" class="message-preview" aria-live="polite"></div>

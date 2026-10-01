@@ -368,7 +368,7 @@ class AppState {
 
   // --- View Routing System ---
   canView(view) {
-    const map = { audit: ['gobernanza'], convocatorias: ['convocatorias'], ranking: ['convocatorias'], profilesLibrary: ['convocatorias'], comparison: ['evaluacion','seleccion'], kanban: ['seleccion'], talentPool: ['talento'], effectiveness: ['gobernanza'], executive: ['direccion'] };
+    const map = { settings: ['gobernanza'], audit: ['gobernanza'], convocatorias: ['convocatorias'], ranking: ['convocatorias'], profilesLibrary: ['convocatorias'], comparison: ['evaluacion','seleccion'], kanban: ['seleccion'], talentPool: ['talento'], effectiveness: ['gobernanza'], executive: ['direccion'] };
     return (map[view] || []).some(stage => this.isStageVisibleForCurrentRole(stage));
   }
 
@@ -414,10 +414,13 @@ class AppState {
     const prevStage = cand.stage;
     cand.stage = newStage;
     this.appendAudit(cand, `Etapa: ${prevStage} → ${newStage}`);
+    this.selectedRows.delete(candId);
+    this.comparisonPool.delete(candId);
     this.updateTopNFlags();
     this.refreshJobMetrics(this.activeJobPostingId);
     this.persist();
     this.notify('candidate_stage_changed', { candidate: cand, prevStage, newStage });
+    this.notify('comparison_pool_changed', { pool: [...this.comparisonPool] });
     this.notify('jobs_changed', {});
     return true;
   }
@@ -499,7 +502,7 @@ class AppState {
         cand.rank = null;
         return;
       }
-      cand.inTopN = isEligible(cand,this.rankingModel) && eligibleCount++ < this.topN;
+      cand.inTopN = cand.stage === 'postulado' && isEligible(cand,this.rankingModel) && eligibleCount++ < this.topN;
       cand.rank = ++activeRank;
     });
   }
@@ -569,7 +572,7 @@ class AppState {
     const others = this.candidates.filter(c => c.stage === 'postulado' && !this.selectedRows.has(c.id));
     return {
       selected,
-      blocked: selected.filter(c => !isEligible(c,this.rankingModel)),
+      blocked: selected.filter(c => c.stage !== 'postulado' || !isEligible(c,this.rankingModel)),
       declined: others.filter(c => c.knockoutMet !== null && candidateScore(c,this.rankingModel) !== null),
       pending: others.filter(c => c.knockoutMet === null || candidateScore(c,this.rankingModel) === null)
     };
@@ -578,11 +581,11 @@ class AppState {
   confirmSelection({ jobId, declineOthers = false, advanceMessage, declineMessage }) {
     if (!this.can('selection') || jobId !== this.activeJobPostingId) throw new Error('La convocatoria cambió. Revisa la selección nuevamente.');
     const preview = this.getDecisionPreview();
-    if (!preview.selected.length || preview.blocked.length) throw new Error('Elige perfiles con requisitos verificados y un puntaje disponible para continuar.');
+    if (!preview.selected.length || preview.blocked.length) throw new Error('Elige perfiles pendientes de decisión con requisitos verificados y un puntaje disponible para continuar.');
     if (!String(advanceMessage || '').trim() || (declineOthers && !String(declineMessage || '').trim())) throw new Error('Completa el texto de los mensajes.');
     const timestamp = new Date().toISOString();
     const draft = (c, outcome, message) => {
-      c.messageDraft = { outcome, subject: `${outcome === 'avanza' ? 'Avance de tu postulación' : 'Resultado de tu postulación'} · ${this.jobPosting.title}`, body: message.replaceAll('{nombre}',c.name).replaceAll('{puesto}',this.jobPosting.title), status: 'Borrador', timestamp };
+      c.messageDraft = { outcome, recipient: c.email, cc: '', language: 'es', template: outcome, subject: `${outcome === 'avanza' ? 'Avance de tu postulación' : 'Resultado de tu postulación'} · ${this.jobPosting.title}`, body: message.replaceAll('{nombre}',c.name).replaceAll('{puesto}',this.jobPosting.title), status: 'Borrador', timestamp };
       this.appendAudit(c, `${outcome === 'avanza' ? 'Seleccionado por GTH' : 'No continúa por decisión de GTH'}. Mensaje preparado como borrador.`);
     };
     for (const c of preview.selected) {
@@ -594,8 +597,12 @@ class AppState {
       draft(c,'no_avanza',declineMessage);
       if (!this.talentPool.some(t => t.candidateId === c.candidateId)) this.talentPool.unshift({ id: `TAL-${timestamp}-${c.id}`, candidateId: c.candidateId, name: c.name, roleCategory: this.jobPosting.roleTypeName, previousVacancy: `${this.jobPosting.title} (${jobId})`, jobPostingId: jobId, mlScore: c.mlScore, llmScore: c.llmScore, scoreObtained: candidateScore(c,this.rankingModel), matchReason: 'Perfil conservado tras la decisión de GTH.', tags: c.preferredCriteria.map(p=>p.name) });
     }
+    this.selectedRows.clear(); this.comparisonPool.clear();
+    if (this.filterStatus === 'selected') this.filterStatus = 'active';
     this.updateTopNFlags(); this.refreshJobMetrics(jobId); this.persist();
     this.notify('selection_confirmed', { jobId });
+    this.notify('selection_changed');
+    this.notify('comparison_pool_changed', { pool: [] });
     this.notify('candidate_stage_changed', {});
     this.notify('talent_pool_updated', {});
     this.notify('jobs_changed', {});
@@ -701,6 +708,7 @@ class AppState {
       if (this.filterStatus === 'selected' && !this.selectedRows.has(c.id)) return false;
       if (this.filterStatus === 'topN' && !c.inTopN) return false;
       if (this.filterStatus === 'outsideTopN' && c.inTopN) return false;
+      if (this.filterStatus === 'outsideTopN' && c.stage !== 'postulado') return false;
       if (!['all','released','selected'].includes(this.filterStatus) && ['liberado','contratado'].includes(c.stage)) return false;
       if (this.filterStatus === 'released' && c.stage !== 'liberado') return false;
       if (this.filterStatus === 'pending' && c.knockoutMet !== null && candidateScore(c,this.rankingModel) !== null) return false;
@@ -717,6 +725,46 @@ class AppState {
     this.appendAudit(cand, decisionText); this.persist();
     this.notify('decision_recorded', { candidate: cand, action: decisionText });
     return true;
+  }
+
+  getOtherApplications(candidate) {
+    return this.jobPostings.flatMap(job => (this.candidatesByJob[job.id] || [])
+      .filter(c => c.candidateId === candidate.candidateId && job.id !== candidate.jobPostingId)
+      .map(c => ({ jobId: job.id, jobTitle: job.title, stage: c.stage })));
+  }
+
+  saveMessageDraft(candId, fields, jobId = this.activeJobPostingId) {
+    if (jobId !== this.activeJobPostingId) throw new Error('La convocatoria cambió. Abre el perfil nuevamente.');
+    const c = this.candidates.find(c => c.id === candId);
+    if (!c || !this.can('selection')) throw new Error('El perfil ya no está disponible.');
+    const recipient = String(fields.recipient || '').trim(), cc = String(fields.cc || '').trim();
+    const validEmail = email => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email);
+    if (!validEmail(recipient) || (cc && cc.split(/[,;]/).some(email => !validEmail(email.trim())))) throw new Error('Revisa el correo del destinatario y las copias.');
+    const subject = String(fields.subject || '').trim(), body = String(fields.body || '').trim();
+    if (!subject || !body) throw new Error('Completa el asunto y el mensaje.');
+    c.messageDraft = { outcome: c.messageDraft?.outcome || 'respuesta', recipient, cc, subject, body, language: fields.language === 'en' ? 'en' : 'es', template: String(fields.template || 'personal'), status: 'Borrador', timestamp: new Date().toISOString() };
+    this.appendAudit(c, 'Correo guardado como borrador. Pendiente de envío.');
+    this.persist(); this.notify('candidate_activity_changed', { candidate: c });
+    return c.messageDraft;
+  }
+
+  addCandidateActivity(candId, fields, jobId = this.activeJobPostingId) {
+    if (jobId !== this.activeJobPostingId) throw new Error('La convocatoria cambió. Abre el perfil nuevamente.');
+    const c = this.candidates.find(c => c.id === candId);
+    if (!c || !this.can('selection')) throw new Error('El perfil ya no está disponible.');
+    const details = String(fields.details || '').trim();
+    if (fields.type === 'note') {
+      if (!details) throw new Error('Escribe la nota antes de guardarla.');
+      this.appendAudit(c, `Nota: ${details}`);
+    } else if (fields.type === 'interview') {
+      const date = new Date(fields.scheduledAt);
+      if (!Number.isFinite(date.getTime()) || date <= new Date()) throw new Error('Elige una fecha y hora futura para la entrevista.');
+      const title = String(fields.title || '').trim();
+      if (!title) throw new Error('Añade un título para la entrevista.');
+      c.activities.push({ id: `ACT-${Date.now()}-${c.activities.length}`, type: 'interview', title, details, scheduledAt: date.toISOString(), timestamp: new Date().toISOString() });
+      this.appendAudit(c, `Entrevista registrada: ${title} · ${date.toLocaleString('es-PE')}. Invitación pendiente de envío.`);
+    } else throw new Error('Esta actividad no está disponible.');
+    this.persist(); this.notify('candidate_activity_changed', { candidate: c });
   }
 }
 

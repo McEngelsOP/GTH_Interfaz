@@ -1,4 +1,6 @@
 import { SelectionFlowController } from './selectionFlow.js';
+import { SettingsViewController } from './settingsView.js';
+import { icon } from './icons.js';
 import { AuditViewController } from './auditView.js';
 import { appState } from './state.js';
 import { DataGridController } from './dataGrid.js';
@@ -17,6 +19,9 @@ import { NewJobWizard } from './newJobWizard.js';
 import { escapeHTML as esc, notify } from './ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.review-metrics .metric-icon').forEach((el,i) => { el.innerHTML = icon(['users','arrow','check'][i]); });
+  document.getElementById('selectTopNBtn').innerHTML = `${icon('users')}Elegir los mejores`;
+  document.getElementById('advanceSelectedBtn').innerHTML = `Decidir quién avanza${icon('arrow')}`;
   // 1. Initialize Core Components
   const tableBodyEl = document.getElementById('candidateTableBody');
   const selectAllCheckboxEl = document.getElementById('selectAllCheckbox');
@@ -72,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const auditController = new AuditViewController(document.getElementById('viewContainer_audit'));
+  const settingsController = new SettingsViewController(document.getElementById('viewContainer_settings'));
 
   // 3. Global PDF CV opener
   window.openCandidateCV = (candId) => {
@@ -153,8 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const templatesBadge = document.getElementById('navTemplatesCountBadge');
   const candidateCountBadge = document.getElementById('navCandidateCountBadge');
   const updateNavBadges = () => {
-    if (jobsBadge) jobsBadge.textContent = `${appState.jobPostings.filter(j => j.status !== 'Borrador').length} activas`;
-    if (templatesBadge) templatesBadge.textContent = `${appState.templates.length} perfiles`;
+    if (jobsBadge) { const count=appState.jobPostings.filter(j => j.status !== 'Borrador').length; jobsBadge.textContent=String(count); jobsBadge.title=`${count} convocatorias activas`; }
+    if (templatesBadge) { templatesBadge.textContent = String(appState.templates.length); templatesBadge.title = `${appState.templates.length} perfiles de puestos`; }
   };
   updateNavBadges();
 
@@ -243,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
       comparison: ['evaluacion','seleccion'],
       talentPool: ['talento'],
       effectiveness: ['gobernanza'],
-      executive: ['direccion'], audit: ['gobernanza']
+      executive: ['direccion'], audit: ['gobernanza'], settings: ['gobernanza']
     };
 
     const allowedViews = Object.entries(stageViewMap)
@@ -261,9 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. View Routing & Sidebar Navigation (6 Etapas del Ciclo del Talento)
   const viewContainers = document.querySelectorAll('.view-container');
   const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+  navItems.forEach(item=>item.setAttribute('aria-label',item.dataset.tooltip || item.textContent.trim()));
 
   const renderCurrentView = (viewName) => {
     dataGrid.closeMenu();
+    document.querySelector('.app-main').classList.toggle('is-settings',viewName === 'settings');
     // Update Sidebar Navigation
     navItems.forEach(item => {
       const navTarget = item.getAttribute('data-nav') || item.getAttribute('data-target');
@@ -278,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Trigger render for the active view
     if (viewName === 'audit') auditController.render();
+    if (viewName === 'settings') settingsController.render();
     if (viewName === 'kanban') kanbanController.render();
     if (viewName === 'comparison') comparisonController.render();
     if (viewName === 'talentPool') talentPoolController.render();
@@ -381,6 +390,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateRankingStatus = () => {
     const counts = appState.getRankingCounts();
+    const copy = {
+      active: 'Aquí están las postulaciones activas, con su etapa actual. Quienes ya avanzaron siguen disponibles para darles seguimiento.',
+      topN: 'Los mejores perfiles pendientes de decisión. Al confirmar que avanzan, pasan a Preseleccionado y dejan esta lista. Puedes encontrarlos en En proceso y Avance de candidatos.',
+      selected: 'Marcados para revisar o comparar. Marcar y desmarcar no cambia la etapa ni elimina el perfil.',
+      released: 'Estas postulaciones ya no continúan en este puesto. Los perfiles se conservan en el banco de talento.',
+      all: 'Todas las postulaciones de esta convocatoria, incluidas las que ya terminaron. La etapa indica dónde está cada perfil.',
+      outsideTopN: 'Otros perfiles pendientes de decisión, fuera de los mejores según el método elegido.'
+    };
+    document.getElementById('rankingContextCopy').textContent = copy[appState.filterStatus] || 'Revisa los perfiles que coinciden con tus filtros. La etapa muestra su situación actual.';
     document.querySelectorAll('[data-status-count]').forEach(el => { el.textContent = counts[el.dataset.statusCount]; });
     document.querySelectorAll('[data-ranking-status]').forEach(button => {
       const active = button.dataset.rankingStatus === appState.filterStatus;
@@ -444,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (params.get('job')) appState.setActiveJobPosting(params.get('job'));
       switchView(appState.canView(params.get('view')) ? params.get('view') : 'convocatorias');
-      appState.setActiveDrawerTab(['explain','opportunities','weights','cv','audit'].includes(params.get('tab')) ? params.get('tab') : 'explain');
+      appState.setActiveDrawerTab(['explain','opportunities','weights','cv','audit','activity'].includes(params.get('tab')) ? params.get('tab') : 'explain');
       appState.selectCandidate(appState.candidates.some(c=>c.id===params.get('candidate')) ? params.get('candidate') : null);
     } finally { restoringRoute = false; }
   };

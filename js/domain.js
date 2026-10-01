@@ -18,6 +18,7 @@ export function normalizeCandidate(input, jobId) {
   return {
     id: input.id, candidateId: text(input.candidateId, input.id), jobPostingId: jobId,
     name: text(input.name, 'Perfil sin nombre'), role: text(input.role, 'Puesto no registrado'), company: text(input.company, 'Organización no registrada'),
+    email: text(input.email), phone: text(input.phone),
     source: ['linkedin', 'computrabajo', 'bumeran', 'gmail', 'referido', 'interno'].includes(input.source) ? input.source : 'otro',
     score: score === null ? null : Math.max(0, Math.min(100, score)),
     stage: [...STAGES, 'liberado'].includes(input.stage) ? input.stage : 'postulado',
@@ -30,7 +31,8 @@ export function normalizeCandidate(input, jobId) {
     crossMatches: array(input.crossMatches).map(m => ({ jobTitle: text(m.jobTitle), reason: text(m.reason), matchPct: numberOrNull(m.matchPct) })),
     weights: evidenceWeights(input.weights),
     mlScore: validScore(input.mlScore), llmScore: validScore(input.llmScore),
-    messageDraft: input.messageDraft && typeof input.messageDraft === 'object' ? { outcome: text(input.messageDraft.outcome), subject: text(input.messageDraft.subject), body: text(input.messageDraft.body), status: 'Borrador', timestamp: text(input.messageDraft.timestamp) } : null,
+    messageDraft: input.messageDraft && typeof input.messageDraft === 'object' ? { outcome: text(input.messageDraft.outcome), recipient: text(input.messageDraft.recipient), cc: text(input.messageDraft.cc), language: input.messageDraft.language === 'en' ? 'en' : 'es', template: text(input.messageDraft.template, 'personal'), subject: text(input.messageDraft.subject), body: text(input.messageDraft.body), status: 'Borrador', timestamp: text(input.messageDraft.timestamp) } : null,
+    activities: array(input.activities).map(a => ({ id: text(a.id), type: text(a.type), title: text(a.title), scheduledAt: text(a.scheduledAt), details: text(a.details), timestamp: text(a.timestamp) })),
     narrative: { selectionReason: text(input.narrative?.selectionReason, 'Evaluación pendiente. Revisa las evidencias disponibles.'), strengths: strings(input.narrative?.strengths), inclusionDetail: text(input.narrative?.inclusionDetail) },
     cvMarkdown: text(input.cvMarkdown),
     audit: { batchId: text(input.audit?.batchId, 'Sin lote'), criteriaVersion: text(input.audit?.criteriaVersion, 'Sin evaluación'), model: text(input.audit?.model, 'Sin motor conectado'), decisionHistory: array(input.audit?.decisionHistory).map(e => ({ time: text(e.time), timestamp: text(e.timestamp), user: text(e.user), action: text(e.action) })) },

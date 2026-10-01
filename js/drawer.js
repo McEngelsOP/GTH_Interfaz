@@ -1,13 +1,22 @@
 import { appState } from './state.js';
 import { escapeHTML as esc, openDialog, closeDialog, notify } from './ui.js';
 import { STAGE_LABELS, isEligible, candidateScore } from './domain.js';
+import { ProfileActionsController } from './profileActions.js';
+import { icon } from './icons.js';
 
 export class DrawerController {
   constructor(backdrop,drawer) {
     this.backdrop = backdrop; this.drawer = drawer;
     this.tabBtns = [...drawer.querySelectorAll('.drawer-tab-btn')];
     this.tabPanes = [...drawer.querySelectorAll('.tab-pane')];
-    for(const name of ['Explain','Opportunities','Weights','CV','Audit']) this[`pane${name}`] = drawer.querySelector(`#tabPane_${name.toLowerCase()}`);
+    for(const name of ['Explain','Opportunities','Weights','CV','Audit','Activity']) this[`pane${name}`] = drawer.querySelector(`#tabPane_${name.toLowerCase()}`);
+    this.profileActions = new ProfileActionsController(document.getElementById('profileActionMount'));
+    drawer.querySelector('#profileQuickActions').addEventListener('click', e => {
+      const type = e.target.closest('[data-profile-quick]')?.dataset.profileQuick;
+      const c = appState.getSelectedCandidate(); if (!type || !c) return;
+      if (type === 'activity') appState.setActiveDrawerTab('activity');
+      else this.profileActions.open(type, c);
+    });
     this.btnAdvance = drawer.querySelector('#drawerBtnAdvance'); this.btnRelease = drawer.querySelector('#drawerBtnRelease');
     drawer.querySelector('#drawerCloseBtn').addEventListener('click',()=>this.close());
     backdrop.addEventListener('click',e=>{ if(e.target === backdrop) this.close(); });
@@ -21,7 +30,7 @@ export class DrawerController {
     });
     drawer.querySelector('.drawer-tabs').setAttribute('role','tablist');
     this.tabBtns.forEach(btn=>{ btn.id = `drawerTab_${btn.dataset.tab}`; btn.setAttribute('role','tab'); btn.setAttribute('aria-controls',`tabPane_${btn.dataset.tab}`); btn.addEventListener('click',()=>appState.setActiveDrawerTab(btn.dataset.tab)); });
-    this.btnAdvance.addEventListener('click',()=>{ if(appState.advanceCandidate(appState.selectedCandidateId)) notify('Etapa actualizada.'); });
+    this.btnAdvance.addEventListener('click',()=>{ if(appState.advanceCandidate(appState.selectedCandidateId)) notify(`${appState.getSelectedCandidate().name} pasó a ${STAGE_LABELS[appState.getSelectedCandidate().stage]}. Puedes seguir su avance en «En proceso» y «Avance de candidatos».`); });
     this.btnRelease.addEventListener('click',()=>{
       const c=appState.getSelectedCandidate();
       if(c && confirm(`¿Liberar la postulación de ${c.name}? Se conservará en el banco de talento. En esta demo no se envían correos.`) && appState.releaseCandidate(c.id)) notify('El perfil salió del ranking activo. Puedes verlo en «No continúan» y en el Banco de Talento.');
@@ -29,14 +38,14 @@ export class DrawerController {
     appState.subscribe((event,data)=>{
       if(event === 'candidate_selected') { const c = appState.getSelectedCandidate(); if(c) { this.populate(c); this.open(); } else this.hide(); }
       if(event === 'drawer_tab_changed') this.switchTab(data.tabName);
-      if(['candidate_stage_changed','decision_recorded','criteria_updated','topN_changed','role_changed'].includes(event)) { const c=appState.getSelectedCandidate(); if(c) this.populate(c); }
+      if(['candidate_stage_changed','candidate_activity_changed','decision_recorded','criteria_updated','topN_changed','role_changed'].includes(event)) { const c=appState.getSelectedCandidate(); if(c) this.populate(c); }
     });
   }
   open() { this.backdrop.classList.add('active'); openDialog(this.backdrop,this.drawer); }
   hide() { this.backdrop.classList.remove('active'); closeDialog(this.backdrop); }
   close() { this.hide(); appState.selectCandidate(null); }
   switchTab(tab) {
-    if(!['explain','opportunities','weights','cv','audit'].includes(tab)) tab='explain';
+    if(!['explain','opportunities','weights','cv','audit','activity'].includes(tab)) tab='explain';
     appState.activeDrawerTab=tab;
     this.tabBtns.forEach(btn=>{ const active = btn.dataset.tab===tab; btn.classList.toggle('active',active); btn.setAttribute('aria-selected',String(active)); btn.tabIndex=active?0:-1; });
     this.tabPanes.forEach(pane=>{ const active = pane.id===`tabPane_${tab}`; pane.classList.toggle('active',active); pane.hidden=!active; pane.setAttribute('role','tabpanel'); pane.setAttribute('aria-labelledby',`drawerTab_${pane.id.replace('tabPane_','')}`); });
@@ -49,7 +58,12 @@ export class DrawerController {
     this.drawer.querySelector('#drawerScoreBadge').textContent=`ML ${candidateScore(c,'ml') ?? '—'} · LLM ${candidateScore(c,'llm') ?? '—'}`;
     this.btnAdvance.disabled=!appState.can('selection')||!isEligible(c,appState.rankingModel)||c.stage==='contratado';
     this.btnRelease.disabled=!appState.can('selection')||['liberado','contratado'].includes(c.stage);
-    this.renderExplainPane(c); this.renderOpportunitiesPane(c); this.renderWeightsPane(c); this.renderCVPane(c); this.renderAuditPane(c);
+    this.btnAdvance.innerHTML = `${icon('arrow')} ${c.stage === 'postulado' ? 'Pasar a Preseleccionado' : 'Avanzar a la siguiente etapa'}`;
+    this.drawer.querySelector('#profileQuickActions').innerHTML = [['mail','mail','Responder por correo'],['interview','calendar','Agendar entrevista'],['note','note','Añadir nota'],['activity','history','Ver actividad']].map(([type,name,label])=>`<button class="btn ${type==='mail'?'btn-primary':'btn-secondary'}" data-profile-quick="${type}">${icon(name)}${label}</button>`).join('');
+    const whereabouts = c.stage === 'postulado' ? 'Pendiente de decisión. Marcar este perfil solo lo añade a tu revisión.' : c.stage === 'liberado' ? 'Esta postulación no continúa. El perfil sigue en No continúan y en el Banco de Talento.' : c.stage === 'contratado' ? 'Proceso completado. El perfil se conserva en Todos y en Avance de candidatos.' : `Ya avanzó a ${STAGE_LABELS[c.stage]}. Sigue visible en En proceso y Avance de candidatos; ya no forma parte de los mejores pendientes de decisión.`;
+    const other = appState.getOtherApplications(c);
+    this.drawer.querySelector('#profileStageContext').innerHTML = `<span class="profile-stage-label">${esc(STAGE_LABELS[c.stage])}</span><p>${esc(whereabouts)}</p>${other.length?`<details class="other-applications"><summary>También tiene ${other.length} ${other.length===1?'postulación':'postulaciones'} en otra convocatoria</summary>${other.map(a=>`<p>${esc(a.jobTitle)} · ${esc(STAGE_LABELS[a.stage])}</p>`).join('')}<small>Las decisiones se aplican únicamente a esta postulación.</small></details>`:''}`;
+    this.renderExplainPane(c); this.renderOpportunitiesPane(c); this.renderWeightsPane(c); this.renderCVPane(c); this.renderAuditPane(c); this.renderActivityPane(c);
     this.switchTab(appState.activeDrawerTab);
   }
   renderExplainPane(c) {
@@ -70,5 +84,10 @@ export class DrawerController {
   renderCVPane(c) { this.paneCV.innerHTML='<section class="drawer-card"><h4>CV estructurado</h4><pre class="safe-cv"></pre></section>'; this.paneCV.querySelector('pre').textContent=c.cvMarkdown||'Sin documento disponible.'; }
   renderAuditPane(c) {
     this.paneAudit.innerHTML=`<section class="drawer-card"><h4>Historial de demostración</h4><p class="demo-note">Guardado en este navegador. La auditoría de servidor se integrará posteriormente.</p><p>Lote: ${esc(c.audit?.batchId)} · Criterios: ${esc(c.audit?.criteriaVersion)}</p><p>Motor registrado: ${esc(c.audit?.model)}</p>${(c.audit?.decisionHistory||[]).map(e=>`<article class="audit-entry"><small>${esc(e.timestamp||e.time)} · ${esc(e.user)}</small><p>${esc(e.action)}</p></article>`).join('')||'<p>Sin decisiones registradas.</p>'}<h4>Evaluaciones anteriores</h4>${(c.evaluationHistory||[]).map(e=>`<p>${esc(e.timestamp)} · ${esc(e.criteriaVersion)} · ML ${e.mlScore??'Pendiente'} · LLM ${e.llmScore??'Pendiente'}</p>`).join('')||'<p>Sin versiones anteriores.</p>'}<h4>Mensaje para el candidato</h4>${c.messageDraft ? `<div class="message-preview"><strong>${esc(c.messageDraft.subject)}</strong><p>${esc(c.messageDraft.body)}</p><small>Borrador · Pendiente de envío</small></div>` : '<p>Todavía no se preparó un mensaje.</p>'}</section>`;
+  }
+  renderActivityPane(c) {
+    const fmt = timestamp => { const date = new Date(timestamp); return Number.isFinite(date.getTime()) ? date.toLocaleString('es-PE') : timestamp; };
+    this.paneActivity.innerHTML = `<section class="drawer-card"><h4 class="drawer-card-title">Correo y próximas entrevistas</h4>${c.messageDraft?`<article class="activity-card"><span class="activity-icon">${icon('mail')}</span><div><strong>${esc(c.messageDraft.subject)}</strong><small>${esc(c.messageDraft.recipient || 'Destinatario pendiente')} · Borrador · Pendiente de envío</small><p>${esc(c.messageDraft.body)}</p><button class="btn btn-secondary" data-profile-quick="mail">Editar borrador</button></div></article>`:'<p class="helper-copy">Todavía no hay un correo preparado. Usa Responder por correo para escribirlo.</p>'}${c.activities.map(a=>`<article class="activity-card"><span class="activity-icon">${icon('calendar')}</span><div><strong>${esc(a.title)}</strong><small>${esc(fmt(a.scheduledAt))}</small><p>${esc(a.details)}</p><small>Registrada en la ficha · Invitación pendiente de envío</small></div></article>`).join('')}<h4 class="drawer-card-title">Historial de esta postulación</h4><div class="activity-timeline">${[...(c.audit?.decisionHistory || [])].reverse().map(e=>`<article><span class="timeline-dot"></span><div><small>${esc(fmt(e.timestamp || e.time))} · ${esc(e.user)}</small><p>${esc(e.action)}</p></div></article>`).join('') || '<p class="helper-copy">Las notas y los cambios aparecerán aquí.</p>'}</div></section>`;
+    this.paneActivity.querySelector('[data-profile-quick="mail"]')?.addEventListener('click',()=>this.profileActions.open('mail',c));
   }
 }

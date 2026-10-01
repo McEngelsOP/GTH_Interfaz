@@ -18,7 +18,7 @@ try{
   await page.locator('#formatCheckFiles').setInputFiles({name:'puestos.csv',mimeType:'text/csv',buffer:Buffer.from('ID;Perfil;Categoría;Requisito\r\nTPL-1;Puesto de prueba;docente;Maestría')});
   await page.locator('#formatCheckResults').getByText(/1 perfiles de puestos reconocidos/).waitFor();
   await page.locator('[data-batch="start"]').click();
-  await page.waitForFunction(async()=>((await import('./js/state.js')).appState.candidates.length===30));
+  await page.locator('#demoBatchStatus').filter({hasText:'25 perfiles ficticios incorporados'}).waitFor();
   await page.locator('[data-batch="close"]').click();
   const releasedRow=page.locator('.candidate-row').first(), releasedId=await releasedRow.getAttribute('data-id');
   await releasedRow.locator('.row-select-checkbox').check();
@@ -60,6 +60,7 @@ try{
   await page.locator('[data-nav="ranking"]').click();
   await page.screenshot({path:`${process.env.SCREENSHOT_DIR || '/tmp'}/codex-ii-desktop.png`});
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  await mobile.addInitScript(()=>{localStorage.clear();});
   mobile.on('pageerror',e=>errors.push(e.message));
   await mobile.goto(`${base}/#view=ranking&job=REQ-2026-DOC-088`);await mobile.locator('.candidate-row').first().waitFor();
   assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);

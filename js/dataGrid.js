@@ -7,6 +7,7 @@ import { appState } from './state.js';
 import { escapeHTML as esc, notify } from './ui.js';
 import { normalizeCandidate, isEligible, candidateScore } from './domain.js';
 import { getVirtualWindow, paginateCandidates } from './pagination.js';
+import { icon } from './icons.js';
 
 export class DataGridController {
   constructor(tableBodyEl, selectAllCheckboxEl, resultCountEl) {
@@ -241,11 +242,11 @@ export class DataGridController {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
               </button>
               <div class="more-actions-menu" id="actionsMenu_${esc(candidate.id)}">
-                <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}"><span class="action-icon">⚖️</span><span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span></button>
-                <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}"><span class="action-icon">👥</span><span>Guardar en Banco</span></button>
-                <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">↗</span><span>Ver expediente e historial</span></button>
+                <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}">${icon('users')}<span>${inComparison ? 'Quitar del comparador' : 'Añadir al comparador'}</span></button>
+                <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}">${icon('users')}<span>Guardar en el banco</span></button>
+                <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}">${icon('history')}<span>Ver ficha e historial</span></button>
                 <div class="more-action-divider"></div>
-                <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}" ${!appState.can('selection') || ['contratado','liberado'].includes(candidate.stage) ? 'disabled' : ''}><span class="action-icon">📨</span><span>Liberar postulación</span></button>
+                <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}" ${!appState.can('selection') || ['contratado','liberado'].includes(candidate.stage) ? 'disabled' : ''}>${icon('close')}<span>Liberar postulación</span></button>
               </div>
             </div>
           </div>

@@ -9,6 +9,11 @@ export function candidateCSVRows(job, candidates) {
     ...candidates.map(c=>[c.id,c.name,job.title,job.roleType,job.knockoutRule,job.id,candidateScore(c,'ml'),candidateScore(c,'llm'),job.rankingModel === 'llm' ? 'LLM (embeddings)' : 'Machine Learning',STAGE_LABELS[c.stage],c.source,c.narrative.selectionReason,c.messageDraft?.status || 'Sin preparar'])];
 }
 
+export function comparisonCSVRows(job, candidates) {
+  return [['Convocatoria','Puesto','Posición en esta comparación','Candidato','Etapa','Puntaje ML','Puntaje LLM','Ordenado según','Requisitos obligatorios','Fortalezas','Por qué este perfil',...job.weights.map(w=>w.label)],
+    ...candidates.map((c,index)=>[job.id,job.title,index+1,c.name,STAGE_LABELS[c.stage],candidateScore(c,'ml'),candidateScore(c,'llm'),job.rankingModel === 'llm' ? 'LLM (embeddings)' : 'Machine Learning',c.knockoutMet===true?'Verificados':c.knockoutMet===false?'No cumple':'Sin verificar',c.narrative.strengths.join(' · '),c.narrative.selectionReason,...job.weights.map(w=>{ const evidence=c.weights.find(row=>row.label===w.label); return Number.isFinite(evidence?.scoreObtained)&&evidence.maxScore>0?`${Math.round(evidence.scoreObtained/evidence.maxScore*100)} %`:'Sin evidencia'; })])];
+}
+
 export function serializeCSV(rows) {
   const cell = value => {
     const raw = String(value ?? '');
