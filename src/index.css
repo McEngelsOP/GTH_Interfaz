@@ -204,3 +204,28 @@ a {
   outline: 2px solid var(--primary-red);
   outline-offset: 2px;
 }
+
+/* Utilidades responsive y móvil */
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  
+  aside.sidebar-mobile-open {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    z-index: 1050 !important;
+    box-shadow: var(--shadow-lg) !important;
+    width: 280px !important;
+    display: flex !important;
+  }
+}
+

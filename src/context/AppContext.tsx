@@ -22,17 +22,28 @@ import {
 export type ViewType =
   | 'convocatorias'
   | 'perfiles_puestos'
+  | 'perfiles-puestos'
   | 'nueva_convocatoria'
+  | 'nueva-convocatoria'
   | 'agregar_archivos'
+  | 'agregar-archivos'
   | 'mejores_candidatos'
+  | 'mejores-candidatos'
   | 'comparador'
   | 'avance_candidatos'
+  | 'avance-candidatos'
   | 'banco_talento'
+  | 'banco-talento'
   | 'criterios_evaluacion'
+  | 'criterios-evaluacion'
   | 'historial_decisiones'
+  | 'historial-decisiones'
   | 'resultados_proceso'
+  | 'resultados-proceso'
   | 'resumen_general'
-  | 'ajustes_generales';
+  | 'resumen-general'
+  | 'ajustes_generales'
+  | 'ajustes';
 
 export interface ToastNotification {
   id: string;
@@ -52,6 +63,7 @@ interface AppContextValue {
   // Navegación y vista
   setCurrentView: (view: ViewType) => void;
   setActiveJobPostingId: (jobId: string) => void;
+  setActiveJobId: (jobId: string) => void;
   setSelectedMethod: (method: EvaluationMethod) => void;
   setTopN: (n: number) => void;
   // Selección de candidatos
@@ -60,9 +72,16 @@ interface AppContextValue {
   clearApplicationSelection: () => void;
   // Ficha drawer y asistente
   openCandidateDrawer: (app: Application | null) => void;
+  selectedCandidateId: string | null;
+  setSelectedCandidateId: (id: string | null) => void;
+  isCandidateDrawerOpen: boolean;
+  setCandidateDrawerOpen: (open: boolean) => void;
   toggleAssistant: (open?: boolean) => void;
+  isAssistantDrawerOpen: boolean;
+  setAssistantDrawerOpen: (open: boolean) => void;
   // Apariencia
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setThemePreference: (theme: 'light' | 'dark' | 'system') => void;
   setReducedMotion: (reduced: boolean) => void;
   // Notificaciones
   showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -89,6 +108,7 @@ interface AppContextValue {
   handleAddBatchCandidates: (newCandidates: Candidate[], newApps: Application[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleResetData: () => void;
+  resetToInitialState: () => void;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -473,8 +493,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAppState(initial);
     setSelectedApplicationIds([]);
     setSelectedCandidateForDrawer(null);
+    setSelectedCandidateIdState(null);
     showToast('Datos de demostración restablecidos a su estado original.', 'info');
   };
+
+  const [selectedCandidateId, setSelectedCandidateIdState] = useState<string | null>(null);
+
+  const setSelectedCandidateId = (candId: string | null) => {
+    setSelectedCandidateIdState(candId);
+    if (!candId) {
+      setSelectedCandidateForDrawer(null);
+    } else {
+      const foundApp =
+        (activeJob && appState.applications.find((a) => a.candidateId === candId && a.jobPostingId === activeJob.id)) ||
+        appState.applications.find((a) => a.candidateId === candId);
+      if (foundApp) {
+        setSelectedCandidateForDrawer(foundApp);
+      }
+    }
+  };
+
+  const setCandidateDrawerOpen = (open: boolean) => {
+    if (!open) {
+      setSelectedCandidateForDrawer(null);
+      setSelectedCandidateIdState(null);
+    }
+  };
+
+  const isCandidateDrawerOpen = !!selectedCandidateForDrawer;
 
   const value: AppContextValue = {
     appState,
@@ -487,14 +533,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toasts,
     setCurrentView,
     setActiveJobPostingId,
+    setActiveJobId: setActiveJobPostingId,
     setSelectedMethod,
     setTopN,
     toggleApplicationSelection,
     selectAllApplications,
     clearApplicationSelection,
     openCandidateDrawer,
+    selectedCandidateId,
+    setSelectedCandidateId,
+    isCandidateDrawerOpen,
+    setCandidateDrawerOpen,
     toggleAssistant,
+    isAssistantDrawerOpen: isAssistantOpen,
+    setAssistantDrawerOpen: (open: boolean) => setIsAssistantOpen(open),
     setTheme,
+    setThemePreference: setTheme,
     setReducedMotion,
     showToast,
     removeToast,
@@ -508,6 +562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleAddBatchCandidates,
     handleLinkCandidateToJob,
     handleResetData,
+    resetToInitialState: handleResetData,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -115,6 +115,9 @@ export interface DecisionLog {
     method: EvaluationMethod;
   };
   notes?: string;
+  reason?: string;
+  actor?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EmailDraft {

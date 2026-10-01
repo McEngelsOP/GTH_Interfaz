@@ -47,9 +47,10 @@ export function CandidateDrawer() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
-  if (!selectedCandidateForDrawer || !activeJob) return null;
-
   const app = selectedCandidateForDrawer;
+  if (!app) return null;
+  const currentJob = activeJob || appState.jobPostings.find((j) => j.id === app.jobPostingId);
+  if (!currentJob) return null;
   const candidate = appState.candidates.find((c) => c.id === app.candidateId);
   if (!candidate) return null;
 
@@ -135,7 +136,7 @@ export function CandidateDrawer() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                <strong>Puesto:</strong> {activeJob.code} · {activeJob.title}
+                <strong>Puesto:</strong> {currentJob.code} · {currentJob.title}
               </span>
               <Badge variant="neutral" size="sm">
                 Fuente: {candidate.source}
@@ -349,9 +350,9 @@ export function CandidateDrawer() {
           {activeTab === 'criterios' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                Evaluación individual por cada criterio del perfil ({activeJob.code}) sumando 100%:
+                Evaluación individual por cada criterio del perfil ({currentJob.code}) sumando 100%:
               </p>
-              {activeJob.criteria.map((crit) => {
+              {currentJob.criteria.map((crit) => {
                 const breakdown = app.criteriaBreakdown[crit.id];
                 return (
                   <div
@@ -591,7 +592,7 @@ export function CandidateDrawer() {
         onClose={() => setIsEmailModalOpen(false)}
         candidate={candidate}
         application={app}
-        job={activeJob}
+        job={currentJob}
         onSaveDraft={handleSaveEmailDraft}
       />
 

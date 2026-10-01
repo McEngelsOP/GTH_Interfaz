@@ -220,3 +220,60 @@ export function exportTalentPoolCSV(candidates: Candidate[]) {
   const filename = `Banco_Talento_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
+
+/**
+ * 5. Exportación de Contrataciones (Reporte de resultados)
+ */
+export function exportHiresCsv(
+  applications: Application[],
+  candidates: Candidate[],
+  jobs: JobPosting[]
+) {
+  const headers = [
+    'ID Candidato',
+    'Nombre Completo',
+    'Correo Electrónico',
+    'Teléfono',
+    'Código Convocatoria',
+    'Puesto Institucional',
+    'Área o Departamento',
+    'Score ML',
+    'Score LLM',
+    'Etapa',
+    'Fecha de Contratación',
+  ];
+
+  const candidateMap = new Map<string, Candidate>();
+  candidates.forEach((c) => candidateMap.set(c.id, c));
+
+  const jobMap = new Map<string, JobPosting>();
+  jobs.forEach((j) => jobMap.set(j.id, j));
+
+  const hiredApps = applications.filter((a) => a.stage === 'contratado');
+
+  const rows = hiredApps.map((app) => {
+    const cand = candidateMap.get(app.candidateId);
+    const job = jobMap.get(app.jobPostingId);
+
+    return [
+      app.candidateId,
+      cand?.name || 'Candidato',
+      cand?.email || '',
+      cand?.phone || '',
+      job?.code || app.jobPostingId,
+      job?.title || '',
+      job?.department || '',
+      app.mlScore !== null && app.mlScore !== undefined ? String(app.mlScore) : '',
+      app.llmScore !== null && app.llmScore !== undefined ? String(app.llmScore) : '',
+      app.stage,
+      app.updatedAt || '',
+    ]
+      .map(sanitizeCell)
+      .join(';');
+  });
+
+  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const filename = `Contrataciones_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
+  triggerDownload(csv, filename);
+}
+
