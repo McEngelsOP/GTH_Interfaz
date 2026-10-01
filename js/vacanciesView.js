@@ -21,13 +21,6 @@ export class VacanciesViewController {
     const processed = jobs.reduce((sum, j) => sum + (Number(j.totalProcessed) || 0), 0);
     const matching = jobs.filter(j => (appState.candidatesByJob[j.id] || []).some(c => ['preseleccionado','entrevista','evaluacion'].includes(c.stage))).length;
     this.container.innerHTML = `
-      <div class="vacancies-hero">
-        <div class="vacancies-hero-copy">
-          <span class="vacancies-eyebrow">GTHC · ESAN <span class="demo-pill">PROTOTIPO</span></span>
-          <h1>Convocatorias</h1>
-          <p>Procesos de selección y seguimiento de postulaciones.</p>
-        </div>
-      </div>
       <div class="vacancies-stats" aria-label="Resumen de convocatorias de demostración">
         <div class="vacancy-stat"><span class="stat-kicker">Convocatorias activas</span><strong>${active}</strong><small>Procesos abiertos</small></div>
         <div class="vacancy-stat"><span class="stat-kicker">CVs registrados</span><strong>${new Intl.NumberFormat('es-PE').format(processed)}</strong><small>Datos de ejemplo</small></div>
