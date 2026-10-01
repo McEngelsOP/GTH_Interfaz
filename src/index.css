@@ -1,0 +1,206 @@
+/* ==========================================================================
+   TalentAI | GTHC · ESAN — Design Tokens & Institutional Styles
+   Universidad ESAN · Gestión del Talento Humano
+   ========================================================================== */
+
+:root {
+  /* Marca ESAN */
+  --primary-red: #B71936;
+  --primary-red-hover: #9e142e;
+  --primary-red-active: #851026;
+  --primary-red-subtle: rgba(183, 25, 54, 0.08);
+  --primary-red-border: rgba(183, 25, 54, 0.22);
+  --esan-red-alt: #C8102E;
+
+  /* Superficies modo claro cálido */
+  --bg-base: #F6F3EF;
+  --bg-surface: #FFFEFD;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-muted: #EFEBE5;
+  --bg-hover: #F2EDE6;
+
+  /* Textos y contrastes */
+  --text-primary: #263243;
+  --text-secondary: #596373;
+  --text-muted: #848E9C;
+  --text-inverse: #FFFFFF;
+
+  /* Bordes y separadores */
+  --border-subtle: #E8E2D9;
+  --border-default: #DDD6CC;
+  --border-strong: #C8C0B4;
+
+  /* Estados semánticos (con contraste AA/AAA) */
+  --status-verified-text: #166534;
+  --status-verified-bg: #DCFCE7;
+  --status-verified-border: #86EFAC;
+
+  --status-partial-text: #92400E;
+  --status-partial-bg: #FEF3C7;
+  --status-partial-border: #FDE68A;
+
+  --status-failed-text: #991B1B;
+  --status-failed-bg: #FEE2E2;
+  --status-failed-border: #FCA5A5;
+
+  --status-unverified-text: #475569;
+  --status-unverified-bg: #F1F5F9;
+  --status-unverified-border: #CBD5E1;
+
+  /* Métodos de evaluación */
+  --method-ml-color: #0369A1;
+  --method-ml-bg: #E0F2FE;
+  --method-llm-color: #6D28D9;
+  --method-llm-bg: #EDE9FE;
+
+  /* Sombras cálidas y discretas */
+  --shadow-sm: 0 1px 2px rgba(38, 50, 67, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(38, 50, 67, 0.07), 0 2px 4px -2px rgba(38, 50, 67, 0.04);
+  --shadow-lg: 0 12px 24px -4px rgba(38, 50, 67, 0.10), 0 4px 8px -2px rgba(38, 50, 67, 0.05);
+  --shadow-drawer: -6px 0 28px rgba(38, 50, 67, 0.14);
+
+  /* Curvaturas */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* Transiciones estándar (140 - 200 ms) */
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Tipografías */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Modo Oscuro Cálido */
+[data-theme='dark'] {
+  --primary-red: #D22646;
+  --primary-red-hover: #E33A5A;
+  --primary-red-active: #F05572;
+  --primary-red-subtle: rgba(210, 38, 70, 0.14);
+  --primary-red-border: rgba(210, 38, 70, 0.35);
+
+  --bg-base: #14171C;
+  --bg-surface: #1E232B;
+  --bg-card: #252B35;
+  --bg-elevated: #2D3440;
+  --bg-muted: #1A1E24;
+  --bg-hover: #2F3644;
+
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0A9B8;
+  --text-muted: #6B7688;
+  --text-inverse: #14171C;
+
+  --border-subtle: #2E3541;
+  --border-default: #394252;
+  --border-strong: #4B5669;
+
+  --status-verified-text: #86EFAC;
+  --status-verified-bg: rgba(22, 101, 52, 0.25);
+  --status-verified-border: #166534;
+
+  --status-partial-text: #FDE68A;
+  --status-partial-bg: rgba(146, 64, 14, 0.25);
+  --status-partial-border: #92400E;
+
+  --status-failed-text: #FCA5A5;
+  --status-failed-bg: rgba(153, 27, 27, 0.25);
+  --status-failed-border: #991B1B;
+
+  --status-unverified-text: #CBD5E1;
+  --status-unverified-bg: rgba(71, 85, 105, 0.25);
+  --status-unverified-border: #475569;
+
+  --method-ml-color: #7DD3FC;
+  --method-ml-bg: rgba(3, 105, 161, 0.25);
+  --method-llm-color: #C4B5FD;
+  --method-llm-bg: rgba(109, 40, 217, 0.25);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.60);
+  --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.70);
+}
+
+/* Reducir animaciones si se solicita o por preferencia de accesibilidad */
+@media (prefers-reduced-motion: reduce), (update: slow) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduced-motion *, .reduced-motion *::before, .reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Reset y base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Clases de utilidad */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary-red);
+  outline-offset: 2px;
+}
