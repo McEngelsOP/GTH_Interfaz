@@ -183,13 +183,12 @@ export class DataGridController {
 
   renderSpacer(height) {
     return height > 0
-      ? `<tr class="virtual-spacer" aria-hidden="true"><td colspan="6"><div style="height:${height}px"></div></td></tr>`
+      ? `<tr class="virtual-spacer" aria-hidden="true"><td colspan="7"><div style="height:${height}px"></div></td></tr>`
       : '';
   }
 
   renderCandidateRow(candidate, rowOffset = 0) {
     candidate = { ...normalizeCandidate(candidate, appState.activeJobPostingId), rank: candidate.rank, inTopN: candidate.inTopN };
-    const scoreLabel = `ML ${candidate.mlScore ?? 'Pendiente'} · LLM ${candidate.llmScore ?? 'Pendiente'}`;
     const isSelected = appState.selectedRows.has(candidate.id);
     const inComparison = appState.comparisonPool.has(candidate.id);
     const isActiveRow = appState.selectedCandidateId === candidate.id;
@@ -216,22 +215,23 @@ export class DataGridController {
                 ${candidate.transferablePotential ? '<span class="meta-icon" role="img" aria-label="Potencial transferible" title="Potencial transferible">✦</span>' : ''}
                 ${roleCategory ? `<span class="meta-icon" role="img" aria-label="Categoría: ${esc(roleCategory)}" title="Categoría: ${esc(roleCategory)}">◈</span>` : ''}
               </span>
-              <span class="stage-pill stage-${esc(candidate.stage)}" title="Estado actual">${this.getStageLabel(candidate.stage)}</span>
             </div>
           </div>
         </td>
 
+        <td class="candidate-stage-cell"><span class="stage-pill stage-${esc(candidate.stage)}">${this.getStageLabel(candidate.stage)}</span></td>
         <td class="requirements-cell">
           <button type="button" class="requirements-summary" data-action="requirements" data-id="${esc(candidate.id)}" aria-label="Revisar requisitos de ${esc(candidate.name)}: ${mandatoryCount} de ${candidate.mandatoryReqs.length} cumplen">
-            <span class="pills-row">${!candidate.mandatoryReqs.length ? '<span title="Requisitos pendientes">—</span>' : ''}
+            <span class="requirements-count">${candidate.mandatoryReqs.length ? `${mandatoryCount}/${candidate.mandatoryReqs.length} cumplen` : 'Sin verificar'}</span>
+            <span class="pills-row">
               ${candidate.mandatoryReqs.map(req => `<span class="capsule-pill pill-${esc(req.status)}" role="img" aria-label="${esc(req.name)}: ${req.status === 'green' ? 'cumple' : req.status === 'amber' ? 'parcial' : req.status === 'red' ? 'no cumple' : 'sin verificar'}" title="${esc(req.tooltipTitle)}: ${esc(req.tooltipReason)}"></span>`).join('')}
             </span>
           </button>
         </td>
 
 
-        <td class="candidate-score-cell model-ml"><strong class="model-score" title="Puntaje según Machine Learning">${candidateScore(candidate,'ml') ?? '—'}</strong></td>
-        <td class="candidate-score-cell model-llm"><strong class="model-score" title="Puntaje según LLM (embeddings)">${candidateScore(candidate,'llm') ?? '—'}</strong></td>
+        <td class="candidate-score-cell model-ml">${this.renderModelScore(candidate,'ml')}</td>
+        <td class="candidate-score-cell model-llm">${this.renderModelScore(candidate,'llm')}</td>
 
         <td class="candidate-actions-cell">
           <div class="row-actions-cluster">
@@ -243,7 +243,7 @@ export class DataGridController {
               <div class="more-actions-menu" id="actionsMenu_${esc(candidate.id)}">
                 <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}"><span class="action-icon">⚖️</span><span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span></button>
                 <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}"><span class="action-icon">👥</span><span>Guardar en Banco</span></button>
-                <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">📋</span><span>Ver expediente & auditoría</span></button>
+                <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">↗</span><span>Ver expediente e historial</span></button>
                 <div class="more-action-divider"></div>
                 <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}" ${!appState.can('selection') || ['contratado','liberado'].includes(candidate.stage) ? 'disabled' : ''}><span class="action-icon">📨</span><span>Liberar postulación</span></button>
               </div>
@@ -301,7 +301,7 @@ export class DataGridController {
     if (candidates.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="6" class="ranking-empty">
+          <td colspan="7" class="ranking-empty">
             <div style="font-weight: 600; font-size: 15px; color: var(--text-main);">${appState.candidates.length ? 'No se encontraron candidatos' : 'Aún no hay CVs en esta convocatoria'}</div>
             <p style="font-size: 12.5px; margin-top: 4px;">${appState.candidates.length ? 'Prueba con otros términos de búsqueda o filtros.' : 'Esta vacante se creó como demostración. La recepción y el procesamiento real de CVs se integrarán más adelante.'}</p>
           </td>
@@ -314,11 +314,18 @@ export class DataGridController {
   }
 
   renderPodiumBadge(rank, inTopN) {
+    if (rank === null) return '<span class="candidate-rank closed-rank" title="Fuera del ranking activo">—</span>';
     if (inTopN) {
       const medal = rank === 1 ? 'podium-1' : rank === 2 ? 'podium-2' : rank === 3 ? 'podium-3' : 'podium-regular';
       return `<span class="podium-rank-badge ${medal}" title="Top ${rank}">Top ${rank}</span>`;
     }
     return `<span class="candidate-rank" title="Puesto ${rank}">#${rank}</span>`;
+  }
+
+  renderModelScore(candidate, model) {
+    const score = candidateScore(candidate, model);
+    const label = model === 'ml' ? 'Puntaje según Machine Learning' : 'Puntaje según LLM (embeddings)';
+    return `<strong class="model-score" title="${label}">${score ?? '—'}</strong>${score === null ? '<small class="score-pending">Pendiente</small>' : `<span class="score-track" aria-hidden="true"><span style="width:${score}%"></span></span>`}`;
   }
 
   getStageLabel(stage) {
@@ -480,7 +487,7 @@ export class DataGridController {
         const cand = appState.candidates.find(c => c.id === candId);
         if (cand) {
           const confirmRelease = confirm(`¿Deseas liberar al postulante ${cand.name}? Se conservará en el Banco de Talento. La demo no envía correos.`);
-          if (confirmRelease && appState.releaseCandidate(candId)) notify("Postulación liberada y conservada en el banco. No se enviaron correos.");
+          if (confirmRelease && appState.releaseCandidate(candId)) notify(`${cand.name} salió del ranking activo. Puedes verlo en «No continúan» y en el Banco de Talento.`);
         }
         this.closeMenu();
       });

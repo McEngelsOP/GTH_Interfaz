@@ -4,6 +4,8 @@ Prototipo de interfaz para convocatorias, evaluacion explicable y seguimiento de
 
 ## Actualización Codex-II
 
+- Navegación clara, pestañas con conteos, tabla con etapas separadas y diseño consistente en las pantallas.
+- Liberar un perfil lo retira del ranking activo, limpia su selección y recalcula posiciones, Top-N e indicadores. Se conserva en «No continúan» y en el banco, incluso al recargar.
 - Diseño con pasos visibles: revisar, comparar y seguir el avance. Lenguaje sencillo y adaptable a pantallas pequeñas.
 - Top-N editable, selección manual, comparación sin un máximo fijo de cinco y revisión antes de decidir.
 - Ranking ordenable por ML o LLM. Los resultados se conservan y exportan por separado. El campo histórico `score` no se utiliza para ordenar, decidir ni mostrar un promedio entre métodos.

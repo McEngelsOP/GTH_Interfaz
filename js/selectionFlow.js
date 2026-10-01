@@ -16,7 +16,7 @@ export class SelectionFlowController {
     document.getElementById('compareSelectedBtn').addEventListener('click',()=>appState.setCurrentView('comparison'));
     document.getElementById('advanceSelectedBtn').addEventListener('click',()=>this.open());
     document.getElementById('viewSelectedBtn').addEventListener('click',()=>{
-      appState.setFilterStatus(appState.filterStatus === 'selected' ? 'all' : 'selected');
+      appState.setFilterStatus(appState.filterStatus === 'selected' ? 'active' : 'selected');
       document.getElementById('filterStatusSelect').value = appState.filterStatus;
     });
     mount.addEventListener('click',e=>{
@@ -35,7 +35,8 @@ export class SelectionFlowController {
   updateControls() {
     const preview = appState.getDecisionPreview(), total = preview.selected.length;
     const ready = appState.candidates.filter(c=>c.inTopN).length;
-    document.getElementById('selectionSummary').textContent = total ? `${total} perfiles seleccionados${preview.blocked.length ? ` · ${preview.blocked.length} requieren revisión` : ''}` : 'Selecciona los mejores o marca perfiles en la tabla.';
+    document.getElementById('selectionSummary').textContent = total ? `${total} perfiles elegidos${preview.blocked.length ? ` · ${preview.blocked.length} requieren revisión` : ''}` : 'Marca perfiles para comparar o decidir quién avanza.';
+    document.querySelector('.selection-action-row').classList.toggle('has-selection', total > 0);
     document.getElementById('topNAvailable').textContent = `${ready} perfiles disponibles para elegir · ordenados según ${MODEL_LABELS[appState.rankingModel]}`;
     document.getElementById('selectTopNBtn').disabled = !ready;
     document.getElementById('topNDecrementBtn').disabled = appState.topN <= 1;
@@ -43,7 +44,7 @@ export class SelectionFlowController {
     document.getElementById('compareSelectedBtn').disabled = total < 2;
     document.getElementById('advanceSelectedBtn').disabled = !total || !!preview.blocked.length;
     document.getElementById('viewSelectedBtn').disabled = !total;
-    document.getElementById('viewSelectedBtn').textContent = appState.filterStatus === 'selected' ? 'Ver todos' : 'Ver seleccionados';
+    document.getElementById('viewSelectedBtn').textContent = appState.filterStatus === 'selected' ? 'Ver en proceso' : 'Ver elegidos';
   }
   open() {
     const preview = appState.getDecisionPreview();

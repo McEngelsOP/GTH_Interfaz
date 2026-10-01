@@ -149,7 +149,8 @@ test('el controlador virtualiza las filas, busca en todo el lote y pagina', () =
   const firstRow = grid.tableBody.innerHTML.match(/<tr class="candidate-row[\s\S]*?<\/tr>/)?.[0] || '';
   assert.equal((firstRow.match(/class="capsule-pill /g) || []).length, 5);
   assert.match(firstRow, /aria-rowindex="2"/);
-  assert.doesNotMatch(firstRow, /gap-short-title|requirements-count|Transferible/);
+  assert.doesNotMatch(firstRow, /gap-short-title|Transferible/);
+  assert.match(firstRow, /5\/5 cumplen/);
   assert.match(grid.resultCount.textContent, /1–25 de 523/);
   grid.changePage(21);
   assert.equal(grid.visibleCandidates.length, 23);

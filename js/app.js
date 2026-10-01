@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update header and KPIs when job changes
   appState.subscribe((event, data) => {
     if (event === 'jobs_changed') { renderJobDropdownOptions(); updateNavBadges(); }
-    if (['job_changed','criteria_updated','candidates_updated','jobs_changed','ranking_model_changed'].includes(event)) {
+    if (['job_changed','criteria_updated','candidates_updated','jobs_changed','ranking_model_changed','candidate_stage_changed'].includes(event)) {
       const job = appState.jobPosting;
       if (headerRoleBadge) {
         headerRoleBadge.className = `role-badge role-${job.roleType}`;
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (headerJobTitle) headerJobTitle.textContent = job.title;
 
       // Update KPIs
-      if (kpiProcessedCount) kpiProcessedCount.textContent = job.totalProcessed;
+      if (kpiProcessedCount) kpiProcessedCount.textContent = job.activeCandidates;
       if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore ?? '—';
       document.getElementById('kpiScoreLabel').textContent = `Promedio según ${appState.rankingModel === 'llm' ? 'LLM' : 'ML'}`;
       document.getElementById('rankingModelSelect').value = appState.rankingModel;
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sourceField = document.getElementById('filterSourceSelect');
       if (sourceField) sourceField.value = 'all';
       const statusField = document.getElementById('filterStatusSelect');
-      if (statusField) statusField.value = 'all';
+      if (statusField) statusField.value = appState.filterStatus;
       }
 
       renderJobDropdownOptions();
@@ -378,6 +378,24 @@ document.addEventListener('DOMContentLoaded', () => {
       appState.setFilterStatus(e.target.value);
     });
   }
+
+  const updateRankingStatus = () => {
+    const counts = appState.getRankingCounts();
+    document.querySelectorAll('[data-status-count]').forEach(el => { el.textContent = counts[el.dataset.statusCount]; });
+    document.querySelectorAll('[data-ranking-status]').forEach(button => {
+      const active = button.dataset.rankingStatus === appState.filterStatus;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    if (filterStatusSelect) filterStatusSelect.value = appState.filterStatus;
+  };
+  document.querySelectorAll('[data-ranking-status]').forEach(button => {
+    button.addEventListener('click', () => appState.setFilterStatus(button.dataset.rankingStatus));
+  });
+  appState.subscribe(event => {
+    if (['filter_changed','job_changed','candidates_updated','candidate_stage_changed','topN_changed','ranking_model_changed','selection_changed','comparison_pool_changed'].includes(event)) updateRankingStatus();
+  });
+  updateRankingStatus();
 
   // 10. Sidebar Collapse Toggle
   const sidebarEl = document.getElementById('appSidebar');

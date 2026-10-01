@@ -44,7 +44,7 @@ export class ComparisonViewController {
       ${weights.map(w=>row(esc(w.label),c=>{const evidence=c.weights.find(cw=>cw.label===w.label);return Number.isFinite(evidence?.scoreObtained)&&evidence.maxScore>0?`${Math.round(evidence.scoreObtained/evidence.maxScore*100)} % de cumplimiento`:'Sin evidencia';})).join('')}
       ${row('Mensaje al candidato',c=>c.messageDraft?'Borrador preparado':'Sin preparar')}
       </tbody></table></div>`}
-      <footer class="comparison-footer"><button class="btn btn-secondary" data-compare-action="ranking">← Volver al ranking</button><button class="btn btn-primary" data-compare-action="decide" ${!canDecide?'disabled':''}>Pasar a seleccionados →</button></footer><p class="helper-copy">Los puntajes y las evidencias son de ejemplo. La decisión final la toma GTH.</p></section>`;
+      <footer class="comparison-footer"><button class="btn btn-secondary" data-compare-action="ranking">← Volver al ranking</button><button class="btn btn-primary" data-compare-action="decide" ${!canDecide?'disabled':''}>Decidir quién avanza →</button></footer><p class="helper-copy">Los puntajes y las evidencias son de ejemplo. La decisión final la toma GTH.</p></section>`;
     this.renderPicker();
   }
 }

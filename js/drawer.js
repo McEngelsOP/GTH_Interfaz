@@ -24,7 +24,7 @@ export class DrawerController {
     this.btnAdvance.addEventListener('click',()=>{ if(appState.advanceCandidate(appState.selectedCandidateId)) notify('Etapa actualizada.'); });
     this.btnRelease.addEventListener('click',()=>{
       const c=appState.getSelectedCandidate();
-      if(c && confirm(`¿Liberar la postulación de ${c.name}? Se conservará en el banco de talento. En esta demo no se envían correos.`) && appState.releaseCandidate(c.id)) notify('Postulación liberada y conservada en el banco.');
+      if(c && confirm(`¿Liberar la postulación de ${c.name}? Se conservará en el banco de talento. En esta demo no se envían correos.`) && appState.releaseCandidate(c.id)) notify('El perfil salió del ranking activo. Puedes verlo en «No continúan» y en el Banco de Talento.');
     });
     appState.subscribe((event,data)=>{
       if(event === 'candidate_selected') { const c = appState.getSelectedCandidate(); if(c) { this.populate(c); this.open(); } else this.hide(); }

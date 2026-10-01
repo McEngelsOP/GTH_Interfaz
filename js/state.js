@@ -19,7 +19,7 @@ class AppState {
     this.rankingModel = this.jobPosting.rankingModel === 'llm' ? 'llm' : 'ml';
     this.searchQuery = '';
     this.filterSource = 'all';
-    this.filterStatus = 'all';
+    this.filterStatus = 'active';
     this.sortBy = 'score';
     this.sortOrder = 'desc';
     this.selectedCandidateId = null;
@@ -202,7 +202,7 @@ class AppState {
     this.comparisonPool.clear();
     this.searchQuery = '';
     this.filterSource = 'all';
-    this.filterStatus = 'all';
+    this.filterStatus = 'active';
 
     this.candidatesByJob[jobId] ||= [];
     const jobCands = this.candidatesByJob[jobId];
@@ -256,17 +256,19 @@ class AppState {
     const job = this.jobPostings.find(j => j.id === jobId);
     if (!job) return;
     const rows = this.candidatesByJob[jobId] || [];
+    const active = rows.filter(c => !['liberado','contratado'].includes(c.stage));
     const model = job.rankingModel === 'llm' ? 'llm' : 'ml';
-    const evaluated = rows.filter(c => candidateScore(c, model) !== null);
+    const evaluated = active.filter(c => candidateScore(c, model) !== null);
     job.totalProcessed = rows.length;
+    job.activeCandidates = active.length;
     if (job.status !== 'Borrador') job.phase = rows.length ? 'Seguimiento de postulaciones' : 'Recepción de postulaciones';
     job.avgScore = evaluated.length ? Math.round(evaluated.reduce((sum,c) => sum+candidateScore(c, model),0) / evaluated.length * 10) / 10 : null;
-    job.roleMetrics = { metric1Label: 'Elegibilidad verificada', metric1Value: rows.length ? `${Math.round(rows.filter(c => c.knockoutMet === true).length / rows.length * 100)}%` : '—' };
+    job.roleMetrics = { metric1Label: 'Cumplen los requisitos', metric1Value: active.length ? `${Math.round(active.filter(c => c.knockoutMet === true).length / active.length * 100)}%` : '—' };
   }
 
   simulateWeightsImpact(weights) {
     const validated = validateWeights(weights);
-    const simulated = this.candidates.map(c => ({ id: c.id, name: c.name, currentScore: candidateScore(c,this.rankingModel), currentRank: c.rank, ...reweightCandidate(c, validated) }));
+    const simulated = this.candidates.filter(c => !['liberado','contratado'].includes(c.stage)).map(c => ({ id: c.id, name: c.name, currentScore: candidateScore(c,this.rankingModel), currentRank: c.rank, ...reweightCandidate(c, validated) }));
     simulated.sort((a,b) => (candidateScore(b,this.rankingModel) ?? -1) - (candidateScore(a,this.rankingModel) ?? -1) || a.id.localeCompare(b.id));
     return simulated.map((item,i) => ({ ...item, simulatedScore: candidateScore(item,this.rankingModel), simulatedRank: i+1 }));
   }
@@ -309,9 +311,15 @@ class AppState {
     const previous = cand.stage;
     cand.stage = 'liberado';
     this.appendAudit(cand, 'Postulación liberada en la demo. No se envió ninguna notificación.');
+    this.selectedRows.delete(candId);
+    this.comparisonPool.delete(candId);
+    this.updateTopNFlags();
+    this.refreshJobMetrics(this.activeJobPostingId);
     this.addToTalentPool(candId, 'Perfil conservado tras liberar la postulación.');
-    this.updateTopNFlags(); this.persist();
+    this.persist();
     this.notify('candidate_stage_changed', { candidate: cand, prevStage: previous, newStage: 'liberado' });
+    this.notify('comparison_pool_changed', { pool: [...this.comparisonPool] });
+    this.notify('jobs_changed', {});
     return true;
   }
 
@@ -406,8 +414,11 @@ class AppState {
     const prevStage = cand.stage;
     cand.stage = newStage;
     this.appendAudit(cand, `Etapa: ${prevStage} → ${newStage}`);
+    this.updateTopNFlags();
+    this.refreshJobMetrics(this.activeJobPostingId);
     this.persist();
     this.notify('candidate_stage_changed', { candidate: cand, prevStage, newStage });
+    this.notify('jobs_changed', {});
     return true;
   }
 
@@ -481,11 +492,27 @@ class AppState {
 
   updateTopNFlags() {
     // The visual sort must never change merit ranking or the Top-N cut.
-    let eligibleCount = 0;
-    this.getRankedCandidates().forEach((cand, index) => {
+    let eligibleCount = 0, activeRank = 0;
+    this.getRankedCandidates().forEach(cand => {
+      if (['liberado','contratado'].includes(cand.stage)) {
+        cand.inTopN = false;
+        cand.rank = null;
+        return;
+      }
       cand.inTopN = isEligible(cand,this.rankingModel) && eligibleCount++ < this.topN;
-      cand.rank = index + 1;
+      cand.rank = ++activeRank;
     });
+  }
+
+  getRankingCounts() {
+    const active = this.candidates.filter(c => !['liberado','contratado'].includes(c.stage));
+    return {
+      active: active.length,
+      topN: active.filter(c => c.inTopN).length,
+      selected: this.selectedRows.size,
+      released: this.candidates.filter(c => c.stage === 'liberado').length,
+      all: this.candidates.length
+    };
   }
 
   setTopN(newN) {
@@ -674,7 +701,7 @@ class AppState {
       if (this.filterStatus === 'selected' && !this.selectedRows.has(c.id)) return false;
       if (this.filterStatus === 'topN' && !c.inTopN) return false;
       if (this.filterStatus === 'outsideTopN' && c.inTopN) return false;
-      if (this.filterStatus === 'active' && c.stage === 'liberado') return false;
+      if (!['all','released','selected'].includes(this.filterStatus) && ['liberado','contratado'].includes(c.stage)) return false;
       if (this.filterStatus === 'released' && c.stage !== 'liberado') return false;
       if (this.filterStatus === 'pending' && c.knockoutMet !== null && candidateScore(c,this.rankingModel) !== null) return false;
       if (this.filterStatus === 'transferable' && !c.transferablePotential) return false;

@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/ranking.css">
   <link rel="stylesheet" href="css/refinements.css">
   <link rel="stylesheet" href="css/workspace.css">
+  <link rel="stylesheet" href="css/experience.css">
 </head>
 <body>
 
@@ -53,7 +54,7 @@
       <nav class="sidebar-nav" id="sidebarNavMain">
         <!-- ETAPA 1: CONVOCATORIAS -->
         <div class="nav-section-group" data-stage="convocatorias">
-          <div class="nav-section-title">1. Convocatorias</div>
+          <div class="nav-section-title">PUESTOS</div>
 
           <a href="#convocatorias" class="nav-item active" data-nav="convocatorias" data-target="ranking" data-tooltip="Ver convocatorias">
             <div class="nav-item-icon">
@@ -69,7 +70,7 @@
             <span class="nav-indicator-dot dot-crimson"></span>
           </a>
 
-          <a href="#biblioteca-perfiles" class="nav-item" data-nav="profilesLibrary" data-target="profilesLibrary" data-tooltip="Perfiles de puestos & Plantillas Organizacionales">
+          <a href="#biblioteca-perfiles" class="nav-item" data-nav="profilesLibrary" data-target="profilesLibrary" data-tooltip="Perfiles de puestos">
             <div class="nav-item-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
@@ -80,7 +81,7 @@
             <span class="nav-item-badge badge-info" id="navTemplatesCountBadge">7 perfiles</span>
           </a>
 
-          <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Abrir Convocatoria desde Plantilla Institucional">
+          <a href="#nueva-convocatoria" class="nav-item" id="navNewJobBtn" data-nav="new-job" data-tooltip="Crear una convocatoria">
             <div class="nav-item-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -88,13 +89,13 @@
                 <line x1="8" y1="12" x2="16" y2="12"></line>
               </svg>
             </div>
-            <span class="nav-item-label">+ Nueva Convocatoria</span>
+            <span class="nav-item-label">Nueva convocatoria</span>
           </a>
         </div>
 
         <!-- ETAPA 2: EVALUACIÓN -->
         <div class="nav-section-group" data-stage="evaluacion">
-          <div class="nav-section-title">2. Evaluación</div>
+          <div class="nav-section-title">CANDIDATOS</div>
 
           <a href="#carga-ocr" class="nav-item" data-nav="ingestion" data-target="ingestion" id="navIngestionItem" data-tooltip="Agregar archivos y revisar su formato">
             <div class="nav-item-icon">
@@ -104,7 +105,7 @@
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
             </div>
-            <span class="nav-item-label">Carga</span>
+            <span class="nav-item-label">Agregar archivos</span>
             <span class="nav-item-badge badge-emerald" id="navCandidateCountBadge">0 demo</span>
             <span class="nav-indicator-dot dot-emerald"></span>
           </a>
@@ -136,7 +137,7 @@
 
         <!-- ETAPA 3: SELECCIÓN -->
         <div class="nav-section-group" data-stage="seleccion">
-          <div class="nav-section-title">3. Selección</div>
+          <div class="nav-section-title">SEGUIMIENTO</div>
 
           <a href="#kanban" class="nav-item" data-nav="kanban" data-target="kanban" data-tooltip="Ver cómo avanzan los candidatos">
             <div class="nav-item-icon">
@@ -155,7 +156,7 @@
 
         <!-- ETAPA 4: TALENTO -->
         <div class="nav-section-group" data-stage="talento">
-          <div class="nav-section-title">4. Talento</div>
+          <div class="nav-section-title">TALENTO</div>
 
           <a href="#banco-talento" class="nav-item" data-nav="talentPool" data-target="talentPool" data-tooltip="Buscar perfiles y descargar CSV">
             <div class="nav-item-icon">
@@ -173,7 +174,7 @@
 
         <!-- ETAPA 5: GOBERNANZA -->
         <div class="nav-section-group" data-stage="gobernanza">
-          <div class="nav-section-title">5. Configuración</div>
+          <div class="nav-section-title">CONFIGURACIÓN</div>
 
           <a href="#configuracion" class="nav-item" data-nav="criteria" data-target="criteria" data-tooltip="Ajustar la importancia de los criterios">
             <div class="nav-item-icon">
@@ -207,7 +208,7 @@
 
         <!-- ETAPA 6: DIRECCIÓN -->
         <div class="nav-section-group" data-stage="direccion">
-          <div class="nav-section-title">6. Dirección</div>
+          <div class="nav-section-title">RESULTADOS</div>
 
           <a href="#dashboard-ejecutivo" class="nav-item" data-nav="executive" data-target="executive" data-tooltip="Resumen general para Decanos y Gerencia">
             <div class="nav-item-icon">
@@ -226,7 +227,6 @@
 
       <!-- Role Switcher & User Profile Footer -->
       <div class="sidebar-footer">
-        <div class="role-selector-box"><span class="role-selector-label">Perfil principal</span><strong class="gthc-profile-label">Equipo de GTHC</strong></div>
 
         <div class="recruiter-profile" id="userProfileCard" title="Sesión activa">
           <div class="recruiter-avatar" id="userProfileAvatar">
@@ -282,7 +282,7 @@
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            Carga
+            Agregar archivos
           </button>
 
         </div>
@@ -296,22 +296,37 @@
 
         <!-- VISTA: RANKING TOP-N -->
         <div class="view-container" id="viewContainer_ranking">
-          <header class="review-heading"><div><span class="section-kicker">REVISIÓN DE CANDIDATOS</span><h1>Elige a quienes avanzan</h1><p>Revisa sus puntajes, compara sus perfiles y toma la decisión.</p></div><span class="demo-pill">Vista de ejemplo</span></header>
+          <header class="review-heading">
+            <div><span class="section-kicker">TU PROCESO DE SELECCIÓN</span><h1>Candidatos</h1><p>Encuentra los perfiles que mejor encajan y decide quién avanza.</p></div>
+            <span class="demo-pill"><span></span>Datos de ejemplo</span>
+          </header>
           <nav class="review-journey" aria-label="Pasos de selección">
-            <button class="journey-step active" data-workspace-view="ranking"><span>1</span><div><strong>Revisar candidatos</strong><small>Elige los perfiles</small></div></button>
-            <button class="journey-step" data-workspace-view="comparison"><span>2</span><div><strong>Comparar perfiles</strong><small>Revisa las diferencias</small></div></button>
-            <button class="journey-step" data-workspace-view="kanban"><span>3</span><div><strong>Ver su avance</strong><small>Sigue cada etapa</small></div></button>
+            <button class="journey-step active" data-workspace-view="ranking" aria-current="page"><span>1</span><strong>Revisar candidatos</strong></button>
+            <button class="journey-step" data-workspace-view="comparison"><span>2</span><strong>Comparar perfiles</strong></button>
+            <button class="journey-step" data-workspace-view="kanban"><span>3</span><strong>Ver su avance</strong></button>
           </nav>
-          <section class="kpi-grid review-metrics">
-            <div class="kpi-card"><span class="kpi-label">Candidatos en este puesto</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiProcessedCount">—</strong><span class="kpi-unit">perfiles</span></div><p class="kpi-subtitle">Datos de ejemplo</p></div>
-            <div class="kpi-card"><label class="kpi-label" for="topNInput">¿Cuántos quieres elegir?</label><div class="top-n-value-row"><button class="top-n-step-btn" id="topNDecrementBtn" aria-label="Elegir un perfil menos">−</button><input type="number" min="1" step="1" class="top-n-input-field" id="topNInput" value="5" aria-label="Número de perfiles en Top-N"><button class="top-n-step-btn" id="topNIncrementBtn" aria-label="Elegir un perfil más">+</button><span class="kpi-unit">perfiles</span></div><p class="kpi-subtitle">Puedes cambiar la cantidad</p></div>
-            <div class="kpi-card"><span class="kpi-label" id="kpiScoreLabel">Promedio según ML</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiAvgScore">—</strong><span class="kpi-unit">/ 100</span></div><p class="kpi-subtitle">Según el método elegido</p></div>
-            <div class="kpi-card"><span class="kpi-label" id="kpiRoleMetricLabel">Requisitos verificados</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiRoleMetricValue">—</strong></div><p class="kpi-subtitle">Verificación registrada</p></div>
+          <section class="kpi-grid review-metrics" aria-label="Resumen de candidatos activos">
+            <div class="kpi-card"><span class="metric-icon" aria-hidden="true">◎</span><div><span class="kpi-label">Siguen en el proceso</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiProcessedCount">—</strong><span class="kpi-unit">candidatos</span></div></div></div>
+            <div class="kpi-card"><span class="metric-icon metric-blue" aria-hidden="true">↗</span><div><span class="kpi-label" id="kpiScoreLabel">Promedio según ML</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiAvgScore">—</strong><span class="kpi-unit">/ 100</span></div></div></div>
+            <div class="kpi-card"><span class="metric-icon metric-violet" aria-hidden="true">✓</span><div><span class="kpi-label" id="kpiRoleMetricLabel">Cumplen los requisitos</span><div class="kpi-value-row"><strong class="kpi-value" id="kpiRoleMetricValue">—</strong></div></div></div>
           </section>
-          <section class="selection-workspace" aria-label="Acciones de selección">
-            <div class="selection-top-row"><div><h2>Ranking Top-N <small>· Los mejores perfiles</small></h2><p id="topNAvailable" class="helper-copy"></p></div><label class="ranking-model-label">Ordenar según<select id="rankingModelSelect"><option value="ml">Machine Learning</option><option value="llm">LLM (embeddings)</option></select></label><button class="btn btn-secondary" id="selectTopNBtn">Elegir los mejores</button></div>
-            <div class="selection-action-row"><p id="selectionSummary" role="status" aria-live="polite"></p><div class="review-actions"><button class="btn btn-ghost" id="clearSelectionBtn">Limpiar</button><button class="btn btn-secondary" id="viewSelectedBtn">Ver seleccionados</button><button class="btn btn-secondary" id="compareSelectedBtn">Comparar seleccionados</button><button class="btn btn-primary" id="advanceSelectedBtn">Pasar a seleccionados →</button></div></div>
+          <section class="selection-workspace" aria-label="Prepara tu selección">
+            <div class="selection-top-row">
+              <div class="selection-intro"><h2>Prepara tu lista</h2><p id="topNAvailable" class="helper-copy"></p></div>
+              <div class="top-n-control"><label for="topNInput">¿Cuántos quieres elegir?</label><div class="top-n-value-row"><button class="top-n-step-btn" id="topNDecrementBtn" type="button" aria-label="Elegir un perfil menos">−</button><input type="number" min="1" step="1" class="top-n-input-field" id="topNInput" value="5" aria-label="Número de perfiles a elegir"><button class="top-n-step-btn" id="topNIncrementBtn" type="button" aria-label="Elegir un perfil más">+</button></div></div>
+              <label class="ranking-model-label">Ordenar según<select id="rankingModelSelect"><option value="ml">Machine Learning · ML</option><option value="llm">Afinidad del perfil · LLM</option></select></label>
+              <button class="btn btn-primary" id="selectTopNBtn">Elegir los mejores</button>
+            </div>
+            <div class="selection-action-row"><p id="selectionSummary" role="status" aria-live="polite"></p><div class="review-actions"><button class="btn btn-ghost" id="clearSelectionBtn">Limpiar</button><button class="btn btn-secondary" id="viewSelectedBtn">Ver elegidos</button><button class="btn btn-secondary" id="compareSelectedBtn">Comparar</button><button class="btn btn-primary" id="advanceSelectedBtn">Decidir quién avanza →</button></div></div>
           </section>
+          <section class="table-card">
+            <div class="ranking-status-bar" role="group" aria-label="Ver candidatos por estado">
+              <button type="button" data-ranking-status="active" class="active" aria-pressed="true">En proceso <span data-status-count="active">0</span></button>
+              <button type="button" data-ranking-status="topN" aria-pressed="false">Mejores perfiles <span data-status-count="topN">0</span></button>
+              <button type="button" data-ranking-status="selected" aria-pressed="false">Elegidos <span data-status-count="selected">0</span></button>
+              <button type="button" data-ranking-status="released" aria-pressed="false">No continúan <span data-status-count="released">0</span></button>
+              <button type="button" data-ranking-status="all" aria-pressed="false">Todos <span data-status-count="all">0</span></button>
+            </div>
           <!-- B. Candidate Data Grid Toolbar -->
           <section class="table-toolbar" id="candidateGridSection">
             <div class="search-input-wrapper">
@@ -323,7 +338,7 @@
                 type="search"
                 class="search-input"
                 id="tableSearchInput"
-                placeholder="Buscar candidato, cargo o empresa…"
+                placeholder="Busca por nombre, puesto o empresa…"
                 aria-label="Buscar en todos los candidatos de la convocatoria"
               />
             </div>
@@ -331,7 +346,7 @@
             <div class="filter-group">
               <select class="filter-select" id="filterStatusSelect" aria-label="Filtrar candidatos">
                 <option value="all">Todos los candidatos</option><option value="selected">Solo seleccionados</option>
-                <option value="active">Postulaciones activas</option><option value="released">No continúan</option><option value="pending">Pendientes de verificar</option><option value="topN">Dentro de los mejores</option>
+                <option value="active" selected>En proceso</option><option value="released">No continúan</option><option value="pending">Pendientes de verificar</option><option value="topN">Dentro de los mejores</option>
                 <option value="outsideTopN">Fuera de los mejores</option>
                 <option value="transferable">Potencial transferible</option>
               </select>
@@ -349,7 +364,6 @@
           </section>
 
           <!-- C. Candidate Ranking Data Grid (The Core Engine) -->
-          <section class="table-card">
             <div class="table-responsive" id="rankingScrollRegion" tabindex="0" role="region" aria-label="Tabla de candidatos, desplazamiento vertical y horizontal">
               <table class="candidate-table">
                 <thead>
@@ -358,10 +372,11 @@
                       <input type="checkbox" class="custom-checkbox" id="selectAllCheckbox" title="Seleccionar esta página" aria-label="Seleccionar candidatos de esta página" />
                     </th>
                     <th class="col-candidate" data-sort-header="name" aria-sort="none"><button type="button" class="table-sort" data-sort="name">Candidato <span aria-hidden="true">↕</span></button></th>
+                    <th class="col-stage">Etapa</th>
                     <th class="col-requirements">Requisitos</th>
 
-                    <th class="col-score col-model-score"><span title="Puntaje según Machine Learning">Machine Learning</span><small>/ 100</small></th>
-                    <th class="col-score col-model-score"><span title="Puntaje según LLM (embeddings)">LLM (embeddings)</span><small>/ 100</small></th>
+                    <th class="col-score col-model-score"><span title="Puntaje según Machine Learning">Puntaje ML</span><small>Machine Learning</small></th>
+                    <th class="col-score col-model-score"><span title="Puntaje según LLM (embeddings)">Puntaje LLM</span><small>Afinidad del perfil</small></th>
                     <th class="col-actions">Acciones</th>
                   </tr>
                 </thead>
@@ -505,7 +520,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       </svg>
-      <span>ESA IA GTH</span>
+      <span>Asistente GTH</span>
     </button>
 
   </div>
@@ -564,7 +579,7 @@
           Liberar postulación
         </button>
         <button class="btn btn-primary" id="drawerBtnAdvance">
-          Avanzar a Siguiente Paso
+          Avanzar a la siguiente etapa
         </button>
       </div>
     </div>
