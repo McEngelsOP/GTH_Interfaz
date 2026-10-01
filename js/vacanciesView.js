@@ -26,7 +26,6 @@ export class VacanciesViewController {
           <span class="vacancies-eyebrow">GTHC · ESAN <span class="demo-pill">PROTOTIPO</span></span>
           <h1>Convocatorias</h1>
           <p>Procesos de selección y seguimiento de postulaciones.</p>
-          <button type="button" class="btn btn-hero" data-action="new" ${!appState.can('jobs')?'disabled':''}>+ Nueva convocatoria <span aria-hidden="true">→</span></button>
         </div>
       </div>
       <div class="vacancies-stats" aria-label="Resumen de convocatorias de demostración">
