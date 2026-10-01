@@ -5,7 +5,7 @@
 
 import { appState } from './state.js';
 import { escapeHTML as esc, notify } from './ui.js';
-import { normalizeCandidate, isEligible } from './domain.js';
+import { normalizeCandidate, isEligible, candidateScore } from './domain.js';
 import { getVirtualWindow, paginateCandidates } from './pagination.js';
 
 export class DataGridController {
@@ -100,7 +100,7 @@ export class DataGridController {
       }
       if ([
         'criteria_updated', 'candidates_updated', 'role_changed',
-        'topN_changed',
+        'topN_changed', 'ranking_model_changed',
         'filter_changed',
         'sort_changed',
         'selection_changed',
@@ -189,7 +189,7 @@ export class DataGridController {
 
   renderCandidateRow(candidate, rowOffset = 0) {
     candidate = { ...normalizeCandidate(candidate, appState.activeJobPostingId), rank: candidate.rank, inTopN: candidate.inTopN };
-    const scoreLabel = Number.isFinite(candidate.score) ? `${candidate.score}/100` : 'Evaluación pendiente';
+    const scoreLabel = `ML ${candidate.mlScore ?? 'Pendiente'} · LLM ${candidate.llmScore ?? 'Pendiente'}`;
     const isSelected = appState.selectedRows.has(candidate.id);
     const inComparison = appState.comparisonPool.has(candidate.id);
     const isActiveRow = appState.selectedCandidateId === candidate.id;
@@ -229,17 +229,13 @@ export class DataGridController {
           </button>
         </td>
 
-        <td class="candidate-gap-cell">${this.renderGapsSummary(candidate)}</td>
 
-        <td class="candidate-score-cell">
-          <div class="score-summary" role="img" aria-label="${esc(scoreLabel)}" title="${esc(scoreLabel)}">
-            ${this.renderCircularScore(candidate.score)}
-          </div>
-        </td>
+        <td class="candidate-score-cell model-ml"><strong class="model-score" title="Puntaje según Machine Learning">${candidateScore(candidate,'ml') ?? '—'}</strong></td>
+        <td class="candidate-score-cell model-llm"><strong class="model-score" title="Puntaje según LLM (embeddings)">${candidateScore(candidate,'llm') ?? '—'}</strong></td>
 
         <td class="candidate-actions-cell">
           <div class="row-actions-cluster">
-            <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar etapa tras verificar elegibilidad" ${!appState.can('selection') || !isEligible(candidate) || candidate.stage === 'contratado' ? 'disabled' : ''}>Avanzar</button>
+            <button class="btn-action-primary" data-action="advance" data-id="${esc(candidate.id)}" title="Avanzar tras verificar requisitos y puntaje" ${!appState.can('selection') || !isEligible(candidate,appState.rankingModel) || candidate.stage === 'contratado' ? 'disabled' : ''}>Avanzar</button>
             <div class="more-actions-dropdown-wrapper">
               <button class="btn-more-actions" data-action="toggle-menu" data-id="${esc(candidate.id)}" aria-label="Más acciones para ${esc(candidate.name)}" aria-expanded="false" aria-controls="actionsMenu_${esc(candidate.id)}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
@@ -248,7 +244,6 @@ export class DataGridController {
                 <button class="more-action-item ${inComparison ? 'active' : ''}" data-action="compare" data-id="${esc(candidate.id)}"><span class="action-icon">⚖️</span><span>${inComparison ? 'Quitar del Comparador' : 'Comparar cara a cara'}</span></button>
                 <button class="more-action-item" data-action="talentpool" data-id="${esc(candidate.id)}"><span class="action-icon">👥</span><span>Guardar en Banco</span></button>
                 <button class="more-action-item" data-action="history" data-id="${esc(candidate.id)}"><span class="action-icon">📋</span><span>Ver expediente & auditoría</span></button>
-                <button class="more-action-item" data-action="star" data-id="${esc(candidate.id)}"><span class="action-icon">🪄</span><span>Ver guía de entrevista</span></button>
                 <div class="more-action-divider"></div>
                 <button class="more-action-item text-danger" data-action="release" data-id="${esc(candidate.id)}" ${!appState.can('selection') || ['contratado','liberado'].includes(candidate.stage) ? 'disabled' : ''}><span class="action-icon">📨</span><span>Liberar postulación</span></button>
               </div>
@@ -326,21 +321,6 @@ export class DataGridController {
     return `<span class="candidate-rank" title="Puesto ${rank}">#${rank}</span>`;
   }
 
-  renderGapsSummary(candidate) {
-    const levels = { none: 0, low: 1, medium: 2, unknown: 3, high: 4 };
-    const gap = [...(candidate.gaps || [])].sort((a, b) => (levels[b.severity] || 0) - (levels[a.severity] || 0))[0];
-    if (!gap || gap.severity === 'unknown') return `<button type="button" class="gap-indicator gap-unknown" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="Brechas pendientes de evaluar" title="Brechas pendientes de evaluar">?</button>`;
-    if (gap.severity === 'none') {
-      return `<button type="button" class="gap-indicator gap-none" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="${esc(candidate.name)}: sin brechas críticas" title="Sin brechas críticas. Abrir detalle"><span aria-hidden="true">✓</span></button>`;
-    }
-    const severity = ['high', 'medium', 'low'].includes(gap.severity) ? gap.severity : 'low';
-    const label = { high: 'brecha alta', medium: 'brecha media', low: 'brecha baja' }[severity];
-    const impactValue = gap.impact || { high: 'alto', medium: 'medio', low: 'bajo' }[severity];
-    const impact = ` Impacto: ${impactValue}.`;
-    const detail = `${gap.item}.${impact} ${gap.tip || ''}`.trim();
-    return `<button type="button" class="gap-indicator gap-${severity}" data-action="gaps" data-id="${esc(candidate.id)}" aria-label="${esc(candidate.name)}: ${label}. ${esc(detail)} Abrir detalle" title="${esc(detail)}"><span aria-hidden="true">!</span></button>`;
-  }
-
   getStageLabel(stage) {
     switch (stage) {
       case 'postulado': return 'Postulado';
@@ -349,7 +329,7 @@ export class DataGridController {
       case 'evaluacion': return 'Evaluación';
       case 'oferta': return 'Oferta';
       case 'contratado': return 'Contratado';
-      case 'liberado': return 'Liberado';
+      case 'liberado': return 'No continúa';
       default: return esc(stage);
     }
   }
@@ -384,7 +364,7 @@ export class DataGridController {
     const colorClass = score >= 85 ? 'high' : score >= 75 ? 'medium' : 'low';
 
     return `
-      <div class="score-circle-badge" title="Score Consolidado: ${score}/100">
+      <div class="score-circle-badge" title="Puntaje: ${score}/100">
         <svg class="score-svg" viewBox="0 0 44 44">
           <circle class="score-bg-circle" cx="22" cy="22" r="${radius}" />
           <circle 
@@ -402,7 +382,7 @@ export class DataGridController {
   }
 
   bindRowEvents() {
-    const detailTabs = { open: 'explain', cv: 'cv', requirements: 'explain', gaps: 'gaps' };
+    const detailTabs = { open: 'explain', cv: 'cv', requirements: 'explain' };
     this.tableBody.querySelectorAll('[data-action]').forEach(button => {
       const tab = detailTabs[button.dataset.action];
       if (!tab) return;
@@ -476,17 +456,6 @@ export class DataGridController {
         const candId = btn.getAttribute('data-id');
         appState.selectCandidate(candId);
         appState.setActiveDrawerTab('audit');
-        this.closeMenu();
-      });
-    });
-
-    // Generate STAR Questions from dropdown
-    this.tableBody.querySelectorAll('[data-action="star"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const candId = btn.getAttribute('data-id');
-        appState.selectCandidate(candId);
-        appState.setActiveDrawerTab('gaps');
         this.closeMenu();
       });
     });

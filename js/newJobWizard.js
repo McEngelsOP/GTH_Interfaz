@@ -89,9 +89,9 @@ export class NewJobWizard {
         <label class="wizard-field">Fecha de cierre<input name="closeDate" type="date" value="${esc(d.closeDate || '')}"></label>
       </div>
     ` : this.step === 3 ? `
-      <h3>Criterios explicables</h3><p>Define cómo se evaluará el perfil cuando se conecte el motor de matching. Por ahora, son parámetros de la demo.</p>
-      <div class="wizard-criteria">${d.weights.map((w, i) => `<div class="wizard-criterion"><label>Criterio ${i+1}<input name="weightLabel" maxlength="100" value="${esc(w.label)}" required></label><label>Peso %<input name="weightPct" type="number" min="0" max="100" value="${w.weightPct}" required></label></div>`).join('')}</div>
-      <div class="wizard-weight-summary">Total ponderado <strong id="wizardWeightTotal">100 %</strong></div>
+      <h3>¿Qué vamos a evaluar?</h3><p>Define cómo se evaluará el perfil cuando se conecte el evaluación automática. Por ahora, son parámetros de la demo.</p>
+      <div class="wizard-criteria">${d.weights.map((w, i) => `<div class="wizard-criterion"><label>Criterio ${i+1}<input name="weightLabel" maxlength="100" value="${esc(w.label)}" required></label><label>Importancia %<input name="weightPct" type="number" min="0" max="100" value="${w.weightPct}" required></label></div>`).join('')}</div>
+      <div class="wizard-weight-summary">Importancia total <strong id="wizardWeightTotal">100 %</strong></div>
       <label class="wizard-field">Requisito obligatorio o condición de revisión<textarea name="knockoutRule" rows="2" maxlength="300" placeholder="Ej. Maestría registrada (revisión manual)">${esc(d.knockoutRule || '')}</textarea></label>
       <p class="wizard-note">Los requisitos se revisarán manualmente; el prototipo no descarta candidatos automáticamente.</p>
     ` : `

@@ -1,12 +1,15 @@
 // Shared data boundary. Unknown evidence stays unknown; it is never a pass.
 export const STAGES = ['postulado', 'preseleccionado', 'entrevista', 'evaluacion', 'oferta', 'contratado'];
-export const STAGE_LABELS = { postulado: 'Postulado', preseleccionado: 'Preseleccionado', entrevista: 'En entrevista', evaluacion: 'En evaluación', oferta: 'En oferta', contratado: 'Contratado', liberado: 'Liberado' };
+export const STAGE_LABELS = { postulado: 'Postulado', preseleccionado: 'Preseleccionado', entrevista: 'En entrevista', evaluacion: 'En evaluación', oferta: 'En oferta', contratado: 'Contratado', liberado: 'No continúa' };
 export const text = (value, fallback = '') => typeof value === 'string' ? value : fallback;
 export const numberOrNull = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const array = value => Array.isArray(value) ? value.filter(v => v && typeof v === 'object') : [];
 const strings = value => Array.isArray(value) ? value.filter(v => typeof v === 'string') : [];
 const evidenceWeights = value => array(value).map((w,i) => ({ criterionId: text(w.criterionId, `criterion-${i}`), label: text(w.label), weightPct: numberOrNull(w.weightPct) ?? 0, maxScore: numberOrNull(w.maxScore) ?? 0, scoreObtained: numberOrNull(w.scoreObtained), evidenceRatio: numberOrNull(w.evidenceRatio), type: w.type === 'LLM' ? 'LLM' : 'ML' }));
-export const isEligible = c => c.knockoutMet === true && c.stage !== 'liberado' && Number.isFinite(c.score);
+export const MODEL_LABELS = { ml: 'Machine Learning', llm: 'LLM (embeddings)' };
+export const candidateScore = (candidate, model = 'ml') => numberOrNull(candidate?.[model === 'llm' ? 'llmScore' : 'mlScore']);
+export const isEligible = (c, model = 'ml') => c.knockoutMet === true && !['liberado','contratado'].includes(c.stage) && candidateScore(c, model) !== null;
+const validScore = value => numberOrNull(value) === null ? null : Math.max(0, Math.min(100, value));
 
 export function normalizeCandidate(input, jobId) {
   if (!input || typeof input.id !== 'string' || !input.id.trim()) throw new Error('La postulación requiere un ID estable.');
@@ -26,11 +29,12 @@ export function normalizeCandidate(input, jobId) {
     risks: strings(input.risks), interviewStarQuestions: strings(input.interviewStarQuestions),
     crossMatches: array(input.crossMatches).map(m => ({ jobTitle: text(m.jobTitle), reason: text(m.reason), matchPct: numberOrNull(m.matchPct) })),
     weights: evidenceWeights(input.weights),
-    mlScore: numberOrNull(input.mlScore), llmScore: numberOrNull(input.llmScore),
+    mlScore: validScore(input.mlScore), llmScore: validScore(input.llmScore),
+    messageDraft: input.messageDraft && typeof input.messageDraft === 'object' ? { outcome: text(input.messageDraft.outcome), subject: text(input.messageDraft.subject), body: text(input.messageDraft.body), status: 'Borrador', timestamp: text(input.messageDraft.timestamp) } : null,
     narrative: { selectionReason: text(input.narrative?.selectionReason, 'Evaluación pendiente. Revisa las evidencias disponibles.'), strengths: strings(input.narrative?.strengths), inclusionDetail: text(input.narrative?.inclusionDetail) },
     cvMarkdown: text(input.cvMarkdown),
     audit: { batchId: text(input.audit?.batchId, 'Sin lote'), criteriaVersion: text(input.audit?.criteriaVersion, 'Sin evaluación'), model: text(input.audit?.model, 'Sin motor conectado'), decisionHistory: array(input.audit?.decisionHistory).map(e => ({ time: text(e.time), timestamp: text(e.timestamp), user: text(e.user), action: text(e.action) })) },
-    evaluationHistory: array(input.evaluationHistory).map(e => ({ timestamp: text(e.timestamp), score: numberOrNull(e.score), criteriaVersion: text(e.criteriaVersion), weights: evidenceWeights(e.weights), strengths: strings(e.strengths) })), demo: input.demo !== false
+    evaluationHistory: array(input.evaluationHistory).map(e => ({ timestamp: text(e.timestamp), score: numberOrNull(e.score), mlScore: validScore(e.mlScore), llmScore: validScore(e.llmScore), criteriaVersion: text(e.criteriaVersion), weights: evidenceWeights(e.weights), strengths: strings(e.strengths) })), demo: input.demo !== false
   };
 }
 
@@ -47,5 +51,10 @@ export function reweightCandidate(candidate, weights) {
     const fraction = known === null ? null : Math.max(0, Math.min(1, known));
     return { ...w, evidenceRatio: fraction, maxScore: w.weightPct, scoreObtained: w.weightPct === 0 ? 0 : fraction === null ? null : Math.round(fraction * w.weightPct * 100) / 100 };
   });
-  return { weights: rows, score: rows.some(w => w.scoreObtained === null) ? null : Math.round(rows.reduce((sum,w) => sum + w.scoreObtained,0) * 10) / 10 };
+  const modelScore = type => {
+    const group = rows.filter(w => w.type === type && w.weightPct > 0);
+    const total = group.reduce((sum,w) => sum + w.weightPct, 0);
+    return !total || group.some(w => w.scoreObtained === null) ? null : Math.round(group.reduce((sum,w) => sum + w.scoreObtained,0) / total * 1000) / 10;
+  };
+  return { weights: rows, mlScore: modelScore('ML'), llmScore: modelScore('LLM'), score: rows.some(w => w.scoreObtained === null) ? null : Math.round(rows.reduce((sum,w) => sum + w.scoreObtained,0) * 10) / 10 };
 }

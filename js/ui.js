@@ -1,3 +1,5 @@
+import { serializeCSV } from './csvData.js';
+
 export function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -58,8 +60,7 @@ export function closeDialog(overlay) {
 }
 
 export function exportCSV(filename, rows) {
-  const cell = value => { const raw = String(value ?? ''); return '"' + (/^[=+\-@\t\r]/.test(raw) ? "'" + raw : raw).replace(/"/g, '""') + '"'; };
-  const url = URL.createObjectURL(new Blob(['\ufeff' + rows.map(row => row.map(cell).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob([serializeCSV(rows)], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a'); link.href = url; link.download = filename; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

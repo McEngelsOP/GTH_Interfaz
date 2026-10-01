@@ -17,7 +17,7 @@ export function createDemoRepository() {
         for (const j of snapshot.jobPostings) {
           if (!j || typeof j.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(j.id) || ids.has(j.id) || !['docente','administrativo','operativo','directivo'].includes(j.roleType) || ['title','department','period','roleTypeName'].some(k => typeof j[k] !== 'string')) return seed;
           validateWeights(j.weights); ids.add(j.id);
-          j.defaultTopN = Math.max(1, Math.min(100, Number.isInteger(j.defaultTopN) ? j.defaultTopN : 5));
+          j.defaultTopN = Number.isSafeInteger(j.defaultTopN) && j.defaultTopN > 0 ? j.defaultTopN : 5;
         }
         for (const [id, candidates] of Object.entries(snapshot.candidatesByJob || {})) {
           if (!ids.has(id) || !Array.isArray(candidates)) return seed;
@@ -26,7 +26,7 @@ export function createDemoRepository() {
         }
         const talentPool = Array.isArray(snapshot.talentPool) ? snapshot.talentPool.filter(t => t && typeof t.id === 'string').map(t => ({
           id: t.id, candidateId: text(t.candidateId, t.id), name: text(t.name, 'Perfil sin nombre'), roleCategory: text(t.roleCategory, 'Sin categoría'),
-          previousVacancy: text(t.previousVacancy), matchReason: text(t.matchReason), scoreObtained: numberOrNull(t.scoreObtained),
+          previousVacancy: text(t.previousVacancy), matchReason: text(t.matchReason), scoreObtained: numberOrNull(t.scoreObtained), mlScore: numberOrNull(t.mlScore), llmScore: numberOrNull(t.llmScore), jobPostingId: text(t.jobPostingId),
           crossMatchOpportunity: text(t.crossMatchOpportunity), tags: Array.isArray(t.tags) ? t.tags.filter(tag => typeof tag === 'string') : []
         })) : seed.talentPool;
         return { ...seed, jobPostings: snapshot.jobPostings, candidatesByJob: snapshot.candidatesByJob || {}, talentPool };

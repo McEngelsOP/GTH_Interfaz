@@ -4,7 +4,7 @@
    ========================================================================== */
 
 import { createDemoRepository } from './services/demoRepository.js';
-import { normalizeCandidate, validateWeights, reweightCandidate, isEligible, STAGES } from './domain.js';
+import { normalizeCandidate, validateWeights, reweightCandidate, isEligible, candidateScore, STAGES } from './domain.js';
 import { notify as notice } from './ui.js';
 
 class AppState {
@@ -16,6 +16,7 @@ class AppState {
     this.jobPosting = this.jobPostings[0];
     
     this.topN = this.jobPosting.defaultTopN;
+    this.rankingModel = this.jobPosting.rankingModel === 'llm' ? 'llm' : 'ml';
     this.searchQuery = '';
     this.filterSource = 'all';
     this.filterStatus = 'all';
@@ -195,6 +196,7 @@ class AppState {
     this.activeJobPostingId = jobId;
     this.jobPosting = target;
     this.topN = target.defaultTopN;
+    this.rankingModel = target.rankingModel === 'llm' ? 'llm' : 'ml';
     this.selectedCandidateId = null;
     this.selectedRows.clear();
     this.comparisonPool.clear();
@@ -236,6 +238,7 @@ class AppState {
       const position = rows.length + i + 1;
       const weights = job.weights.map((w,k) => ({ ...w, maxScore: w.weightPct, scoreObtained: Math.round(w.weightPct * (0.55 + ((position * 7 + k * 11) % 45) / 100) * 100) / 100 }));
       return normalizeCandidate({ id: `${jobId}-DEMO-${batchId}-${i}`, candidateId: `${jobId}-PERSON-${position}`, jobPostingId: jobId, name: `Perfil demo ${String(position).padStart(4,'0')}`, role: job.title, company: 'Organización ficticia', source: ['linkedin','gmail','computrabajo'][i%3], stage: 'postulado', knockoutMet: i % 9 === 0 ? null : true, weights, score: Math.round(weights.reduce((sum,w) => sum+w.scoreObtained,0)*10)/10,
+        mlScore: Math.round(55 + ((position * 7) % 45)), llmScore: Math.round(55 + ((position * 11) % 45)),
         mandatoryReqs: Array.from({ length: 5 }, (_,k) => ({ name: `Requisito de ejemplo ${k+1}`, status: i%9 === 0 ? 'unknown' : 'green', tooltipTitle: 'Evidencia ficticia', tooltipReason: 'Resultado generado para probar la interfaz. No corresponde a una persona real.' })),
         narrative: { selectionReason: 'Perfil sintético para recorrer el proceso de selección.', strengths: [] },
         audit: { batchId, criteriaVersion: job.criteriaVersion, model: 'Generador de datos ficticios', decisionHistory: [] },
@@ -253,18 +256,19 @@ class AppState {
     const job = this.jobPostings.find(j => j.id === jobId);
     if (!job) return;
     const rows = this.candidatesByJob[jobId] || [];
-    const evaluated = rows.filter(c => Number.isFinite(c.score));
+    const model = job.rankingModel === 'llm' ? 'llm' : 'ml';
+    const evaluated = rows.filter(c => candidateScore(c, model) !== null);
     job.totalProcessed = rows.length;
     if (job.status !== 'Borrador') job.phase = rows.length ? 'Seguimiento de postulaciones' : 'Recepción de postulaciones';
-    job.avgScore = evaluated.length ? Math.round(evaluated.reduce((sum,c) => sum+c.score,0) / evaluated.length * 10) / 10 : null;
+    job.avgScore = evaluated.length ? Math.round(evaluated.reduce((sum,c) => sum+candidateScore(c, model),0) / evaluated.length * 10) / 10 : null;
     job.roleMetrics = { metric1Label: 'Elegibilidad verificada', metric1Value: rows.length ? `${Math.round(rows.filter(c => c.knockoutMet === true).length / rows.length * 100)}%` : '—' };
   }
 
   simulateWeightsImpact(weights) {
     const validated = validateWeights(weights);
-    const simulated = this.candidates.map(c => ({ id: c.id, name: c.name, currentScore: c.score, currentRank: c.rank, ...reweightCandidate(c, validated) }));
-    simulated.sort((a,b) => (b.score ?? -1) - (a.score ?? -1) || a.id.localeCompare(b.id));
-    return simulated.map((item,i) => ({ ...item, simulatedScore: item.score, simulatedRank: i+1 }));
+    const simulated = this.candidates.map(c => ({ id: c.id, name: c.name, currentScore: candidateScore(c,this.rankingModel), currentRank: c.rank, ...reweightCandidate(c, validated) }));
+    simulated.sort((a,b) => (candidateScore(b,this.rankingModel) ?? -1) - (candidateScore(a,this.rankingModel) ?? -1) || a.id.localeCompare(b.id));
+    return simulated.map((item,i) => ({ ...item, simulatedScore: candidateScore(item,this.rankingModel), simulatedRank: i+1 }));
   }
 
   applyCriteria(jobId, weights) {
@@ -279,7 +283,7 @@ class AppState {
     job.criteriaVersion = `Demo ${job.criteriaHistory.length + 1}`;
     for (const candidate of this.candidatesByJob[jobId] || []) {
       candidate.evaluationHistory ||= [];
-      candidate.evaluationHistory.push({ timestamp: now, score: candidate.score, weights: structuredClone(candidate.weights), strengths: [...candidate.narrative.strengths], criteriaVersion: candidate.audit.criteriaVersion });
+      candidate.evaluationHistory.push({ timestamp: now, score: candidate.score, mlScore: candidate.mlScore, llmScore: candidate.llmScore, weights: structuredClone(candidate.weights), strengths: [...candidate.narrative.strengths], criteriaVersion: candidate.audit.criteriaVersion });
       Object.assign(candidate, reweightCandidate(candidate, validated));
       candidate.audit.criteriaVersion = job.criteriaVersion;
       candidate.narrative.selectionReason = 'Puntaje de demostración recalculado a partir de las evidencias disponibles y los pesos actuales. Revisa el desglose por criterio.';
@@ -375,10 +379,6 @@ class AppState {
       this.comparisonPool.delete(candId);
       this.selectedRows.delete(candId);
     } else {
-      if (this.comparisonPool.size >= 5) {
-        alert("Puedes comparar hasta un máximo de 5 candidatos a la vez.");
-        return;
-      }
       this.comparisonPool.add(candId);
       this.selectedRows.add(candId);
     }
@@ -402,7 +402,7 @@ class AppState {
     if (!cand || !STAGES.includes(cand.stage) || !STAGES.includes(newStage) || cand.stage === 'contratado') return false;
     const from = STAGES.indexOf(cand.stage), to = STAGES.indexOf(newStage);
     if (Math.abs(to-from) !== 1) { notice('Avanza o retrocede una etapa a la vez.', true); return false; }
-    if (to > from && !isEligible(cand)) { notice('Verifica los requisitos obligatorios y la evaluación antes de avanzar.', true); return false; }
+    if (to > from && !isEligible(cand,this.rankingModel)) { notice('Verifica los requisitos y el puntaje del método elegido antes de avanzar.', true); return false; }
     const prevStage = cand.stage;
     cand.stage = newStage;
     this.appendAudit(cand, `Etapa: ${prevStage} → ${newStage}`);
@@ -444,7 +444,7 @@ class AppState {
         name: cand.name,
         roleCategory: this.jobPosting.roleTypeName,
         previousVacancy: `${this.jobPosting.title} (${this.jobPosting.id})`,
-        scoreObtained: cand.score,
+        scoreObtained: candidateScore(cand,this.rankingModel), mlScore: cand.mlScore, llmScore: cand.llmScore, jobPostingId: this.activeJobPostingId,
         matchReason: customNote || cand.narrative.selectionReason,
         tags: cand.preferredCriteria.map(p => p.name),
         availability: "Disponible",
@@ -463,7 +463,7 @@ class AppState {
   sortCandidates(list) {
     return list.sort((a, b) => {
       if (this.sortBy === 'score') {
-        const difference = this.sortOrder === 'desc' ? (b.score ?? -1) - (a.score ?? -1) : (a.score ?? Infinity) - (b.score ?? Infinity);
+        const difference = this.sortOrder === 'desc' ? (candidateScore(b,this.rankingModel) ?? -1) - (candidateScore(a,this.rankingModel) ?? -1) : (candidateScore(a,this.rankingModel) ?? Infinity) - (candidateScore(b,this.rankingModel) ?? Infinity);
         return difference || String(a.id).localeCompare(String(b.id));
       }
       if (this.sortBy === 'name') {
@@ -476,21 +476,23 @@ class AppState {
   }
 
   getRankedCandidates() {
-    return [...this.candidates].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || String(a.id).localeCompare(String(b.id)));
+    return [...this.candidates].sort((a, b) => (candidateScore(b,this.rankingModel) ?? -1) - (candidateScore(a,this.rankingModel) ?? -1) || String(a.id).localeCompare(String(b.id)));
   }
 
   updateTopNFlags() {
     // The visual sort must never change merit ranking or the Top-N cut.
     let eligibleCount = 0;
     this.getRankedCandidates().forEach((cand, index) => {
-      cand.inTopN = isEligible(cand) && eligibleCount++ < this.topN;
+      cand.inTopN = isEligible(cand,this.rankingModel) && eligibleCount++ < this.topN;
       cand.rank = index + 1;
     });
   }
 
   setTopN(newN) {
     if (!this.can('selection')) return;
-    const val = Math.max(1, Math.min(100, parseInt(newN, 10) || 5));
+    const parsed = Number(newN);
+    if (!Number.isSafeInteger(parsed) || parsed < 1) return false;
+    const val = parsed;
     if (this.topN !== val) {
       this.topN = val;
       this.jobPosting.defaultTopN = val;
@@ -506,6 +508,71 @@ class AppState {
 
   decrementTopN() {
     this.setTopN(this.topN - 1);
+  }
+
+  setRankingModel(model) {
+    if (!['ml','llm'].includes(model) || model === this.rankingModel) return;
+    this.rankingModel = model;
+    this.sortBy = 'score'; this.sortOrder = 'desc';
+    this.jobPosting.rankingModel = model;
+    this.candidates = this.sortCandidates(this.candidates);
+    this.updateTopNFlags();
+    this.refreshJobMetrics(this.activeJobPostingId);
+    this.persist();
+    this.notify('ranking_model_changed', { model });
+    this.notify('jobs_changed', {});
+  }
+
+  selectTopN() {
+    const chosen = this.getRankedCandidates().filter(c => c.inTopN);
+    this.setCandidateSelection(chosen.map(c=>c.id));
+    return chosen;
+  }
+
+  setCandidateSelection(ids) {
+    const known = new Set(this.candidates.map(c=>c.id));
+    this.selectedRows = new Set(ids.filter(id=>known.has(id)));
+    this.comparisonPool = new Set(this.selectedRows);
+    this.notify('selection_changed');
+    this.notify('comparison_pool_changed', { pool: [...this.comparisonPool] });
+  }
+
+  getDecisionPreview() {
+    const selected = this.getRankedCandidates().filter(c => this.selectedRows.has(c.id));
+    const others = this.candidates.filter(c => c.stage === 'postulado' && !this.selectedRows.has(c.id));
+    return {
+      selected,
+      blocked: selected.filter(c => !isEligible(c,this.rankingModel)),
+      declined: others.filter(c => c.knockoutMet !== null && candidateScore(c,this.rankingModel) !== null),
+      pending: others.filter(c => c.knockoutMet === null || candidateScore(c,this.rankingModel) === null)
+    };
+  }
+
+  confirmSelection({ jobId, declineOthers = false, advanceMessage, declineMessage }) {
+    if (!this.can('selection') || jobId !== this.activeJobPostingId) throw new Error('La convocatoria cambió. Revisa la selección nuevamente.');
+    const preview = this.getDecisionPreview();
+    if (!preview.selected.length || preview.blocked.length) throw new Error('Elige perfiles con requisitos verificados y un puntaje disponible para continuar.');
+    if (!String(advanceMessage || '').trim() || (declineOthers && !String(declineMessage || '').trim())) throw new Error('Completa el texto de los mensajes.');
+    const timestamp = new Date().toISOString();
+    const draft = (c, outcome, message) => {
+      c.messageDraft = { outcome, subject: `${outcome === 'avanza' ? 'Avance de tu postulación' : 'Resultado de tu postulación'} · ${this.jobPosting.title}`, body: message.replaceAll('{nombre}',c.name).replaceAll('{puesto}',this.jobPosting.title), status: 'Borrador', timestamp };
+      this.appendAudit(c, `${outcome === 'avanza' ? 'Seleccionado por GTH' : 'No continúa por decisión de GTH'}. Mensaje preparado como borrador.`);
+    };
+    for (const c of preview.selected) {
+      if (c.stage === 'postulado') c.stage = 'preseleccionado';
+      draft(c,'avanza',advanceMessage);
+    }
+    if (declineOthers) for (const c of preview.declined) {
+      c.stage = 'liberado';
+      draft(c,'no_avanza',declineMessage);
+      if (!this.talentPool.some(t => t.candidateId === c.candidateId)) this.talentPool.unshift({ id: `TAL-${timestamp}-${c.id}`, candidateId: c.candidateId, name: c.name, roleCategory: this.jobPosting.roleTypeName, previousVacancy: `${this.jobPosting.title} (${jobId})`, jobPostingId: jobId, mlScore: c.mlScore, llmScore: c.llmScore, scoreObtained: candidateScore(c,this.rankingModel), matchReason: 'Perfil conservado tras la decisión de GTH.', tags: c.preferredCriteria.map(p=>p.name) });
+    }
+    this.updateTopNFlags(); this.refreshJobMetrics(jobId); this.persist();
+    this.notify('selection_confirmed', { jobId });
+    this.notify('candidate_stage_changed', {});
+    this.notify('talent_pool_updated', {});
+    this.notify('jobs_changed', {});
+    return { advanced: preview.selected.length, declined: declineOthers ? preview.declined.length : 0, pending: preview.pending.length };
   }
 
   setSearchQuery(q) {
@@ -541,9 +608,7 @@ class AppState {
       this.comparisonPool.delete(candId);
     } else {
       this.selectedRows.add(candId);
-      if (this.comparisonPool.size < 5) {
-        this.comparisonPool.add(candId);
-      }
+      this.comparisonPool.add(candId);
     }
     this.notify('selection_changed');
     this.notify('comparison_pool_changed', { pool: Array.from(this.comparisonPool) });
@@ -553,7 +618,7 @@ class AppState {
     if (checked) {
       visibleCandidates.forEach(c => {
         this.selectedRows.add(c.id);
-        if (this.comparisonPool.size < 5) this.comparisonPool.add(c.id);
+        this.comparisonPool.add(c.id);
       });
     } else {
       visibleCandidates.forEach(c => {
@@ -606,11 +671,12 @@ class AppState {
       }
 
       // Status
+      if (this.filterStatus === 'selected' && !this.selectedRows.has(c.id)) return false;
       if (this.filterStatus === 'topN' && !c.inTopN) return false;
       if (this.filterStatus === 'outsideTopN' && c.inTopN) return false;
       if (this.filterStatus === 'active' && c.stage === 'liberado') return false;
       if (this.filterStatus === 'released' && c.stage !== 'liberado') return false;
-      if (this.filterStatus === 'pending' && c.knockoutMet !== null && Number.isFinite(c.score)) return false;
+      if (this.filterStatus === 'pending' && c.knockoutMet !== null && candidateScore(c,this.rankingModel) !== null) return false;
       if (this.filterStatus === 'transferable' && !c.transferablePotential) return false;
 
       return true;

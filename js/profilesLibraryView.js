@@ -4,7 +4,7 @@
    ========================================================================== */
 
 import { appState } from './state.js';
-import { escapeRecord, exportCSV } from './ui.js';
+import { escapeRecord } from './ui.js';
 
 export class ProfilesLibraryViewController {
   constructor(containerEl) {
@@ -38,19 +38,17 @@ export class ProfilesLibraryViewController {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 24px;">📚</span>
               <h2 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--text-main);">
-                Biblioteca de Perfiles Organizacionales
+                Perfiles de puestos
               </h2>
             </div>
             <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 4px;">
-              Núcleo central de perfiles institucionales de <strong>ESAN Graduate School of Business</strong>. 
-              Estandarización de competencias, criterios, pesos y filtros duros (Knockouts) para apertura inmediata de vacantes sin duplicidad.
+              Perfiles de ejemplo para abrir una convocatoria en <strong>ESAN Graduate School of Business</strong>.
+              Revisa qué se necesita para cada puesto y úsalo como punto de partida. Puedes descargar estos perfiles desde Banco de Talento.
             </p>
           </div>
 
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="btn btn-secondary" id="btnExportProfilesCatalog" data-export-profiles>
-              Exportar catálogo CSV
-            </button>
+
             <button class="btn btn-primary" id="btnNewProfileTemplate" type="button">
               + Nueva Convocatoria
             </button>
@@ -63,16 +61,16 @@ export class ProfilesLibraryViewController {
             Todos los Perfiles (${templates.length})
           </button>
           <button class="profiles-tab-btn ${this.activeCategory === 'docente' ? 'active' : ''}" data-cat="docente">
-            Docentes & Investigadores (${templates.filter(t => t.roleType === 'docente').length})
+            Docentes e investigadores (${templates.filter(t => t.roleType === 'docente').length})
           </button>
           <button class="profiles-tab-btn ${this.activeCategory === 'administrativo' ? 'active' : ''}" data-cat="administrativo">
-            Administrativos & Gestión (${templates.filter(t => t.roleType === 'administrativo').length})
+            Administrativos y gestión (${templates.filter(t => t.roleType === 'administrativo').length})
           </button>
           <button class="profiles-tab-btn ${this.activeCategory === 'operativo' ? 'active' : ''}" data-cat="operativo">
-            Operativos & Facilities (${templates.filter(t => t.roleType === 'operativo').length})
+            Operativos y soporte (${templates.filter(t => t.roleType === 'operativo').length})
           </button>
           <button class="profiles-tab-btn ${this.activeCategory === 'directivo' ? 'active' : ''}" data-cat="directivo">
-            Directivos & Decanato (${templates.filter(t => t.roleType === 'directivo').length})
+            Directivos (${templates.filter(t => t.roleType === 'directivo').length})
           </button>
         </div>
 
@@ -94,12 +92,12 @@ export class ProfilesLibraryViewController {
               </div>
 
               <!-- Accordion / Details Section -->
-              <details class="profile-details-box"><summary>Ver requisitos y ponderaciones</summary>
+              <details class="profile-details-box"><summary>Ver requisitos y criterios</summary>
                 <!-- Knockout Rule -->
                 <div class="profile-detail-row knockout-row">
                   <div class="profile-detail-label">
                     <span style="color: #DC2626;">⛔</span>
-                    <strong>Filtro Knockout Obligatorio:</strong>
+                    <strong>Requisito obligatorio:</strong>
                   </div>
                   <div class="profile-detail-val">${tpl.knockoutRule}</div>
                 </div>
@@ -108,7 +106,7 @@ export class ProfilesLibraryViewController {
                 <div class="profile-detail-row">
                   <div class="profile-detail-label">
                     <span style="color: #059669;">📈</span>
-                    <strong>Efectividad Predictiva:</strong>
+                    <strong>Resultados del proceso:</strong>
                   </div>
                   <div class="profile-detail-val" style="color: #047857; font-weight: 600;">
                     Pendiente de seguimiento real
@@ -129,7 +127,7 @@ export class ProfilesLibraryViewController {
                 <!-- Criteria & Weights Summary -->
                 <div style="margin-top: 10px;">
                   <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">
-                    Matriz de Ponderación (Total: 100%)
+                    Importancia de cada criterio (Total: 100%)
                   </div>
                   <div class="profile-criteria-list">
                     ${tpl.criteria.map(c => `
@@ -159,7 +157,7 @@ export class ProfilesLibraryViewController {
   }
 
   bindEvents() {
-    this.container.querySelector('[data-export-profiles]')?.addEventListener('click',()=>exportCSV('perfiles-demo.csv',[['ID','Perfil','Categoría','Requisito'],...appState.templates.map(t=>[t.id,t.title,t.roleType,t.knockoutRule])]));
+
     this.container.querySelectorAll('.profiles-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.activeCategory = btn.getAttribute('data-cat');

@@ -29,18 +29,18 @@ export class CriteriaModalController {
   }
   close() { this.backdrop.classList.remove('active'); closeDialog(this.backdrop); }
   render() {
-    this.modal.innerHTML = `<header class="modal-header"><div><h3 id="criteriaModalTitle">Criterios y pesos</h3><p>${esc(appState.jobPosting.title)}</p></div><button class="btn btn-ghost" data-criteria-action="close" aria-label="Cerrar criterios">×</button></header>
-      <div class="modal-body"><p class="demo-note">Simulación: repondera evidencias ficticias. Cada cambio conserva la evaluación anterior. Los criterios sin evidencia quedan pendientes.</p>
-      <div class="criteria-weights-grid">${this.weights.map((w,i) => `<label class="criteria-weight-item">${esc(w.label)} <small>${esc(w.type)}</small><input class="weight-input" type="number" min="0" max="100" step="1" data-weight="${i}" value="${w.weightPct}" aria-label="Peso de ${esc(w.label)}"></label>`).join('')}</div>
-      <p id="criteriaBalance" role="status"></p><h4>Vista previa del ranking</h4><div id="criteriaPreview"></div></div>
-      <footer class="modal-footer"><button class="btn btn-secondary" data-criteria-action="reset">Restablecer</button><button class="btn btn-ghost" data-criteria-action="close">Cancelar</button><button class="btn btn-primary" data-criteria-action="save">Guardar y recalcular demo</button></footer>`;
+    this.modal.innerHTML = `<header class="modal-header"><div><h3 id="criteriaModalTitle">Criterios de evaluación</h3><p>${esc(appState.jobPosting.title)}</p></div><button class="btn btn-ghost" data-criteria-action="close" aria-label="Cerrar criterios">×</button></header>
+      <div class="modal-body"><p class="demo-note">Prueba cuánto importa cada criterio. Cada método calcula su puntaje por separado y se conserva el resultado anterior. Si no hay evidencia, el resultado queda pendiente.</p>
+      <div class="criteria-weights-grid">${this.weights.map((w,i) => `<label class="criteria-weight-item">${esc(w.label)} <small>${esc(w.type)}</small><input class="weight-input" type="number" min="0" max="100" step="1" data-weight="${i}" value="${w.weightPct}" aria-label="Importancia de ${esc(w.label)}"></label>`).join('')}</div>
+      <p id="criteriaBalance" role="status"></p><h4>Vista previa según el método elegido</h4><div id="criteriaPreview"></div></div>
+      <footer class="modal-footer"><button class="btn btn-secondary" data-criteria-action="reset">Restablecer</button><button class="btn btn-ghost" data-criteria-action="close">Cancelar</button><button class="btn btn-primary" data-criteria-action="save">Guardar cambios</button></footer>`;
     this.preview();
   }
   preview() {
     const balance = this.modal.querySelector('#criteriaBalance');
     const save = this.modal.querySelector('[data-criteria-action="save"]');
     try {
-      validateWeights(this.weights); balance.textContent = 'Total: 100 %'; save.disabled = false;
+      validateWeights(this.weights); balance.textContent = 'Importancia total: 100 %'; save.disabled = false;
       const results = appState.simulateWeightsImpact(this.weights).slice(0,5);
       this.modal.querySelector('#criteriaPreview').innerHTML = results.length ? results.map(c => `<div class="sim-candidate-row"><strong>${esc(c.name)}</strong><span>${c.currentScore ?? 'Pendiente'} → ${c.simulatedScore ?? 'Pendiente'}</span></div>`).join('') : '<p class="empty-copy">No hay candidatos. Se guardarán los criterios para esta convocatoria.</p>';
     } catch (e) { balance.textContent = e.message; save.disabled = true; this.modal.querySelector('#criteriaPreview').textContent = 'Ajusta los pesos para calcular la vista previa.'; }

@@ -21,7 +21,7 @@ try {
   await page.locator('[data-nav="comparison"]').click();
   assert.equal((await snapshot()).pool,0);
   await page.locator('[data-compare-action="suggest"]').click();
-  assert.equal((await snapshot()).pool,3);
+  assert.equal((await snapshot()).pool,5);
   await page.locator('[data-compare-action="clear"]').click();
   assert.equal((await snapshot()).pool,0);
   await page.locator('[data-nav="ranking"]').click();
@@ -43,7 +43,7 @@ try {
   await page.locator('#drawerBtnAdvance').click();
   assert.match(await page.locator('#drawerCandidateName').textContent(),/Preseleccionado|evaluación|oferta/i);
   await page.locator('#drawerBtnRelease').click();
-  assert.match(await page.locator('#drawerCandidateName').textContent(),/Liberado/);
+  assert.match(await page.locator('#drawerCandidateName').textContent(),/No continúa/);
   await page.locator('#drawerCloseBtn').click();
   await page.locator('[data-nav="kanban"]').click();
   assert.equal(await page.locator('.kanban-column-count').allTextContents().then(a=>a.reduce((sum,n)=>sum+Number(n),0)),505);

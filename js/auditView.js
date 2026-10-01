@@ -17,7 +17,7 @@ export class AuditViewController {
     const rows = candidates.flatMap(candidate => (candidate.audit?.decisionHistory || []).map(entry => ({ candidate, entry })));
     this.container.innerHTML = `
       <header class="process-view-heading">
-        <h2>Auditoría y decisiones</h2>
+        <h2>Historial de decisiones</h2>
         <p>Historial de acciones y responsables de ${escapeHTML(appState.jobPosting.title)}.</p>
       </header>
       <div class="audit-view-toolbar">
@@ -37,7 +37,7 @@ export class AuditViewController {
               <td>${escapeHTML(entry.time)}</td>
               <td>${escapeHTML(entry.user)}</td>
               <td>${escapeHTML(entry.action)}</td>
-              <td>${escapeHTML(candidate.score)} / 100<small>Criterios ${escapeHTML(candidate.audit?.criteriaVersion)}</small></td>
+              <td>ML ${candidate.mlScore ?? 'Pendiente'} · LLM ${candidate.llmScore ?? 'Pendiente'}<small>Criterios ${escapeHTML(candidate.audit?.criteriaVersion)}</small></td>
               <td><button class="btn btn-secondary btn-sm" data-audit-candidate="${escapeHTML(candidate.id)}">Ver expediente</button></td>
             </tr>`).join('') : '<tr><td colspan="6">Todavía no hay decisiones registradas para esta selección.</td></tr>'}</tbody>
         </table>

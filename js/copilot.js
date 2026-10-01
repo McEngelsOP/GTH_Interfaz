@@ -147,8 +147,9 @@ export class CopilotController {
       return;
     }
 
-    if (qLower.includes('3 mejores') || qLower.includes('mejores perfiles') || qLower.includes('top 3')) {
-      const top3 = appState.getRankedCandidates().filter(isEligible).slice(0, 3);
+    if (/\b(?:\d+|mejores|perfiles)\b/.test(qLower)) {
+      const count = Number(qLower.match(/\d+/)?.[0] || appState.topN);
+      const top3 = appState.getRankedCandidates().filter(c=>isEligible(c,appState.rankingModel)).slice(0,count);
 
       const cardsHtml = `
         Estos son los <strong>${top3.length} perfiles de ejemplo con mayor puntaje</strong> para ${esc(appState.jobPosting.title)}. Los puntajes provienen de datos de demostración:
@@ -161,14 +162,14 @@ export class CopilotController {
                   <span class="rec-rank-badge">#${idx + 1}</span>
                   <span class="rec-name">${esc(cand.name)}</span>
                 </div>
-                <span class="rec-score-badge">${cand.score}/100</span>
+                <span class="rec-score-badge">ML ${cand.mlScore ?? '—'} · LLM ${cand.llmScore ?? '—'}</span>
               </div>
               <div class="rec-justification">
                 <strong>Motivo de ejemplo:</strong> ${esc(cand.narrative.selectionReason.substring(0, 140))}...
               </div>
               <div class="rec-actions">
                 <button class="btn-rec-action" data-id="${esc(cand.id)}">
-                  Cargar en tabla principal & Ver detalle →
+                  Ver perfil →
                 </button>
               </div>
             </div>
@@ -185,7 +186,7 @@ export class CopilotController {
       this.appendMessage('assistant', `
         Revisión de los perfiles de ejemplo para esta convocatoria:
         <br><br>
-        <strong>${esc(cand.name)}</strong> figura con ${cand.score}/100. ${esc(cand.narrative?.selectionReason || 'Consulta su expediente para ver más detalles.')}
+        <strong>${esc(cand.name)}</strong> figura con ML ${cand.mlScore ?? '—'} · LLM ${cand.llmScore ?? '—'}. ${esc(cand.narrative?.selectionReason || 'Consulta su expediente para ver más detalles.')}
         <div style="margin-top: 8px;">
           <button class="btn-rec-action" data-id="${esc(cand.id)}">Ver expediente de ${esc(cand.name)} →</button>
         </div>
@@ -196,7 +197,7 @@ export class CopilotController {
     if (qLower.includes('transferible') || qLower.includes('fuera del top-n')) {
       const transferable = appState.candidates.filter(c => c.transferablePotential && (!qLower.includes('fuera del top-n') || !c.inTopN));
       this.appendMessage('assistant', `
-        He identificado <strong>${transferable.length} candidatos destacados con Potencial Transferible</strong> bajo el Principio de Inclusión.
+        He identificado <strong>${transferable.length} candidatos destacados con Potencial Transferible</strong> con habilidades útiles para otros puestos.
         <br><br>
         ${transferable.length ? `Entre ellos: ${transferable.slice(0, 3).map(c => esc(c.name)).join(', ')}. Revisa sus expedientes antes de decidir.` : 'No hay perfiles marcados como transferibles en los datos de esta convocatoria.'}
       `);

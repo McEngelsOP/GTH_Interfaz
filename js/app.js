@@ -1,3 +1,4 @@
+import { SelectionFlowController } from './selectionFlow.js';
 import { AuditViewController } from './auditView.js';
 import { appState } from './state.js';
 import { DataGridController } from './dataGrid.js';
@@ -173,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Update header and KPIs when job changes
   appState.subscribe((event, data) => {
     if (event === 'jobs_changed') { renderJobDropdownOptions(); updateNavBadges(); }
-    if (['job_changed','criteria_updated','candidates_updated','jobs_changed'].includes(event)) {
+    if (['job_changed','criteria_updated','candidates_updated','jobs_changed','ranking_model_changed'].includes(event)) {
       const job = appState.jobPosting;
       if (headerRoleBadge) {
         headerRoleBadge.className = `role-badge role-${job.roleType}`;
@@ -186,6 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update KPIs
       if (kpiProcessedCount) kpiProcessedCount.textContent = job.totalProcessed;
       if (kpiAvgScore) kpiAvgScore.textContent = job.avgScore ?? '—';
+      document.getElementById('kpiScoreLabel').textContent = `Promedio según ${appState.rankingModel === 'llm' ? 'LLM' : 'ML'}`;
+      document.getElementById('rankingModelSelect').value = appState.rankingModel;
       if (candidateCountBadge) candidateCountBadge.textContent = `${appState.candidates.length} demo`;
 
       if (kpiRoleMetricLabel && job.roleMetrics) {
@@ -316,51 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 6. Floating Comparison Dock (Cambio #6)
-  const comparisonFloatingDock = document.getElementById('comparisonFloatingDock');
-  const dockAvatarGroup = document.getElementById('dockAvatarGroup');
-  const dockTextCount = document.getElementById('dockTextCount');
-  const dockBtnCompareNow = document.getElementById('dockBtnCompareNow');
-  const dockBtnClear = document.getElementById('dockBtnClear');
-
-  const updateComparisonDock = (pool) => {
-    if (!comparisonFloatingDock) return;
-
-    if (pool.length >= 2) {
-      comparisonFloatingDock.classList.add('visible');
-      const cands = appState.getComparisonCandidates();
-
-      if (dockAvatarGroup) {
-        dockAvatarGroup.innerHTML = cands.map(c => `
-          <div class="dock-avatar" title="${esc(c.name)}">${esc(c.name.split(' ').map(n=>n[0]).join(''))}</div>
-        `).join('');
-      }
-
-      if (dockTextCount) {
-        dockTextCount.textContent = `${pool.length} candidatos listos para comparar`;
-      }
-    } else {
-      comparisonFloatingDock.classList.remove('visible');
-    }
-  };
-
-  appState.subscribe((event, data) => {
-    if (event === 'comparison_pool_changed') {
-      updateComparisonDock(data.pool);
-    }
-  });
-
-  if (dockBtnCompareNow) {
-    dockBtnCompareNow.addEventListener('click', () => {
-      switchView('comparison');
-    });
-  }
-
-  if (dockBtnClear) {
-    dockBtnClear.addEventListener('click', () => {
-      appState.clearComparisonPool();
-    });
-  }
+  const selectionFlow = new SelectionFlowController(document.getElementById('decisionMount'));
+  comparisonController.onDecide = () => selectionFlow.open();
+  document.getElementById('rankingModelSelect').addEventListener('change', e => appState.setRankingModel(e.target.value));
+  document.querySelectorAll('[data-workspace-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.workspaceView)));
 
   // 8. Top-N Stepper Logic
   const topNInput = document.getElementById('topNInput');
@@ -371,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     topNInput.value = appState.topN;
     topNInput.addEventListener('change', (e) => {
       appState.setTopN(e.target.value);
+      topNInput.value = appState.topN;
     });
   }
 
@@ -448,27 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.getElementById('exportRankingBtn')?.addEventListener('click', () => {
-    const candidates = appState.getFilteredCandidates();
-    if (!candidates.length) {
-      alert('Esta convocatoria todavía no tiene candidatos para exportar.');
-      return;
-    }
-    const safeCell = value => {
-      const raw = String(value ?? '');
-      const neutralized = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-      return `"${neutralized.replace(/"/g, '""')}"`;
-    };
-    const rows = [['ID', 'Candidato', 'Puesto', 'Score', 'Etapa', 'Fuente'], ...candidates.map(c => [c.id, c.name, appState.jobPosting.title, c.score, c.stage, c.source])];
-    const csv = '\ufeff' + rows.map(row => row.map(safeCell).join(';')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ranking-${appState.activeJobPostingId}.csv`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
-
   // Bookmarkable context. Back/forward restores the job, view and candidate.
   let restoringRoute = false;
   const writeRoute = () => {
@@ -484,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (params.get('job')) appState.setActiveJobPosting(params.get('job'));
       switchView(appState.canView(params.get('view')) ? params.get('view') : 'convocatorias');
-      appState.setActiveDrawerTab(['explain','gaps','weights','cv','audit'].includes(params.get('tab')) ? params.get('tab') : 'explain');
+      appState.setActiveDrawerTab(['explain','opportunities','weights','cv','audit'].includes(params.get('tab')) ? params.get('tab') : 'explain');
       appState.selectCandidate(appState.candidates.some(c=>c.id===params.get('candidate')) ? params.get('candidate') : null);
     } finally { restoringRoute = false; }
   };

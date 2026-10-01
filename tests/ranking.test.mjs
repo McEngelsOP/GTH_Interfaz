@@ -88,9 +88,9 @@ test('ordenar por nombre o puntaje ascendente no altera ranking ni Top-N', () =>
   const state = new appState.constructor();
   state.topN = 2;
   state.candidates = [
-    { id: 'c', name: 'Zoe', score: 98, knockoutMet: true },
-    { id: 'b', name: 'Beto', score: 87, knockoutMet: true },
-    { id: 'a', name: 'Ana', score: 72, knockoutMet: true }
+    { id: 'c', name: 'Zoe', score: 98, mlScore: 98, llmScore: 75, knockoutMet: true },
+    { id: 'b', name: 'Beto', score: 87, mlScore: 87, llmScore: 90, knockoutMet: true },
+    { id: 'a', name: 'Ana', score: 72, mlScore: 72, llmScore: 95, knockoutMet: true }
   ];
   state.updateTopNFlags();
   state.toggleSort('name');
@@ -142,7 +142,9 @@ test('el controlador virtualiza las filas, busca en todo el lote y pagina', () =
   assert.ok(firstPageRows > 0 && firstPageRows < 25);
   assert.match(grid.tableBody.innerHTML, /class="candidate-line"/);
   assert.match(grid.tableBody.innerHTML, /class="stage-pill stage-/);
-  assert.match(grid.tableBody.innerHTML, /class="gap-indicator gap-/);
+  assert.doesNotMatch(grid.tableBody.innerHTML, /class="gap-indicator|data-action="star"/);
+  assert.match(grid.tableBody.innerHTML, /Puntaje según Machine Learning/);
+  assert.match(grid.tableBody.innerHTML, /Puntaje según LLM/);
   assert.match(grid.tableBody.innerHTML, /class="candidate-meta-icons"/);
   const firstRow = grid.tableBody.innerHTML.match(/<tr class="candidate-row[\s\S]*?<\/tr>/)?.[0] || '';
   assert.equal((firstRow.match(/class="capsule-pill /g) || []).length, 5);

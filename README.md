@@ -2,12 +2,24 @@
 
 Prototipo de interfaz para convocatorias, evaluacion explicable y seguimiento de postulaciones. **No es todavia un sistema de reclutamiento conectado a servicios reales.**
 
+## Actualización Codex-II
+
+- Diseño con pasos visibles: revisar, comparar y seguir el avance. Lenguaje sencillo y adaptable a pantallas pequeñas.
+- Top-N editable, selección manual, comparación sin un máximo fijo de cinco y revisión antes de decidir.
+- Ranking ordenable por ML o LLM. Los resultados se conservan y exportan por separado. El campo histórico `score` no se utiliza para ordenar, decidir ni mostrar un promedio entre métodos.
+- Mensajes personalizados de avance/no avance guardados como **borradores**, con decisión explícita de GTH. Los perfiles pendientes no reciben una decisión automática.
+- Descargas centralizadas en Banco de Talento: candidatos de una convocatoria, candidatos guardados y catálogo de puestos compatible con el CSV de ejemplo.
+- Detección local del formato de archivos y vista previa de catálogos CSV. PDF, Word e imágenes quedan pendientes de lectura y conversión cuando se conecte el OCR.
+- Se retiran el banner flotante, la guía STAR y las pantallas de brechas.
+
+Ver [docs/codex-ii.md](docs/codex-ii.md) para el recorrido de revisión y los pendientes de integración.
+
 ## Estado actual
 
 - HTML, CSS y JavaScript con modulos ES; no necesita compilacion.
 - Creacion de convocatorias, biblioteca de perfiles y selector de contexto.
 - Ranking compacto de 52 px, densidad comoda de 66 px, paginacion y filas virtualizadas.
-- Comparador explicito de hasta cinco postulaciones y expediente con evidencias, brechas, CV e historial.
+- Comparación de la cantidad de perfiles que elija GTH; expediente con puntajes independientes, evidencias, CV e historial.
 - Criterios reponderables sobre evidencias ficticias, con version e historial anterior.
 - Etapas compartidas entre ranking, comparador, expediente y Kanban; banco de talento paginado.
 - Indicadores calculados a partir de los registros disponibles, sin extrapolar datos de ejemplo.
@@ -27,7 +39,7 @@ La demo guarda datos ficticios en `localStorage` (`talentai.demo.workspace.v2`) 
 Desde la carpeta del repositorio:
 
 ```bash
-git switch codex/convocatorias-demo-flow
+git switch Codex-II
 python -m http.server 8080
 ```
 
@@ -53,7 +65,7 @@ Variables opcionales: `TEST_URL`, `SCREENSHOT_DIR`, `PLAYWRIGHT_MODULE` (ruta al
 
 ## Publicacion
 
-La rama de trabajo es `codex/convocatorias-demo-flow`, con los cambios propuestos en el PR #2. El despliegue de produccion asociado a `main` no cambia hasta integrar la rama o cambiar expresamente su configuracion. Una Preview de la rama permite revisar antes de hacerlo. No se necesita un backend para alojar esta demo estatica.
+La rama de esta actualización es `Codex-II`, creada desde `codex/convocatorias-demo-flow` (8e83e69). El despliegue de produccion asociado a `main` no cambia hasta integrar la rama o cambiar expresamente su configuracion. Una Preview de la rama permite revisar antes de hacerlo. No se necesita un backend para alojar esta demo estatica.
 
 ## Integracion futura
 

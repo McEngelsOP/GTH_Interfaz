@@ -24,7 +24,7 @@ export class VacanciesViewController {
       <div class="vacancies-stats" aria-label="Resumen de convocatorias de demostración">
         <div class="vacancy-stat"><span class="stat-kicker">Convocatorias activas</span><strong>${active}</strong><small>Procesos abiertos</small></div>
         <div class="vacancy-stat"><span class="stat-kicker">CVs registrados</span><strong>${new Intl.NumberFormat('es-PE').format(processed)}</strong><small>Datos de ejemplo</small></div>
-        <div class="vacancy-stat"><span class="stat-kicker">En evaluación</span><strong>${matching}</strong><small>Matching y preselección</small></div>
+        <div class="vacancy-stat"><span class="stat-kicker">En evaluación</span><strong>${matching}</strong><small>Revisión de candidatos</small></div>
         <div class="vacancy-stat"><span class="stat-kicker">Borradores</span><strong>${drafts}</strong><small>Listos para configurar</small></div>
       </div>
       <div class="vacancies-section-heading">
@@ -44,7 +44,7 @@ export class VacanciesViewController {
             <p class="vacancy-department">${esc(j.department)}</p>
             <div class="vacancy-meta"><span>${esc(j.period)}</span><span>${Number(j.vacancies) || 1} ${Number(j.vacancies) === 1 ? 'plaza' : 'plazas'}</span></div>
             <div class="vacancy-progress"><span>Etapa actual</span><strong>${esc(j.phase)}</strong></div>
-            <div class="vacancy-card-footer"><span><strong>${Number(j.totalProcessed) || 0}</strong> CVs en demo</span><button type="button" data-action="${j.status === 'Borrador' ? 'activate' : 'open'}" data-job="${esc(j.id)}">${j.status === 'Borrador' ? 'Activar' : 'Ver evaluación'} →</button></div>
+            <div class="vacancy-card-footer"><span><strong>${Number(j.totalProcessed) || 0}</strong> CVs en demo</span><button type="button" data-action="${j.status === 'Borrador' ? 'activate' : 'open'}" data-job="${esc(j.id)}">${j.status === 'Borrador' ? 'Activar' : 'Revisar candidatos'} →</button></div>
           </article>`).join('')}
       </div>
       <div class="vacancies-empty" id="vacanciesEmpty" hidden>No se encontraron convocatorias con esos filtros.</div>
