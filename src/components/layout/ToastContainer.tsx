@@ -35,13 +35,13 @@ export function ToastContainer() {
             key={toast.id}
             role="status"
             aria-live="polite"
+            className="glass-panel"
             style={{
               pointerEvents: 'auto',
               display: 'flex',
               alignItems: 'flex-start',
               gap: '0.75rem',
               padding: '0.85rem 1rem',
-              backgroundColor: 'var(--bg-surface)',
               borderRadius: 'var(--radius-md)',
               boxShadow: 'var(--shadow-lg)',
               border: '1px solid var(--border-default)',

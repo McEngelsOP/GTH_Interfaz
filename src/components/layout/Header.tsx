@@ -35,7 +35,9 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     <header
       style={{
         height: '64px',
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: 'var(--header-bg)',
+        backdropFilter: 'blur(12px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(160%)',
         borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
@@ -45,6 +47,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
         top: 0,
         zIndex: 100,
         boxShadow: 'var(--shadow-sm)',
+        transition: 'background-color var(--transition-normal), border-color var(--transition-normal)',
       }}
     >
       {/* Lado izquierdo: Botón móvil + Selector de Convocatoria Activa */}

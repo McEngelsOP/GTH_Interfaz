@@ -291,7 +291,7 @@ export function AgregarArchivosView() {
   if (!activeJob) return null;
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+    <div className="animate-fade-in" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       <ActiveJobBanner />
 
       {/* Cabecera Principal */}
@@ -663,7 +663,7 @@ export function AgregarArchivosView() {
                     type="button"
                     disabled={isGenerating || isAutoIngesting}
                     onClick={() => setBatchSize(size as any)}
-                    className="focus-ring"
+                    className="focus-ring hover-lift"
                     style={{
                       padding: '0.75rem',
                       borderRadius: 'var(--radius-md)',
@@ -677,7 +677,7 @@ export function AgregarArchivosView() {
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: '0.2rem',
-                      transition: 'all var(--transition-fast)',
+                      boxShadow: batchSize === size ? '0 0 12px rgba(183, 25, 54, 0.2)' : 'none',
                     }}
                   >
                     <span>{size}</span>
@@ -701,6 +701,7 @@ export function AgregarArchivosView() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.5rem',
+                  animation: 'fadeIn 180ms ease-out',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
@@ -721,7 +722,8 @@ export function AgregarArchivosView() {
                     style={{
                       height: '100%',
                       width: `${generationProgress}%`,
-                      backgroundColor: 'var(--primary-red)',
+                      background: 'linear-gradient(90deg, var(--primary-red) 0%, #E11D48 100%)',
+                      boxShadow: '0 0 8px rgba(183, 25, 54, 0.45)',
                       transition: 'width 200ms ease-out',
                     }}
                   />

@@ -14,6 +14,8 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export function CriteriosEvaluacionView() {
@@ -24,6 +26,8 @@ export function CriteriosEvaluacionView() {
   });
 
   const [showSimulation, setShowSimulation] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(15);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Suma total y diferencia al 100%
   const totalWeight = criteria.reduce((sum, c) => sum + (Number(c.weightPct) || 0), 0);
@@ -60,6 +64,17 @@ export function CriteriosEvaluacionView() {
       };
     });
   }, [activeJob, activeJobApplications, criteria]);
+
+  // Paginación y control de volumen de la simulación
+  const totalItems = simulationResults.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / (pageSize || 1)));
+  const validPage = Math.max(1, Math.min(currentPage, totalPages));
+
+  const paginatedResults = useMemo(() => {
+    if (pageSize === 0) return simulationResults;
+    const start = (validPage - 1) * pageSize;
+    return simulationResults.slice(start, start + pageSize);
+  }, [simulationResults, validPage, pageSize]);
 
   const handleSave = () => {
     if (totalWeight !== 100) {
@@ -309,15 +324,26 @@ export function CriteriosEvaluacionView() {
             completamente separados.
           </p>
 
-          <div style={{ overflowX: 'auto' }}>
+          {/* Contenedor con scroll interno y sticky header */}
+          <div
+            style={{
+              maxHeight: '480px',
+              overflowY: 'auto',
+              overflowX: 'auto',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--bg-surface)',
+              position: 'relative',
+            }}
+          >
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8125rem' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--bg-base)' }}>
                 <tr style={{ backgroundColor: 'var(--bg-base)', borderBottom: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '0.6rem 0.75rem' }}>Candidato</th>
-                  <th style={{ padding: '0.6rem 0.75rem' }}>ML Anterior</th>
-                  <th style={{ padding: '0.6rem 0.75rem' }}>ML Simulado</th>
-                  <th style={{ padding: '0.6rem 0.75rem' }}>LLM Anterior</th>
-                  <th style={{ padding: '0.6rem 0.75rem' }}>LLM Simulado</th>
+                  <th style={{ padding: '0.65rem 0.75rem', backgroundColor: 'var(--bg-base)' }}>Candidato</th>
+                  <th style={{ padding: '0.65rem 0.75rem', backgroundColor: 'var(--bg-base)' }}>ML Anterior</th>
+                  <th style={{ padding: '0.65rem 0.75rem', backgroundColor: 'var(--bg-base)' }}>ML Simulado</th>
+                  <th style={{ padding: '0.65rem 0.75rem', backgroundColor: 'var(--bg-base)' }}>LLM Anterior</th>
+                  <th style={{ padding: '0.65rem 0.75rem', backgroundColor: 'var(--bg-base)' }}>LLM Simulado</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,10 +354,10 @@ export function CriteriosEvaluacionView() {
                     </td>
                   </tr>
                 ) : (
-                  simulationResults.map((res) => {
+                  paginatedResults.map((res) => {
                     const cand = appState.candidates.find((c) => c.id === res.candidateId);
                     return (
-                      <tr key={res.appId} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <tr key={res.appId} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background-color 0.15s ease' }}>
                         <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                           {cand?.name || 'Candidato'}
                         </td>
@@ -353,6 +379,83 @@ export function CriteriosEvaluacionView() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Barra de Paginación y Control de Límite */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              paddingTop: '0.5rem',
+              borderTop: '1px solid var(--border-subtle)',
+              fontSize: '0.8125rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <span>Mostrar:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="focus-ring"
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.8125rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-default)',
+                  backgroundColor: 'var(--bg-base)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value={15}>15 por página</option>
+                <option value={30}>30 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={0}>Todos (con scroll interno)</option>
+              </select>
+
+              <span style={{ color: 'var(--text-muted)' }}>
+                {totalItems === 0
+                  ? '0 candidatos'
+                  : pageSize === 0
+                  ? `Mostrando todos los ${totalItems} candidatos`
+                  : `Mostrando ${(validPage - 1) * pageSize + 1} - ${Math.min(validPage * pageSize, totalItems)} de ${totalItems} candidatos`}
+              </span>
+            </div>
+
+            {pageSize > 0 && totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={validPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  style={{ padding: '0.25rem 0.55rem', height: '30px' }}
+                >
+                  <ChevronLeft size={15} />
+                  <span style={{ fontSize: '0.75rem' }}>Anterior</span>
+                </Button>
+                <span style={{ fontWeight: 600, padding: '0 0.4rem', color: 'var(--text-primary)', fontSize: '0.8125rem' }}>
+                  {validPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={validPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  style={{ padding: '0.25rem 0.55rem', height: '30px' }}
+                >
+                  <span style={{ fontSize: '0.75rem' }}>Siguiente</span>
+                  <ChevronRight size={15} />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

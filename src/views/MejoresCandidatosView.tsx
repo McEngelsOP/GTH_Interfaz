@@ -236,7 +236,7 @@ export function MejoresCandidatosView() {
   }
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+    <div className="animate-fade-in" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       {/* Banner de Contexto de Convocatoria Activa */}
       <ActiveJobBanner />
 
@@ -251,6 +251,7 @@ export function MejoresCandidatosView() {
       >
         {/* KPI 1: Candidatos Activos */}
         <div
+          className="hover-lift"
           style={{
             backgroundColor: 'var(--bg-surface)',
             padding: '1rem 1.25rem',
@@ -288,6 +289,7 @@ export function MejoresCandidatosView() {
 
         {/* KPI 2: Puntaje Promedio del Método Seleccionado */}
         <div
+          className="hover-lift"
           style={{
             backgroundColor: 'var(--bg-surface)',
             padding: '1rem 1.25rem',
@@ -325,6 +327,7 @@ export function MejoresCandidatosView() {
 
         {/* KPI 3: Requisitos Obligatorios Verificados */}
         <div
+          className="hover-lift"
           style={{
             backgroundColor: 'var(--bg-surface)',
             padding: '1rem 1.25rem',
@@ -365,6 +368,7 @@ export function MejoresCandidatosView() {
 
         {/* Panel de Control de Selección Top-N y Método */}
         <div
+          className="hover-lift"
           style={{
             backgroundColor: 'var(--bg-surface)',
             padding: '0.85rem 1.15rem',
@@ -556,6 +560,7 @@ export function MejoresCandidatosView() {
       {/* Franja integrada para acciones sobre los marcados (Sección 10) */}
       {selectedApplicationIds.length > 0 && (
         <div
+          className="glass-panel animate-slide-up"
           style={{
             backgroundColor: 'var(--primary-red-subtle)',
             border: '1px solid var(--primary-red-border)',
