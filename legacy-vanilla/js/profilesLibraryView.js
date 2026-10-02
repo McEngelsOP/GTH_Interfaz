@@ -50,8 +50,8 @@ export class ProfilesLibraryViewController {
             <button class="btn btn-secondary" id="btnExportProfilesCatalog" onclick="alert('Exportando catálogo institucional de perfiles en formato PDF para Dirección de GTHC...')">
               Exportar Catálogo PDF
             </button>
-            <button class="btn btn-primary" id="btnNewProfileTemplate" onclick="alert('Abriendo editor de nuevo perfil organizacional...')">
-              + Crear Nuevo Perfil
+            <button class="btn btn-primary" id="btnNewProfileTemplate" type="button">
+              + Nueva Convocatoria
             </button>
           </div>
         </div>
@@ -143,7 +143,7 @@ export class ProfilesLibraryViewController {
 
               <!-- Actions -->
               <div class="profile-card-actions">
-                <button class="btn btn-primary" style="flex: 1; font-size: 12px; padding: 7px 12px;" onclick="window.profilesLibraryController.launchVacancyFromProfile('${tpl.id}', '${tpl.title}')">
+                <button class="btn btn-primary" style="flex: 1; font-size: 12px; padding: 7px 12px;" data-launch-template="${tpl.id}">
                   ⚡ Abrir Convocatoria
                 </button>
                 <button class="btn btn-secondary" style="font-size: 12px; padding: 7px 12px;" onclick="window.profilesLibraryController.openEditModal('${tpl.id}')">
@@ -166,14 +166,10 @@ export class ProfilesLibraryViewController {
         this.render();
       });
     });
-  }
-
-  launchVacancyFromProfile(tplId, tplTitle) {
-    const confirmLaunch = confirm(`¿Deseas inicializar una nueva convocatoria institucional basada en la plantilla "${tplTitle}" (${tplId})? Los criterios y knockouts serán precargados automáticamente.`);
-    if (confirmLaunch) {
-      alert(`🎉 Convocatoria creada con éxito a partir de ${tplTitle}. Redirigiendo al espacio de trabajo de evaluación.`);
-      appState.setCurrentView('ranking');
-    }
+    this.container.querySelector('#btnNewProfileTemplate')?.addEventListener('click', () => this.onStartNewJob?.(''));
+    this.container.querySelectorAll('[data-launch-template]').forEach(btn => {
+      btn.addEventListener('click', () => this.onStartNewJob?.(btn.dataset.launchTemplate));
+    });
   }
 
   openEditModal(tplId) {

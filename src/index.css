@@ -1,0 +1,395 @@
+/* ==========================================================================
+   TalentAI | GTHC · ESAN — Design Tokens & Institutional Styles
+   Universidad ESAN · Gestión del Talento Humano
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+  background-color: var(--bg-base);
+  /* Marca ESAN */
+  --primary-red: #B71936;
+  --primary-red-hover: #9e142e;
+  --primary-red-active: #851026;
+  --primary-red-subtle: rgba(183, 25, 54, 0.08);
+  --primary-red-border: rgba(183, 25, 54, 0.22);
+  --esan-red-alt: #C8102E;
+
+  /* Superficies modo claro cálido */
+  --bg-base: #F6F3EF;
+  --bg-surface: #FFFEFD;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-muted: #EFEBE5;
+  --bg-hover: #F2EDE6;
+
+  /* Textos y contrastes */
+  --text-primary: #263243;
+  --text-secondary: #596373;
+  --text-muted: #848E9C;
+  --text-inverse: #FFFFFF;
+
+  /* Bordes y separadores */
+  --border-subtle: #E8E2D9;
+  --border-default: #DDD6CC;
+  --border-strong: #C8C0B4;
+
+  /* Estados semánticos (con contraste AA/AAA) */
+  --status-verified-text: #166534;
+  --status-verified-bg: #DCFCE7;
+  --status-verified-border: #86EFAC;
+
+  --status-partial-text: #92400E;
+  --status-partial-bg: #FEF3C7;
+  --status-partial-border: #FDE68A;
+
+  --status-failed-text: #991B1B;
+  --status-failed-bg: #FEE2E2;
+  --status-failed-border: #FCA5A5;
+
+  --status-unverified-text: #475569;
+  --status-unverified-bg: #F1F5F9;
+  --status-unverified-border: #CBD5E1;
+  --info-color: #0369A1;
+  --info-bg: #E0F2FE;
+
+  /* Métodos de evaluación */
+  --method-llm-color: #6D28D9;
+  --method-llm-bg: #EDE9FE;
+
+  /* Sombras cálidas y discretas */
+  --shadow-sm: 0 1px 2px rgba(38, 50, 67, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(38, 50, 67, 0.07), 0 2px 4px -2px rgba(38, 50, 67, 0.04);
+  --shadow-lg: 0 12px 24px -4px rgba(38, 50, 67, 0.10), 0 4px 8px -2px rgba(38, 50, 67, 0.05);
+  --shadow-drawer: -6px 0 28px rgba(38, 50, 67, 0.14);
+
+  /* Superficies translúcidas y brillo sutil */
+  --header-bg: rgba(255, 254, 253, 0.88);
+  --glass-bg: rgba(255, 254, 253, 0.82);
+  --glow-primary: 0 0 20px -3px rgba(183, 25, 54, 0.32);
+
+  /* Curvaturas */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* Transiciones estándar (140 - 200 ms) */
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Tipografías */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Modo Oscuro Cálido */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --primary-red: #D22646;
+  --primary-red-hover: #E33A5A;
+  --primary-red-active: #F05572;
+  --primary-red-subtle: rgba(210, 38, 70, 0.14);
+  --primary-red-border: rgba(210, 38, 70, 0.35);
+
+  --bg-base: #14171C;
+  --bg-surface: #1E232B;
+  --bg-card: #252B35;
+  --bg-elevated: #2D3440;
+  --bg-muted: #1A1E24;
+  --bg-hover: #2F3644;
+
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0A9B8;
+  --text-muted: #6B7688;
+  --text-inverse: #14171C;
+
+  --border-subtle: #2E3541;
+  --border-default: #394252;
+  --border-strong: #4B5669;
+
+  --status-verified-text: #86EFAC;
+  --status-verified-bg: rgba(22, 101, 52, 0.25);
+  --status-verified-border: #166534;
+
+  --status-partial-text: #FDE68A;
+  --status-partial-bg: rgba(146, 64, 14, 0.25);
+  --status-partial-border: #92400E;
+
+  --status-failed-text: #FCA5A5;
+  --status-failed-bg: rgba(153, 27, 27, 0.25);
+  --status-failed-border: #991B1B;
+
+  --status-unverified-text: #CBD5E1;
+  --status-unverified-bg: rgba(71, 85, 105, 0.25);
+  --status-unverified-border: #475569;
+  --info-color: #7DD3FC;
+  --info-bg: rgba(3, 105, 161, 0.25);
+
+  --method-llm-color: #C4B5FD;
+  --method-llm-bg: rgba(109, 40, 217, 0.25);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.60);
+  --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.70);
+
+  --header-bg: rgba(30, 35, 43, 0.88);
+  --glass-bg: rgba(30, 35, 43, 0.82);
+  --glow-primary: 0 0 24px -2px rgba(210, 38, 70, 0.38);
+}
+
+/* Only animate the palette while changing theme; preserve normal interactions. */
+.theme-transition {
+  transition: var(--theme-color-transition) !important;
+}
+
+/* Compatible fallback for engines without typed CSS custom properties. */
+.theme-transition-fallback,
+.theme-transition-fallback *,
+.theme-transition-fallback *::before,
+.theme-transition-fallback *::after {
+  transition: background-color 420ms ease-in-out, color 420ms ease-in-out,
+    border-color 420ms ease-in-out, outline-color 420ms ease-in-out,
+    box-shadow 420ms ease-in-out, fill 420ms ease-in-out, stroke 420ms ease-in-out !important;
+}
+
+/* Reducir animaciones si se solicita o por preferencia de accesibilidad */
+@media (prefers-reduced-motion: reduce), (update: slow) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduced-motion, .reduced-motion *, .reduced-motion *::before, .reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Reset y base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Clases de utilidad */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary-red);
+  outline-offset: 2px;
+}
+
+/* Utilidades responsive y móvil */
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .toast-item:not(:last-child) { display: none !important; }
+  .mobile-only { display: inline-flex !important; }
+  .hide-on-mobile { display: none !important; }
+  aside:not(.sidebar-mobile-open) { display: none !important; }
+  .desktop-only {
+    display: none !important;
+  }
+  
+  aside.sidebar-mobile-open {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    z-index: 1050 !important;
+    box-shadow: var(--shadow-lg) !important;
+    width: 280px !important;
+    display: flex !important;
+  }
+}
+
+/* ==========================================================================
+   Micro-interacciones, Animaciones y Efectos Visuales Sutiles
+   ========================================================================== */
+
+/* Keyframes fluidos */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--primary-red-subtle);
+  }
+  50% {
+    box-shadow: 0 0 0 6px var(--primary-red-subtle);
+  }
+}
+
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Clases de animación */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pulse-glow {
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+/* Elevación táctil sutil al pasar cursor */
+.hover-lift {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Efecto glow al pasar el cursor sobre elementos destacados */
+.hover-glow {
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.hover-glow:hover {
+  box-shadow: var(--glow-primary);
+  border-color: var(--primary-red-border);
+}
+
+/* Panel translúcido (Glassmorphism sutil) */
+.glass-panel {
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* Respuesta táctil en botones */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Transiciones suaves en tablas */
+table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+table tbody tr:hover {
+  background-color: var(--bg-hover) !important;
+}

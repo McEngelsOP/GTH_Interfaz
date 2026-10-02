@@ -16,7 +16,7 @@ import {
 
 class AppState {
   constructor() {
-    this.jobPostings = [...MOCK_JOB_POSTINGS];
+    this.jobPostings = [...MOCK_JOB_POSTINGS, ...this.loadDemoJobs()];
     this.activeJobPostingId = this.jobPostings[0].id;
     this.jobPosting = { ...this.jobPostings[0] };
     
@@ -74,7 +74,7 @@ class AppState {
     };
 
     // Architecture States
-    this.currentView = 'ranking'; // 'ranking' | 'kanban' | 'comparison' | 'talentPool' | 'effectiveness' | 'executive' | 'profilesLibrary'
+    this.currentView = 'convocatorias';
     this.comparisonPool = new Set();
     this.talentPool = [...MOCK_TALENT_POOL];
     this.talentSearchQuery = '';
@@ -94,6 +94,82 @@ class AppState {
     this.updateTopNFlags();
 
     this.listeners = [];
+  }
+
+  // Only demonstration vacancies are saved locally. CVs and decisions remain in memory.
+  loadDemoJobs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('talentai.demo.jobs.v1') || '[]');
+      return Array.isArray(saved) ? saved.filter(j => j && j.demo === true && typeof j.id === 'string' && typeof j.title === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveDemoJobs() {
+    try {
+      localStorage.setItem('talentai.demo.jobs.v1', JSON.stringify(this.jobPostings.filter(j => j.demo)));
+    } catch {
+      // The demo still works in private browsing or when storage is unavailable.
+    }
+  }
+
+  createJobPosting(fields) {
+    const title = String(fields.title || '').trim();
+    const department = String(fields.department || '').trim();
+    const vacancies = Number(fields.vacancies);
+    const validRoles = ['docente', 'administrativo', 'operativo', 'directivo'];
+    const weights = (fields.weights || []).map(w => ({
+      label: String(w.label || '').trim(),
+      weightPct: Number(w.weightPct),
+      type: w.type === 'LLM' ? 'LLM' : 'ML'
+    }));
+    if (!title || !department || !validRoles.includes(fields.roleType) || !Number.isInteger(vacancies) || vacancies < 1 || vacancies > 100) {
+      throw new Error('Completa el puesto, el área, la categoría y un número válido de vacantes.');
+    }
+    if (!weights.length || weights.some(w => !w.label || !Number.isInteger(w.weightPct) || w.weightPct < 0 || w.weightPct > 100) || weights.reduce((sum, w) => sum + w.weightPct, 0) !== 100) {
+      throw new Error('Los criterios deben tener nombres y sus pesos sumar 100 %.');
+    }
+    if (fields.openDate && fields.closeDate && fields.closeDate < fields.openDate) {
+      throw new Error('La fecha de cierre debe ser posterior a la de apertura.');
+    }
+    const roleNames = { docente: 'Docente Universitario', administrativo: 'Personal Administrativo', operativo: 'Personal Operativo', directivo: 'Cargo Directivo' };
+    const groups = { docente: 'Docente', administrativo: 'Administrativo', operativo: 'Operativo', directivo: 'Directivo' };
+    const id = `REQ-DEMO-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    const job = {
+      id, title, department, vacancies, roleType: fields.roleType,
+      roleTypeName: roleNames[fields.roleType], categoryGroup: groups[fields.roleType],
+      period: String(fields.period || '').trim() || 'Periodo por definir',
+      modality: String(fields.modality || 'Presencial'),
+      openDate: fields.openDate || '', closeDate: fields.closeDate || '',
+      templateId: fields.templateId || null, demo: true,
+      status: fields.activate ? 'Convocatoria Abierta' : 'Borrador',
+      phase: fields.activate ? 'Recepción de postulaciones' : 'Configuración',
+      totalProcessed: 0, defaultTopN: Math.max(1, Math.min(20, vacancies * 3)),
+      avgScore: 0, potentialTalentCount: 0,
+      batchId: `#${id}`, criteriaVersion: 'Borrador de demostración',
+      aiModel: 'Pendiente de integración',
+      knockoutRule: String(fields.knockoutRule || '').trim(), weights,
+      roleMetrics: { metric1Label: 'Candidatos evaluados', metric1Value: '0' },
+      createdAt: new Date().toISOString()
+    };
+    this.jobPostings.unshift(job);
+    this.candidatesByJob[id] = [];
+    this.saveDemoJobs();
+    this.setActiveJobPosting(id);
+    this.notify('jobs_changed', { job });
+    return job;
+  }
+
+  activateJobPosting(jobId) {
+    const job = this.jobPostings.find(j => j.id === jobId && j.demo && j.status === 'Borrador');
+    if (!job) return false;
+    job.status = 'Convocatoria Abierta';
+    job.phase = 'Recepción de postulaciones';
+    this.saveDemoJobs();
+    if (this.activeJobPostingId === jobId) this.jobPosting = { ...job };
+    this.notify('jobs_changed', { job });
+    return true;
   }
 
   subscribe(listener) {
@@ -156,10 +232,13 @@ class AppState {
     this.selectedCandidateId = null;
     this.selectedRows.clear();
     this.comparisonPool.clear();
+    this.searchQuery = '';
+    this.filterSource = 'all';
+    this.filterStatus = 'all';
 
-    // Load candidates for this job (create realistic clones if not yet initialized)
+    // New demo vacancies start empty; legacy sample postings retain sample profiles.
     if (!this.candidatesByJob[jobId]) {
-      const baseList = this.jobPosting.roleType === 'operativo' 
+      const baseList = target.demo ? [] : this.jobPosting.roleType === 'operativo' 
         ? MOCK_OPERATIVO_CANDIDATES 
         : this.jobPosting.roleType === 'administrativo' 
           ? MOCK_ADMIN_CANDIDATES 
