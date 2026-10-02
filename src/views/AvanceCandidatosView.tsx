@@ -364,6 +364,7 @@ export function AvanceCandidatosView() {
                           <RequirementPill
                             status={app.mandatoryRequirementStatus}
                             justification={app.requirementJustification}
+                            criteriaBreakdown={app.criteriaBreakdown}
                             size="sm"
                           />
                           <div style={{ display: 'flex', gap: '0.25rem' }}>

@@ -85,6 +85,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       },
     };
 
+    const { style: customStyle, ...restProps } = props;
+
     return (
       <button
         ref={ref}
@@ -93,9 +95,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           ...baseStyles,
           ...sizeStyles[size],
           ...variantStyles[variant],
+          ...customStyle,
         }}
         className={`focus-ring ${className}`}
-        {...props}
+        {...restProps}
       >
         {icon && iconPosition === 'left' && <span style={{ display: 'flex' }}>{icon}</span>}
         {children && <span>{children}</span>}

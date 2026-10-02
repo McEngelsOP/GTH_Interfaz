@@ -402,6 +402,7 @@ export function ComparadorView() {
                       <RequirementPill
                         status={app.mandatoryRequirementStatus}
                         justification={app.requirementJustification}
+                        criteriaBreakdown={app.criteriaBreakdown}
                       />
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {app.requirementJustification || 'Sin justificación registrada'}

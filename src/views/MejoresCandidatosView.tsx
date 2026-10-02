@@ -12,6 +12,7 @@ import {
   getTopCandidates,
   isEligibleForTopN,
 } from '../services/recruitmentRules.ts';
+import { exportCandidatesCSV } from '../services/exportService.ts';
 import {
   Users,
   Award,
@@ -24,6 +25,9 @@ import {
   Plus,
   Minus,
   Info,
+  Download,
+  Star,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Application, Candidate } from '../types/index.ts';
 
@@ -52,16 +56,33 @@ export function MejoresCandidatosView() {
     return calculateJobMetrics(activeJobApplications, appState.selectedMethod);
   }, [activeJobApplications, appState.selectedMethod]);
 
-  // Mejores perfiles calculados dinámicamente según método y cantidad
+  // Candidatos que ya fueron designados y movidos a Los Mejores (Preseleccionados)
+  const preselectedCandidates = useMemo(() => {
+    return activeJobApplications.filter((a) => a.stage === 'preseleccionado');
+  }, [activeJobApplications]);
+
+  // Mejores perfiles calculados dinámicamente según método y cantidad (pendientes)
   const topEligiblePending = useMemo(() => {
     return getTopCandidates(activeJobApplications, appState.selectedMethod, appState.topN);
   }, [activeJobApplications, appState.selectedMethod, appState.topN]);
+
+  // Conjunto consolidado de Los Mejores (Preseleccionados confirmados + Top elegibles por score)
+  const allBestApplications = useMemo(() => {
+    const preselectedIds = new Set(preselectedCandidates.map((a) => a.id));
+    const combined = [...preselectedCandidates];
+    topEligiblePending.forEach((a) => {
+      if (!preselectedIds.has(a.id)) {
+        combined.push(a);
+      }
+    });
+    return combined;
+  }, [preselectedCandidates, topEligiblePending]);
 
   // Selección de conjunto según pestaña activa
   const displayedApplications = useMemo(() => {
     switch (activeTab) {
       case 'mejores':
-        return topEligiblePending;
+        return allBestApplications;
       case 'marcados':
         return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
       case 'no_continuan':
@@ -72,7 +93,7 @@ export function MejoresCandidatosView() {
       default:
         return activeJobApplications.filter((a) => a.stage !== 'no_continua');
     }
-  }, [activeTab, activeJobApplications, topEligiblePending, selectedApplicationIds]);
+  }, [activeTab, activeJobApplications, allBestApplications, selectedApplicationIds]);
 
   // Pestañas con conteos sincronizados en tiempo real
   const candidateTabs: TabItem[] = [
@@ -84,7 +105,7 @@ export function MejoresCandidatosView() {
     {
       id: 'mejores',
       label: 'Mejores perfiles',
-      count: topEligiblePending.length,
+      count: allBestApplications.length,
     },
     {
       id: 'marcados',
@@ -143,6 +164,68 @@ export function MejoresCandidatosView() {
   const markedApps = useMemo(() => {
     return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
   }, [activeJobApplications, selectedApplicationIds]);
+
+  // Exportación CSV de todos los candidatos del puesto
+  const handleExportAll = () => {
+    if (!activeJob) return;
+    if (activeJobApplications.length === 0) {
+      showToast('No hay candidatos en este puesto para exportar.', 'warning');
+      return;
+    }
+    exportCandidatesCSV({
+      applications: activeJobApplications,
+      candidates: appState.candidates,
+      job: activeJob,
+      method: appState.selectedMethod,
+      scopeName: 'Todos',
+    });
+    showToast(`Descargando CSV de todos los candidatos (${activeJobApplications.length}) de ${activeJob.code}.`, 'success');
+  };
+
+  // Exportación CSV de Los Mejores perfiles
+  const handleExportBest = () => {
+    if (!activeJob) return;
+    if (allBestApplications.length === 0) {
+      showToast('No hay perfiles catalogados como los mejores para exportar.', 'warning');
+      return;
+    }
+    exportCandidatesCSV({
+      applications: allBestApplications,
+      candidates: appState.candidates,
+      job: activeJob,
+      method: appState.selectedMethod,
+      scopeName: 'Mejores_perfiles',
+    });
+    showToast(`Descargando CSV de los mejores perfiles (${allBestApplications.length}) de ${activeJob.code}.`, 'success');
+  };
+
+  // Exportación CSV de candidatos marcados
+  const handleExportMarked = () => {
+    if (!activeJob) return;
+    if (markedApps.length === 0) {
+      showToast('Seleccione al menos un candidato para exportar.', 'warning');
+      return;
+    }
+    exportCandidatesCSV({
+      applications: markedApps,
+      candidates: appState.candidates,
+      job: activeJob,
+      method: appState.selectedMethod,
+      scopeName: 'Marcados',
+    });
+    showToast(`Descargando CSV de los ${markedApps.length} candidatos marcados.`, 'success');
+  };
+
+  // Mover marcados directamente a "Los Mejores" (Preseleccionados)
+  const handleMoveMarkedToBest = () => {
+    if (markedApps.length === 0) {
+      showToast('No hay candidatos marcados para mover a Los Mejores.', 'warning');
+      return;
+    }
+    const count = markedApps.length;
+    handleAdvanceSelected(false);
+    showToast(`⭐ Se movieron ${count} candidatos a Los Mejores (Preseleccionados).`, 'success');
+  };
 
   if (!activeJob) {
     return (
@@ -408,6 +491,63 @@ export function MejoresCandidatosView() {
         </div>
       </div>
 
+      {/* Barra de Herramientas y Exportación CSV General */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
+          marginBottom: '1rem',
+          padding: '0.65rem 1rem',
+          backgroundColor: 'var(--bg-surface)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <FileSpreadsheet size={18} style={{ color: 'var(--primary-red)' }} />
+          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            Exportación CSV de la convocatoria ({activeJob.code}):
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Download size={14} />}
+            onClick={handleExportAll}
+            title="Descargar todos los candidatos del puesto en archivo CSV"
+          >
+            Exportar todos ({metrics.totalActive})
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Star size={14} style={{ color: '#D97706' }} />}
+            onClick={handleExportBest}
+            title="Descargar solo los mejores perfiles (preseleccionados y top) en CSV"
+          >
+            Exportar Mejores ({allBestApplications.length})
+          </Button>
+
+          {selectedApplicationIds.length > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Download size={14} />}
+              onClick={handleExportMarked}
+              title="Descargar los perfiles marcados en CSV"
+            >
+              Exportar Marcados ({selectedApplicationIds.length})
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* Pestañas con significado claro */}
       <div style={{ marginBottom: '1rem' }}>
         <Tabs tabs={candidateTabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as any)} />
@@ -438,7 +578,7 @@ export function MejoresCandidatosView() {
                 {selectedApplicationIds.length === 1 ? 'perfil' : 'perfiles'} para revisarlos juntos.
               </span>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
-                Todavía no has cambiado su etapa.
+                Puedes moverlos directamente a Los Mejores o exportarlos a CSV.
               </span>
             </div>
           </div>
@@ -453,7 +593,25 @@ export function MejoresCandidatosView() {
               onClick={() => setActiveTab('marcados')}
               style={{ border: '1px solid var(--border-default)' }}
             >
-              Ver marcados
+              Ver marcados ({selectedApplicationIds.length})
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Download size={14} />}
+              onClick={handleExportMarked}
+              title="Descargar solo los candidatos marcados en CSV"
+            >
+              Exportar CSV ({selectedApplicationIds.length})
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Star size={14} fill="currentColor" />}
+              onClick={handleMoveMarkedToBest}
+              title="Designar y mover directamente a Los Mejores (Preseleccionados)"
+            >
+              ⭐ Mover a Mejores ({selectedApplicationIds.length})
             </Button>
             <Button
               variant="secondary"
@@ -466,12 +624,13 @@ export function MejoresCandidatosView() {
               Comparar ({selectedApplicationIds.length})
             </Button>
             <Button
-              variant="primary"
+              variant="outline"
               size="sm"
               icon={<UserCheck size={16} />}
               onClick={() => setIsAdvanceModalOpen(true)}
+              title="Personalizar decisión de avance y redactar borradores de correo"
             >
-              Decidir quién avanza
+              Decidir con borrador...
             </Button>
           </div>
         </div>

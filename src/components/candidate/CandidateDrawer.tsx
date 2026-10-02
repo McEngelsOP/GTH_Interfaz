@@ -150,6 +150,7 @@ export function CandidateDrawer() {
               <RequirementPill
                 status={app.mandatoryRequirementStatus}
                 justification={app.requirementJustification}
+                criteriaBreakdown={app.criteriaBreakdown}
               />
             </div>
 

@@ -397,34 +397,53 @@ export function BancoTalentoView() {
             </p>
           </div>
 
-          <div style={{ position: 'relative', width: '280px' }}>
-            <Search
-              size={15}
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Download size={14} />}
+              onClick={() => {
+                if (filteredTalent.length === 0) {
+                  showToast('No hay perfiles almacenados para exportar.', 'warning');
+                  return;
+                }
+                exportTalentPoolCSV(filteredTalent);
+                showToast(`Descargando ${filteredTalent.length} perfiles almacenados en CSV.`, 'success');
               }}
-            />
-            <input
-              type="text"
-              placeholder="Buscar en Banco de Talento..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="focus-ring"
-              style={{
-                width: '100%',
-                padding: '0.4rem 0.75rem 0.4rem 2.2rem',
-                fontSize: '0.8125rem',
-                backgroundColor: 'var(--bg-base)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
-            />
+              title="Descargar todos los perfiles almacenados filtrados en formato CSV"
+            >
+              Exportar Almacenados CSV ({filteredTalent.length})
+            </Button>
+
+            <div style={{ position: 'relative', width: '260px' }}>
+              <Search
+                size={15}
+                style={{
+                  position: 'absolute',
+                  left: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Buscar en Banco de Talento..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="focus-ring"
+                style={{
+                  width: '100%',
+                  padding: '0.4rem 0.75rem 0.4rem 2.2rem',
+                  fontSize: '0.8125rem',
+                  backgroundColor: 'var(--bg-base)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -437,7 +456,7 @@ export function BancoTalentoView() {
                 <th style={{ padding: '0.75rem 1rem' }}>Experiencia / Organización</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Puesto de procedencia</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Motivo de conservación</th>
-                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Acciones</th>
+                <th style={{ padding: '0.75rem 1rem', minWidth: '190px', textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -473,7 +492,7 @@ export function BancoTalentoView() {
                     </td>
 
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', flexWrap: 'nowrap' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -484,12 +503,26 @@ export function BancoTalentoView() {
                           Ficha
                         </Button>
 
+                        {/* Exportar este perfil individual a CSV */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Download size={13} />}
+                          onClick={() => {
+                            exportTalentPoolCSV([cand]);
+                            showToast(`Perfil de ${cand.name} descargado en CSV.`, 'success');
+                          }}
+                          title={`Descargar expediente de ${cand.name} en CSV`}
+                        >
+                          CSV
+                        </Button>
+
                         <Button
                           variant="secondary"
                           size="sm"
                           icon={<Link2 size={13} />}
                           onClick={() => setSelectedCandidateForLink(cand)}
-                          title="Vincular a nueva convocatoria (evaluación pendiente)"
+                          title="Vincular a nueva convocatoria (saldrá de almacenados y pasará al puesto)"
                         >
                           Vincular a puesto
                         </Button>

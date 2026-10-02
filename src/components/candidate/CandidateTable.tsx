@@ -17,8 +17,11 @@ import {
   ChevronRight,
   SlidersHorizontal,
   FileText,
+  Download,
+  Star,
 } from 'lucide-react';
 import { isEligibleForTopN, getScoreByMethod } from '../../services/recruitmentRules.ts';
+import { exportCandidatesCSV } from '../../services/exportService.ts';
 
 interface CandidateTableProps {
   applications: Application[];
@@ -35,11 +38,14 @@ export function CandidateTable({
 }: CandidateTableProps) {
   const {
     appState,
+    activeJob,
     selectedApplicationIds,
     toggleApplicationSelection,
     selectAllApplications,
     clearApplicationSelection,
     openCandidateDrawer,
+    handleQuickAdvanceToBest,
+    handleRevertToPostulado,
     showToast,
   } = useApp();
 
@@ -136,6 +142,34 @@ export function CandidateTable({
 
   const handleSaveToTalentPool = (cand: Candidate) => {
     showToast(`El perfil de ${cand.name} ha sido guardado en el Banco de Talento.`, 'success');
+  };
+
+  const handleExportCurrentTable = () => {
+    if (!activeJob) return;
+    if (sortedApplications.length === 0) {
+      showToast('No hay candidatos en la lista actual para exportar.', 'warning');
+      return;
+    }
+    exportCandidatesCSV({
+      applications: sortedApplications,
+      candidates: appState.candidates,
+      job: activeJob,
+      method: selectedMethod,
+      scopeName: 'Tabla_filtrada',
+    });
+    showToast(`Descargando CSV con ${sortedApplications.length} candidatos de la tabla.`, 'success');
+  };
+
+  const handleExportSingle = (app: Application, cand?: Candidate) => {
+    if (!activeJob) return;
+    exportCandidatesCSV({
+      applications: [app],
+      candidates: cand ? [cand] : appState.candidates,
+      job: activeJob,
+      method: selectedMethod,
+      scopeName: cand ? cand.name.replace(/\s+/g, '_') : 'Candidato',
+    });
+    showToast(`Expediente de ${cand?.name || 'candidato'} descargado en CSV.`, 'success');
   };
 
   return (
@@ -240,8 +274,18 @@ export function CandidateTable({
           </select>
         </div>
 
-        {/* Densidad y Paginación */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {/* Densidad, Exportar y Paginación */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Download size={14} />}
+            onClick={handleExportCurrentTable}
+            title="Descargar todos los candidatos de esta tabla en archivo CSV"
+          >
+            Exportar tabla CSV ({totalItems})
+          </Button>
+
           <div
             style={{
               display: 'flex',
@@ -332,11 +376,11 @@ export function CandidateTable({
               <th style={{ width: '45px', padding: '0.75rem 0.5rem' }}>#</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '220px' }}>Candidato</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Etapa</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '150px' }}>Requisito Obligatorio</th>
+              <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Requisitos</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }}>ML Score</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }}>LLM Score</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '120px' }}>Fuente</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '160px', textAlign: 'right' }}>Acciones</th>
+              <th style={{ padding: '0.75rem 1rem', minWidth: '220px', textAlign: 'right' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -424,6 +468,7 @@ export function CandidateTable({
                       <RequirementPill
                         status={app.mandatoryRequirementStatus}
                         justification={app.requirementJustification}
+                        criteriaBreakdown={app.criteriaBreakdown}
                       />
                     </td>
 
@@ -444,7 +489,7 @@ export function CandidateTable({
 
                     {/* Acciones por fila */}
                     <td style={{ padding: cellPadding, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'nowrap' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -455,22 +500,39 @@ export function CandidateTable({
                           Revisar
                         </Button>
 
+                        {/* Mover / Indicar como los mejores */}
                         {app.stage === 'postulado' && (
                           <Button
                             variant="secondary"
                             size="sm"
-                            icon={<UserCheck size={14} />}
-                            disabled={!eligibility.eligible}
-                            onClick={() => onQuickAdvance(app)}
-                            title={
-                              eligibility.eligible
-                                ? 'Avanzar directamente a Preseleccionado'
-                                : eligibility.reason
-                            }
+                            icon={<Star size={13} fill="#D97706" style={{ color: '#D97706' }} />}
+                            onClick={() => handleQuickAdvanceToBest(app.id)}
+                            title="Designar y mover directamente a Los Mejores (Preseleccionado)"
                           >
-                            Avanzar
+                            Mejor
                           </Button>
                         )}
+
+                        {app.stage === 'preseleccionado' && (
+                          <span
+                            title="Candidato ya designado en Los Mejores (Preseleccionado). Clic para revertir a Postulado si lo requiere."
+                            onClick={() => handleRevertToPostulado(app.id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <Badge variant="success" size="sm" icon={<Star size={11} fill="currentColor" />}>
+                              Mejor
+                            </Badge>
+                          </span>
+                        )}
+
+                        {/* Exportar este candidato individual a CSV */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Download size={14} />}
+                          onClick={() => handleExportSingle(app, cand)}
+                          title={`Descargar expediente de ${cand?.name || 'candidato'} en CSV`}
+                        />
 
                         <Button
                           variant="ghost"

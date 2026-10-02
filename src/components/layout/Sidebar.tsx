@@ -57,7 +57,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
     {
       title: 'Candidatos',
       items: [
-        { id: 'agregar_archivos', label: 'Agregar archivos', icon: <UploadCloud size={18} /> },
+        { id: 'agregar_archivos', label: "Cargar CV's", icon: <UploadCloud size={18} /> },
         { id: 'mejores_candidatos', label: 'Mejores candidatos', icon: <Award size={18} />, count: totalInJob },
         { id: 'comparador', label: 'Comparador', icon: <GitCompare size={18} /> },
       ],
