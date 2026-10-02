@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Resolve the saved appearance before the first paint, including reloads.
+      (function () {
+        var preference = 'light';
+        var reducedMotion = false;
+        try {
+          var state = JSON.parse(localStorage.getItem('GTH_ESAN_STATE_V1') || 'null');
+          if (state && ['light', 'dark', 'system'].includes(state.theme)) preference = state.theme;
+          reducedMotion = !!state && state.reducedMotion === true;
+        } catch (_) {}
+        var dark = preference === 'dark' || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        if (dark) root.setAttribute('data-theme', 'dark');
+        root.classList.toggle('reduced-motion', reducedMotion);
+        root.style.colorScheme = dark ? 'dark' : 'light';
+        root.style.backgroundColor = dark ? '#14171C' : '#F6F3EF';
+      })();
+    </script>
     <title>TalentAI | GTHC · ESAN</title>
     <meta name="description" content="Espacio de trabajo de Gestión del Talento Humano - Universidad ESAN" />
     <!-- Google Fonts: Outfit (Titulares) e Inter (Lectura y datos) -->

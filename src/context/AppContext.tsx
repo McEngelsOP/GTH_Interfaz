@@ -18,6 +18,7 @@ import { loadAppState, saveAppState, resetAppState } from '../services/storage.t
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
 import { readRoute, routeHash } from '../services/navigation.ts';
 import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
+import { useTheme } from './useTheme.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -162,39 +163,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [appState]);
 
-  // Aplicar tema en el DOM
-  useEffect(() => {
-    const applyTheme = () => {
-      const isDark =
-        appState.theme === 'dark' ||
-        (appState.theme === 'system' &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-      if (isDark) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-      }
-    };
-
-    applyTheme();
-
-    if (appState.theme === 'system') {
-      const media = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = () => applyTheme();
-      media.addEventListener('change', listener);
-      return () => media.removeEventListener('change', listener);
-    }
-  }, [appState.theme]);
-
-  // Aplicar clase de reducción de movimiento
-  useEffect(() => {
-    if (appState.reducedMotion) {
-      document.documentElement.classList.add('reduced-motion');
-    } else {
-      document.documentElement.classList.remove('reduced-motion');
-    }
-  }, [appState.reducedMotion]);
+  useTheme(appState.theme, appState.reducedMotion);
 
   // Notificaciones Toast
   const showToast = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
@@ -610,4 +579,3 @@ export function useApp() {
   }
   return context;
 }
-

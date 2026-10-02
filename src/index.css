@@ -4,6 +4,8 @@
    ========================================================================== */
 
 :root {
+  color-scheme: light;
+  background-color: var(--bg-base);
   /* Marca ESAN */
   --primary-red: #B71936;
   --primary-red-hover: #9e142e;
@@ -82,6 +84,7 @@
 
 /* Modo Oscuro Cálido */
 [data-theme='dark'] {
+  color-scheme: dark;
   --primary-red: #D22646;
   --primary-red-hover: #E33A5A;
   --primary-red-active: #F05572;
@@ -135,6 +138,21 @@
   --glow-primary: 0 0 24px -2px rgba(210, 38, 70, 0.38);
 }
 
+/* Only animate the palette while changing theme; preserve normal interactions. */
+.theme-transition {
+  transition: var(--theme-color-transition) !important;
+}
+
+/* Compatible fallback for engines without typed CSS custom properties. */
+.theme-transition-fallback,
+.theme-transition-fallback *,
+.theme-transition-fallback *::before,
+.theme-transition-fallback *::after {
+  transition: background-color 420ms ease-in-out, color 420ms ease-in-out,
+    border-color 420ms ease-in-out, outline-color 420ms ease-in-out,
+    box-shadow 420ms ease-in-out, fill 420ms ease-in-out, stroke 420ms ease-in-out !important;
+}
+
 /* Reducir animaciones si se solicita o por preferencia de accesibilidad */
 @media (prefers-reduced-motion: reduce), (update: slow) {
   *, *::before, *::after {
@@ -145,7 +163,7 @@
   }
 }
 
-.reduced-motion *, .reduced-motion *::before, .reduced-motion *::after {
+.reduced-motion, .reduced-motion *, .reduced-motion *::before, .reduced-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
@@ -375,5 +393,4 @@ table tbody tr {
 table tbody tr:hover {
   background-color: var(--bg-hover) !important;
 }
-
 
