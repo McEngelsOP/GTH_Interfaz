@@ -21,7 +21,7 @@ test('ranking, ficha, comparador y CSV muestran únicamente evaluación LLM', as
   expect(header.split(';')).toHaveLength(12);
   await page.goto('/#view=comparador');
   await page.getByRole('button', { name: 'Comparar los 3 mejores perfiles', exact: true }).click();
-  await expect(page.getByText('Puntaje según LLM (Embeddings)', { exact: true })).toBeVisible();
+  await expect(page.getByText('Puntaje según LLM', { exact: true })).toBeVisible();
   await expect(page.getByText('Puntaje según Machine Learning (ML)', { exact: true })).toHaveCount(0);
 });
 

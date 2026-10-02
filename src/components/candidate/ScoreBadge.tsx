@@ -27,7 +27,7 @@ export function ScoreBadge({ score, method, size = 'md' }: ScoreBadgeProps) {
         fontSize: size === 'sm' ? '0.75rem' : '0.8125rem',
         border: `1px solid rgba(109, 40, 217, 0.25)`,
       }}
-      title={`Puntaje según LLM (similitud semántica): ${
+      title={`Puntaje según LLM: ${
         isPending ? 'Pendiente' : `${score} / 100`
       }`}
     >

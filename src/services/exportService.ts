@@ -45,7 +45,7 @@ function triggerDownload(content: string, filename: string) {
 
 /**
  * 1. Exportación de Candidatos de una Convocatoria (12 columnas)
- * ID; Candidato; Perfil; Categoría; Requisito; Convocatoria; Puntaje según LLM (embeddings); Ordenado según; Etapa; Fuente; Explicación; Estado del mensaje
+ * ID; Candidato; Perfil; Categoría; Requisito; Convocatoria; Puntaje según LLM; Ordenado según; Etapa; Fuente; Explicación; Estado del mensaje
  */
 export function exportCandidatesCSV(params: {
   emailDrafts?: EmailDraft[];
@@ -67,7 +67,7 @@ export function exportCandidatesCSV(params: {
     'Categoría',
     'Requisito',
     'Convocatoria',
-    'Puntaje según LLM (embeddings)',
+    'Puntaje según LLM',
     'Ordenado según',
     'Etapa',
     'Fuente',

@@ -359,7 +359,7 @@ export function ComparadorView() {
                     borderRight: '1px solid var(--border-subtle)',
                   }}
                 >
-                  Puntaje según LLM (Embeddings)
+                  Puntaje según LLM
                 </td>
                 {comparedApplications.map((app) => (
                   <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)' }}>

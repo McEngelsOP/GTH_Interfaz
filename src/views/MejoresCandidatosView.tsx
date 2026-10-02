@@ -6,6 +6,7 @@ import { Tabs, TabItem } from '../components/common/Tabs.tsx';
 import { Button } from '../components/common/Button.tsx';
 import { Badge } from '../components/common/Badge.tsx';
 import { AdvanceDecisionModal } from '../components/modals/AdvanceDecisionModal.tsx';
+import { EvaluationPanel } from '../components/assistant/EvaluationPanel.tsx';
 import { ReleaseModal } from '../components/modals/ReleaseModal.tsx';
 import {
   calculateJobMetrics,
@@ -611,6 +612,8 @@ export function MejoresCandidatosView() {
           </div>
         </div>
       )}
+
+      <EvaluationPanel />
 
       {/* Tabla central de candidatos */}
       {!activeJobApplications.length && <div className="import-card" role="status">

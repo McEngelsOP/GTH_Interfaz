@@ -20,6 +20,11 @@ import { readRoute, routeHash } from '../services/navigation.ts';
 import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 import { useTheme } from './useTheme.ts';
 import { applyCandidateImport, ImportRow, ImportSummary } from '../services/candidateImport.ts';
+import { applyPreparedEvaluation } from '../services/evaluationService.ts';
+import type { PreparedEvaluation } from '../services/evaluationService.ts';
+import type { EvaluationReply } from '../services/evaluationContract.ts';
+import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
+import type { RequirementStatus } from '../types/index.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -111,6 +116,9 @@ interface AppContextValue {
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
   handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
+  handleApplyEvaluation: (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => void;
+  handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
+  handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
@@ -455,6 +463,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Convocatoria activada. Las postulaciones se incorporan desde Carga o Banco de Talento.', 'success');
   };
 
+  const handleApplyEvaluation = (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => {
+    applyPreparedEvaluation(appState, prepared, reply, hash);
+    setAppState((prev) => {
+      try { return applyPreparedEvaluation(prev, prepared, reply, hash); }
+      catch { queueMicrotask(() => showToast('El perfil cambió. La evaluación anterior no se aplicó.', 'warning')); return prev; }
+    });
+  };
+  const handleUpdateEvaluationReference = (jobId: string, reference: string) => {
+    updateEvaluationReference(appState,jobId,reference);
+    setAppState((prev) => updateEvaluationReference(prev,jobId,reference));
+    showToast('Referencia del puesto guardada. Puntajes pendientes de evaluación para este puesto.', 'success');
+  };
+  const handleReviewRequirement = (applicationId: string, status: RequirementStatus, justification: string) => {
+    reviewRequirement(appState, applicationId, status, justification);
+    setAppState((prev) => reviewRequirement(prev, applicationId, status, justification));
+    showToast('Revisión humana del requisito guardada.', 'success');
+  };
+
   const handleImportCandidates = (jobId: string, rows: ImportRow[]) => {
     const result = applyCandidateImport(appState, jobId, rows);
     setAppState((prev) => applyCandidateImport(prev, jobId, rows).state);
@@ -564,6 +590,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleCreateJobPosting,
     handleActivateJobPosting,
     handleImportCandidates,
+    handleApplyEvaluation,
+    handleReviewRequirement,
+    handleUpdateEvaluationReference,
     handleLinkCandidateToJob,
     handleQuickAdvanceToBest,
     handleRevertToPostulado,

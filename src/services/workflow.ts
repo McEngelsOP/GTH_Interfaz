@@ -62,16 +62,18 @@ export function updateJobCriteria(state: AppStateData, jobId: string, criteria: 
   const job = state.jobPostings.find((j) => j.id === jobId);
   if (!job || !hasValidCriteria(criteria)) return state;
   const now = new Date().toISOString();
+  const sameDefinitions = criteria.length === job.criteria.length && criteria.every((criterion) => job.criteria.some((old) => old.id === criterion.id && old.label === criterion.label && old.description === criterion.description));
   const criteriaVersion = `v${((parseFloat(job.criteriaVersion.replace(/[^0-9.]/g, '')) || 1) + 0.1).toFixed(1)}`;
   return { ...state,
     jobPostings: state.jobPostings.map((j) => j.id === jobId ? { ...j, criteria: criteria.map((c) => ({ ...c })), criteriaVersion } : j),
     applications: state.applications.map((app) => app.jobPostingId === jobId && app.stage === 'postulado' ? {
       ...app,
-      llmScore: simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM'), updatedAt: now,
+      llmScore: sameDefinitions ? simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM') : null,
+      llmEvaluation: undefined, criteriaBreakdown: sameDefinitions ? app.criteriaBreakdown : {}, updatedAt: now,
     } : app),
     decisionLogs: [{ id: `dec-criteria-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       jobPostingId: jobId, applicationId: '', candidateId: '', action: 'Actualización de Criterios y Ponderaciones',
       author: 'Equipo de GTHC', timestamp: now, criteriaVersion,
       evaluationContext: { llmScore: null, method: state.selectedMethod },
-      notes: 'Se recalcularon los pendientes con evidencias completas. Los expedientes ya decididos conservan sus puntajes.' }, ...state.decisionLogs] };
+      notes: 'Pesos ajustados se recalculan con evidencias existentes; cambios en la definición de criterios requieren una nueva evaluación.' }, ...state.decisionLogs] };
 }

@@ -11,6 +11,7 @@ import { AdvanceDecisionModal } from '../modals/AdvanceDecisionModal.tsx';
 import { ReleaseModal } from '../modals/ReleaseModal.tsx';
 import { EmailDraftModal } from '../modals/EmailDraftModal.tsx';
 import { ScheduleModal } from '../modals/ScheduleModal.tsx';
+import { RequirementReviewModal } from '../modals/RequirementReviewModal.tsx';
 import { NoteModal } from '../modals/NoteModal.tsx';
 import {
   Mail,
@@ -50,6 +51,7 @@ export function CandidateDrawer() {
   const [activeTab, setActiveTab] = useState('puntaje');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isRequirementOpen, setIsRequirementOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
   const app = selectedCandidateForDrawer;
@@ -157,6 +159,10 @@ export function CandidateDrawer() {
                 criteriaBreakdown={app.criteriaBreakdown}
               />
             </div>
+
+            <Button size="sm" variant="secondary" icon={<ShieldCheck size={15}/>} onClick={() => setIsRequirementOpen(true)}>Revisar requisito</Button>
+            {isRequirementOpen && <RequirementReviewModal key={app.id} application={app} rule={currentJob.knockoutRule} onClose={() => setIsRequirementOpen(false)}/>}
+            {app.llmEvaluation && <p style={{ fontSize:'.75rem',color:'var(--text-secondary)' }}>Evaluado con {app.llmEvaluation.model} · {new Date(app.llmEvaluation.evaluatedAt).toLocaleString('es-PE')} · Criterios {app.llmEvaluation.criteriaVersion}{app.llmEvaluation.missingCriteria.length ? ' · Evidencia incompleta' : ''}</p>}
 
             {/* Información de contacto honesta (solo si existe) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>

@@ -1,4 +1,5 @@
 import { AppStateData, CriteriaScore } from '../types/index.ts';
+import { prepareEvaluationProfile } from './profilePrivacy.ts';
 import { isValidScore } from './recruitmentRules.ts';
 
 // Contrato del motor del equipo; ninguna evaluación se fabrica al importar perfiles.
@@ -19,9 +20,11 @@ export function getLlmEvaluationRequest(state: AppStateData, applicationId: stri
   const job = state.jobPostings.find((posting) => posting.id === application?.jobPostingId && posting.status === 'activa');
   const candidate = state.candidates.find((person) => person.id === application?.candidateId);
   if (!application || !job || !candidate) throw new Error('El expediente no está disponible para evaluación.');
+  const profile = prepareEvaluationProfile(candidate);
+  if (profile.issues.length) throw new Error('El perfil requiere depuración antes de evaluar.');
   return { applicationId: application.id, candidateId: candidate.id, jobPostingId: job.id,
     criteriaVersion: job.criteriaVersion, method: 'LLM' as const,
-    profileText: candidate.rawCvText, jobTitle: job.title,
+    profileText: profile.fields.map((field) => `${field.label}: ${field.text}`).join('\n'), jobTitle: job.title,
     mandatoryRequirement: job.knockoutRule, criteria: job.criteria.map((criterion) => ({ ...criterion })),
   };
 }

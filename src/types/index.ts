@@ -42,6 +42,7 @@ export interface JobPosting {
   criteriaVersion: string;
   defaultTopN: number;
   templateId?: string;
+  evaluationReference?: string;
   createdAt: string;
 }
 
@@ -79,6 +80,8 @@ export interface Application {
   candidateId: string;
   stage: Stage;
   llmScore: number | null; // 0-100 or null if pending
+  llmEvaluation?: { model: string; evaluatedAt: string; criteriaVersion: string; profileHash: string;
+    privacyVersion: string; missingCriteria: string[] };
   mandatoryRequirementStatus: RequirementStatus;
   requirementJustification?: string;
   whyScoreNotes: {

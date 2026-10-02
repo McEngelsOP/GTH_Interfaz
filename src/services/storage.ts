@@ -21,6 +21,7 @@ export function parseStoredState(raw: string): AppStateData | null {
       object(j) && strings(j, ['id', 'code', 'title', 'department', 'period', 'phase', 'knockoutRule', 'criteriaVersion', 'createdAt']) &&
       ['docente', 'administrativo', 'operativo', 'directivo'].includes(j.category) && ['activa', 'borrador'].includes(j.status) &&
       Number.isInteger(j.defaultTopN) && j.defaultTopN >= 1 && (j.vacancies === null || (Number.isInteger(j.vacancies) && j.vacancies >= 1)) &&
+      (j.evaluationReference === undefined || (typeof j.evaluationReference === 'string' && j.evaluationReference.length <= 8000)) &&
       Array.isArray(j.criteria) && j.criteria.every((c: unknown) => object(c) && strings(c, ['id', 'label']) && ['ML', 'LLM'].includes(c.type) && Number.isFinite(c.weightPct) && c.weightPct >= 0 && c.weightPct <= 100)
     )) return null;
     if (!Array.isArray(data.candidates) || !data.candidates.every((c: unknown) => object(c) &&
@@ -36,6 +37,7 @@ export function parseStoredState(raw: string): AppStateData | null {
       ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado', 'no_continua'].includes(a.stage) &&
       ['verificado', 'parcial', 'no_cumple', 'sin_verificar'].includes(a.mandatoryRequirementStatus) &&
       [a.llmScore].every((s) => s === null || (typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 100)) &&
+      (a.llmEvaluation === undefined || (object(a.llmEvaluation) && strings(a.llmEvaluation, ['model', 'evaluatedAt', 'criteriaVersion', 'profileHash', 'privacyVersion']) && /^gemini-[\w.-]+$/.test(a.llmEvaluation.model) && Number.isFinite(Date.parse(a.llmEvaluation.evaluatedAt)) && /^[a-f0-9]{64}$/.test(a.llmEvaluation.profileHash) && Array.isArray(a.llmEvaluation.missingCriteria) && a.llmEvaluation.missingCriteria.every((id: unknown) => typeof id === 'string'))) &&
       object(a.whyScoreNotes) && strings(a.whyScoreNotes, ['explanation', 'evidenceSummary']) && Array.isArray(a.whyScoreNotes.strengths) &&
       a.whyScoreNotes.strengths.every((s: unknown) => typeof s === 'string') && object(a.criteriaBreakdown) &&
       Object.values(a.criteriaBreakdown).every((c) => object(c) && typeof c.evidence === 'string' && Number.isFinite(c.score) && c.score >= 0 && c.score <= 100)
