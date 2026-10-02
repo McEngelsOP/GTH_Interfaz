@@ -5,6 +5,7 @@ import {
   calculateJobMetrics,
   advanceApplications,
   releaseApplication,
+  getTopNAvailability,
 } from '../recruitmentRules.ts';
 import { Application, Candidate } from '../../types/index.ts';
 
@@ -80,6 +81,19 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
     expect(isEligibleForTopN(mockAppUnverified, 'LLM').eligible).toBe(false);
   });
 
+  it('explica qué falta para habilitar Top-N sin aceptar perfiles incompletos', () => {
+    const bothPending = { ...mockAppUnverified, llmScore: null };
+    const availability = getTopNAvailability([bothPending, { ...mockApp1, stage: 'preseleccionado' }], 'LLM');
+    expect(availability).toMatchObject({ eligibleCount: 0, pendingScoreCount: 1, pendingRequirementCount: 1 });
+    expect(availability.hint).toContain('faltan puntajes LLM y requisitos verificados');
+    expect(getTopNAvailability([mockAppMissingScore], 'LLM').hint).toBe('Selección pendiente: faltan puntajes LLM.');
+    expect(getTopNAvailability([mockAppUnverified], 'LLM').hint).toContain('falta verificar');
+    expect(getTopNAvailability([{ ...mockApp1, mandatoryRequirementStatus: 'no_cumple' }], 'LLM').eligibleCount).toBe(0);
+    expect(getTopNAvailability([mockApp1, bothPending], 'LLM').eligibleCount).toBe(1);
+    expect(getTopNAvailability([], 'LLM').hint).toContain('Carga perfiles');
+    expect(getTopNAvailability([{ ...mockApp1, stage: 'contratado' }], 'LLM').hint).toContain('No hay postulaciones pendientes');
+  });
+
   it('ordena exclusivamente por LLM y excluye resultados pendientes', () => {
     const top = getTopCandidates([mockApp1, mockApp2, mockAppMissingScore, mockAppUnverified], 'LLM', 5);
     expect(top.map((app) => app.id)).toEqual(['app-2', 'app-1']);
@@ -130,4 +144,3 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
     expect(result.newDecision.action).toContain('Liberar');
   });
 });
-

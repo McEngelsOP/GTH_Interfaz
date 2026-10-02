@@ -19,6 +19,13 @@ de correo, descargas CSV, avances de etapa, persistencia y los temas de GEM.
 La edición comienza sin candidatos de demostración ni generadores ficticios.
 Las convocatorias y criterios de referencia se mantienen en el selector.
 
+La selección Top-N se habilita cuando hay postulaciones pendientes con puntaje
+LLM y requisitos verificados; si falta algo, se explica junto al botón.
+La comparación automática requiere al menos dos perfiles elegibles. Los
+perfiles pendientes se pueden comparar manualmente. El selector del comparador
+se ordena de A a Z según el alfabeto español, ignorando mayúsculas y tildes.
+La tabla prioriza el puntaje LLM y ordena por nombre los empates y pendientes.
+
 ## Importación de perfiles
 
 En Cargar CV seleccione uno o varios CSV o Excel `.xlsx`, revise la vista previa

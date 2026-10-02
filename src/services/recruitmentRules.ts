@@ -70,6 +70,30 @@ export function isValidScore(score: unknown): score is number {
   return typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
 }
 
+/** Explica por qué la selección automática está disponible o pendiente. */
+export function getTopNAvailability(applications: Application[], method: EvaluationMethod) {
+  const pending = applications.filter((app) => app.stage === 'postulado');
+  const eligibleCount = pending.filter((app) => isEligibleForTopN(app, method).eligible).length;
+  const pendingScoreCount = pending.filter((app) => getScoreByMethod(app, method) === null).length;
+  const pendingRequirementCount = pending.filter((app) =>
+    app.mandatoryRequirementStatus === 'sin_verificar' || app.mandatoryRequirementStatus === 'parcial'
+  ).length;
+  const hint = eligibleCount > 0
+    ? 'Ordenado por LLM. Solo se seleccionan perfiles con puntaje y requisitos verificados.'
+    : !applications.length
+    ? 'Carga perfiles para comenzar la revisión y evaluación.'
+    : !pending.length
+    ? 'No hay postulaciones pendientes de una primera decisión.'
+    : pendingScoreCount && pendingRequirementCount
+    ? 'Selección pendiente: faltan puntajes LLM y requisitos verificados.'
+    : pendingScoreCount
+    ? 'Selección pendiente: faltan puntajes LLM.'
+    : pendingRequirementCount
+    ? 'Selección pendiente: falta verificar los requisitos obligatorios.'
+    : 'Ningún perfil pendiente cumple los requisitos de selección.';
+  return { eligibleCount, pendingScoreCount, pendingRequirementCount, hint };
+}
+
 /**
  * Selecciona los mejores candidatos pendientes según método y cantidad
  */
@@ -483,4 +507,3 @@ export function formatDateTime(isoString?: string): string {
     return isoString;
   }
 }
-

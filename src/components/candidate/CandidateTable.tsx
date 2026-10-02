@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { isEligibleForTopN, getScoreByMethod } from '../../services/recruitmentRules.ts';
 import { exportCandidatesCSV } from '../../services/exportService.ts';
+import { compareCandidateNames } from '../../services/candidateOrdering.ts';
 
 interface CandidateTableProps {
   applications: Application[];
@@ -106,14 +107,16 @@ export function CandidateTable({
     });
   }, [applications, candidateMap, searchQuery, sourceFilter, requirementFilter]);
 
-  // Ordenar por el método seleccionado
+  // El puntaje ordena el ranking; los empates y pendientes se ordenan por nombre.
   const sortedApplications = useMemo(() => {
     return [...filteredApplications].sort((a, b) => {
       const scoreA = getScoreByMethod(a, selectedMethod) ?? -1;
       const scoreB = getScoreByMethod(b, selectedMethod) ?? -1;
-      return scoreB - scoreA;
+      return scoreB - scoreA || compareCandidateNames(
+        candidateMap.get(a.candidateId)?.name || '', candidateMap.get(b.candidateId)?.name || ''
+      ) || a.id.localeCompare(b.id);
     });
-  }, [filteredApplications, selectedMethod]);
+  }, [filteredApplications, selectedMethod, candidateMap]);
 
   // Paginación
   const totalItems = sortedApplications.length;
@@ -629,4 +632,3 @@ export function CandidateTable({
     </div>
   );
 }
-

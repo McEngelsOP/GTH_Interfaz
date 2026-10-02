@@ -11,6 +11,7 @@ import {
   calculateJobMetrics,
   getTopCandidates,
   isEligibleForTopN,
+  getTopNAvailability,
 } from '../services/recruitmentRules.ts';
 import { exportCandidatesCSV } from '../services/exportService.ts';
 import {
@@ -55,6 +56,8 @@ export function MejoresCandidatosView() {
   const metrics = useMemo(() => {
     return calculateJobMetrics(activeJobApplications, appState.selectedMethod);
   }, [activeJobApplications, appState.selectedMethod]);
+  const topNAvailability = useMemo(() => getTopNAvailability(activeJobApplications, appState.selectedMethod),
+    [activeJobApplications, appState.selectedMethod]);
 
   // Candidatos que ya fueron designados y movidos a Los Mejores (Preseleccionados)
   const preselectedCandidates = useMemo(() => {
@@ -123,7 +126,7 @@ export function MejoresCandidatosView() {
   const handleSelectTopN = () => {
     const topIds = topEligiblePending.map((a) => a.id);
     if (topIds.length === 0) {
-      showToast('No hay candidatos pendientes elegibles para seleccionar con los criterios actuales.', 'warning');
+      showToast(topNAvailability.hint, 'info');
       return;
     }
     selectAllApplications(topIds);
@@ -449,14 +452,16 @@ export function MejoresCandidatosView() {
               size="sm"
               icon={<Sparkles size={14} />}
               onClick={handleSelectTopN}
-              title="Marcar automáticamente los mejores candidatos elegibles pendientes"
+              disabled={topNAvailability.eligibleCount === 0 || activeJob.status !== 'activa'}
+              aria-describedby="top-n-availability"
+              title={activeJob.status !== 'activa' ? 'La convocatoria debe estar activa para seleccionar perfiles.' : topNAvailability.hint}
               style={{ flex: 1 }}
             >
               Elegir los mejores
             </Button>
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            Ordenado por LLM. Solo se seleccionan perfiles con requisitos verificados.
+          <span id="top-n-availability" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            {activeJob.status !== 'activa' ? 'La convocatoria debe estar activa para seleccionar perfiles.' : topNAvailability.hint}
           </span>
         </div>
       </div>

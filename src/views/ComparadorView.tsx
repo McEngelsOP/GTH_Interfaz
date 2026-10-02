@@ -19,8 +19,9 @@ import {
   ShieldCheck,
   Info,
 } from 'lucide-react';
-import { isEligibleForTopN, getTopCandidates } from '../services/recruitmentRules.ts';
-import { Application } from '../types/index.ts';
+import { isEligibleForTopN, getTopCandidates, getTopNAvailability } from '../services/recruitmentRules.ts';
+import { compareCandidateNames } from '../services/candidateOrdering.ts';
+import { Application, Candidate } from '../types/index.ts';
 
 export function ComparadorView() {
   const {
@@ -45,16 +46,25 @@ export function ComparadorView() {
     return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
   }, [activeJobApplications, selectedApplicationIds]);
 
-  // Candidatos disponibles para agregar
-  const availableToAdd = useMemo(() => {
-    return activeJobApplications.filter((a) => !selectedApplicationIds.includes(a.id));
-  }, [activeJobApplications, selectedApplicationIds]);
-
   const candidateMap = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, Candidate>();
     appState.candidates.forEach((c) => map.set(c.id, c));
     return map;
   }, [appState.candidates]);
+
+  // El selector permite encontrar cualquier perfil por su nombre, de A a Z.
+  const availableToAdd = useMemo(() => {
+    return activeJobApplications.filter((app) => !selectedApplicationIds.includes(app.id)).sort((a, b) =>
+      compareCandidateNames(candidateMap.get(a.candidateId)?.name || '', candidateMap.get(b.candidateId)?.name || '')
+      || a.id.localeCompare(b.id)
+    );
+  }, [activeJobApplications, selectedApplicationIds, candidateMap]);
+  const topNAvailability = useMemo(() => getTopNAvailability(activeJobApplications, appState.selectedMethod),
+    [activeJobApplications, appState.selectedMethod]);
+  const canQuickAdd = topNAvailability.eligibleCount >= 2;
+  const quickAddHint = canQuickAdd ? 'Comparar hasta 3 perfiles con puntaje LLM y requisitos verificados.'
+    : topNAvailability.eligibleCount === 1 ? 'Se necesitan al menos dos perfiles elegibles para la comparación automática.'
+    : topNAvailability.hint;
 
   const handleAddCandidate = () => {
     if (!selectedCandidateToAdd) return;
@@ -64,6 +74,7 @@ export function ComparadorView() {
 
   const handleQuickAddTop3 = () => {
     const eligibleApps = getTopCandidates(activeJobApplications, appState.selectedMethod, 3).map((a) => a.id);
+    if (eligibleApps.length < 2) return;
     selectAllApplications(eligibleApps);
     showToast(`Se agregaron ${eligibleApps.length} perfiles a la comparación.`, 'info');
   };
@@ -163,6 +174,7 @@ export function ComparadorView() {
           Añadir perfil a la comparación:
         </span>
         <select
+          aria-label="Candidato para comparar"
           value={selectedCandidateToAdd}
           onChange={(e) => setSelectedCandidateToAdd(e.target.value)}
           className="focus-ring"
@@ -181,7 +193,7 @@ export function ComparadorView() {
             const cand = candidateMap.get(app.candidateId);
             return (
               <option key={app.id} value={app.id}>
-                {cand?.name} (LLM: {app.llmScore ?? 'N/D'})
+                {cand?.name} (LLM: {app.llmScore ?? 'Pendiente'})
               </option>
             );
           })}
@@ -197,7 +209,7 @@ export function ComparadorView() {
         </Button>
 
         {comparedApplications.length < 2 && (
-          <Button variant="ghost" size="sm" onClick={handleQuickAddTop3}>
+          <Button variant="ghost" size="sm" onClick={handleQuickAddTop3} disabled={!canQuickAdd} title={quickAddHint}>
             Cargar 3 mejores activos
           </Button>
         )}
@@ -222,9 +234,12 @@ export function ComparadorView() {
             Marque perfiles en la lista de candidatos o utilice el selector superior para añadir candidatos a la matriz
             comparativa.
           </p>
-          <Button variant="primary" onClick={handleQuickAddTop3}>
+          <Button variant="primary" onClick={handleQuickAddTop3} disabled={!canQuickAdd} aria-describedby={!canQuickAdd ? 'comparison-availability' : undefined} title={quickAddHint}>
             Comparar los 3 mejores perfiles
           </Button>
+          {!canQuickAdd && <p id="comparison-availability" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: '0.75rem auto 0', maxWidth: '460px' }}>
+            {quickAddHint} Puedes comparar los perfiles pendientes añadiéndolos manualmente en el selector.
+          </p>}
         </div>
       ) : (
         /* Matriz de Comparación con Desplazamiento Horizontal Controlado (Sección 12) */
@@ -507,4 +522,3 @@ export function ComparadorView() {
     </div>
   );
 }
-
