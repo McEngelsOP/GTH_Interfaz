@@ -16,8 +16,51 @@ banco, auditoría y resultados no forman parte de esta edición.
 
 Se conservan fichas, Top-N, comparaciones, decisiones confirmadas, borradores
 de correo, descargas CSV, avances de etapa, persistencia y los temas de GEM.
-Los datos de demostración y el generador de lotes son locales. OCR, portales,
-proveedor LLM, envío de correo y calendarios requieren integración real.
+La edición comienza sin candidatos de demostración ni generadores ficticios.
+Las convocatorias y criterios de referencia se mantienen en el selector.
+
+## Importación de perfiles
+
+En Cargar CV seleccione uno o varios CSV o Excel `.xlsx`, revise la vista previa
+y confirme **Incorporar perfiles válidos**. Los encabezados se reconocen entre
+las primeras 50 filas. Se admiten CSV con coma, punto y coma, tabulación o `|`,
+UTF-8 o Windows-1252, celdas entrecomilladas y texto multilínea.
+Los Excel pueden incluir varias hojas; cada hoja debe tener encabezados de candidatos.
+Máximo: 10 MB por archivo, 5.000 registros por lote y 200 columnas.
+
+Se requiere nombre y al menos un documento, correo válido o ID de candidato.
+Se reconocen nombre/apellido, E-Mail, teléfono, tipo/número de documento,
+puesto/empresa, fuente y resumen, incluyendo `Exp[n]` y `Est[n]`. Todos los
+campos poblados se conservan en el texto del perfil y en los registros de origen.
+No se importan puntajes o requisitos verificados desde columnas del archivo.
+
+Las coincidencias por documento tipificado, correo normalizado o ID externo
+dentro de la misma fuente se consolidan en una ficha. Nunca se compara solo
+el nombre. Los identificadores contradictorios o vinculados a varias fichas se
+omiten con una advertencia. Una persona conserva una postulación por puesto;
+repetir la carga no crea nuevas fichas ni reinicia etapas o decisiones.
+La consolidación mantiene información distinta de experiencias/estudios y los
+identificadores existentes. Si llega nueva evidencia, una postulación todavía
+en Postulado vuelve a evaluación y verificación pendientes. Las decisiones ya
+tomadas mantienen sus puntajes e historial.
+
+Los perfiles se procesan en el navegador y se guardan localmente, sin enviarlos
+a servicios externos. ETAPA-I usa `GTH_ESAN_STAGE_I_STATE_V2`: las personas de
+la demo anterior no se cargan; se conserva su preferencia de apariencia.
+OCR, conexión Bumeran, base compartida, envío de correo y calendarios requieren
+integración del equipo. PDF, Word e imágenes se incorporarán con el extractor.
+Las pruebas utilizan únicamente datos inventados.
+
+## Contrato de evaluación LLM
+
+`src/services/llmIntegration.ts` prepara una solicitud por expediente con
+`applicationId`, `candidateId`, `jobPostingId`, `criteriaVersion`, `profileText`,
+puesto, requisitos y criterios. El motor debe devolver las mismas identidades
+y versión, `llmScore` (0–100), `explanation`, `strengths`, `evidenceSummary` y
+`criteriaBreakdown` con puntaje y evidencia de cada criterio. El adaptador
+rechaza resultados incompletos, ajenos, de versiones anteriores o de una etapa
+ya decidida. La validación del requisito obligatorio permanece a cargo de GTH.
+No hay proveedor conectado ni un botón que genere puntajes ficticios.
 
 ## Desarrollo y validación
 

@@ -3,7 +3,7 @@ import { AppStateData } from '../../src/types/index.ts';
 import { IS_STAGE_ONE } from '../../src/config/edition.ts';
 import { VIEWS } from '../../src/services/navigation.ts';
 
-const readState = (page: Page): Promise<AppStateData> => page.evaluate(() => JSON.parse(localStorage.getItem('GTH_ESAN_STATE_V1')!));
+const readState = (page: Page): Promise<AppStateData> => page.evaluate(() => JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!));
 const navigate = async (page: Page, view: string, job = 'REQ-2026-DOC-088') => {
   await page.goto(`/#view=${view}&job=${job}`);
   await expect.poll(async () => (await readState(page)).activeJobPostingId).toBe(job);
@@ -74,21 +74,6 @@ test('Banco guarda personas y vincula evaluaciones pendientes sin perder perfile
   expect(state.candidates.find((c) => c.id === 'cand-001')?.savedInTalentPool).toBe(true);
 });
 
-test('generador de 500 perfiles respeta el puesto, la evaluación LLM y la persistencia', async ({ page }) => {
-  await navigate(page, 'agregar_archivos');
-  const before = await readState(page);
-  await page.getByRole('button', { name: /500.*perfiles/ }).click();
-  await page.getByRole('button', { name: 'Generar lote de 500 candidatos', exact: true }).click();
-  await expect.poll(async () => (await readState(page)).applications.length, { timeout: 10000 }).toBe(before.applications.length + 500);
-  const after = await readState(page);
-  const generated = after.applications.filter((a) => a.id.startsWith('app-gen-'));
-  expect(generated).toHaveLength(500);
-  expect(new Set(generated.map((a) => a.id)).size).toBe(500);
-  expect(generated.every((a) => a.jobPostingId === before.activeJobPostingId)).toBe(true);
-  expect(generated.every((a) => a.llmScore !== null)).toBe(true);
-  await page.reload(); expect((await readState(page)).applications.length).toBe(after.applications.length);
-});
-
 test('vistas, criterios, tema y navegación móvil conservan contexto', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   for (const view of VIEWS) {
@@ -108,4 +93,11 @@ test('vistas, criterios, tema y navegación móvil conservan contexto', async ({
   await page.locator('aside').getByRole('button', { name: /Mejores candidatos/ }).click(); await expect(page.locator('aside')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect(errors).toEqual([]);
+});
+
+import { INITIAL_APP_STATE } from '../fixtures/recruitmentData.ts';
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((state) => {
+    if (!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')) localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state));
+  }, INITIAL_APP_STATE);
 });

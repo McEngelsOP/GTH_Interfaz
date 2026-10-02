@@ -19,6 +19,7 @@ import { advanceApplications, releaseApplication } from '../services/recruitment
 import { readRoute, routeHash } from '../services/navigation.ts';
 import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 import { useTheme } from './useTheme.ts';
+import { applyCandidateImport, ImportRow, ImportSummary } from '../services/candidateImport.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -110,7 +111,7 @@ interface AppContextValue {
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
   handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
-  handleAddBatchCandidates: (newCandidates: Candidate[], newApps: Application[]) => void;
+  handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
   handleRevertToPostulado: (applicationId: string) => void;
@@ -454,14 +455,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Convocatoria activada. Las postulaciones se incorporan desde Carga o Banco de Talento.', 'success');
   };
 
-  // Carga masiva de lotes de candidatos
-  const handleAddBatchCandidates = (newCandidates: Candidate[], newApps: Application[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      candidates: [...prev.candidates, ...newCandidates],
-      applications: [...prev.applications, ...newApps],
-    }));
-    showToast(`Se incorporaron ${newApps.length} perfiles a la convocatoria activa.`, 'success');
+  const handleImportCandidates = (jobId: string, rows: ImportRow[]) => {
+    const result = applyCandidateImport(appState, jobId, rows);
+    setAppState((prev) => applyCandidateImport(prev, jobId, rows).state);
+    const { newApplications, updatedCandidates } = result.plan.summary;
+    showToast(`${newApplications} postulaciones nuevas; ${updatedCandidates} fichas actualizadas. Evaluación LLM pendiente.`, 'success');
+    return result.plan.summary;
   };
 
   // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.
@@ -494,7 +493,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSelectedApplicationIds([]);
     setSelectedCandidateForDrawer(null);
     setSelectedCandidateIdState(null);
-    showToast('Datos de demostración restablecidos a su estado original.', 'info');
+    showToast('Datos de candidatos restablecidos.', 'info');
   };
 
   const [selectedCandidateId, setSelectedCandidateIdState] = useState<string | null>(null);
@@ -564,7 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleUpdateJobCriteria,
     handleCreateJobPosting,
     handleActivateJobPosting,
-    handleAddBatchCandidates,
+    handleImportCandidates,
     handleLinkCandidateToJob,
     handleQuickAdvanceToBest,
     handleRevertToPostulado,

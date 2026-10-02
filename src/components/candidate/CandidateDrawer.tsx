@@ -95,7 +95,7 @@ export function CandidateDrawer() {
     { id: 'cv', label: 'Ver CV' },
     { id: 'actividad', label: 'Actividad', count: appActivities.length },
     { id: 'historial', label: 'Historial', count: appDecisions.length },
-    { id: 'oportunidades', label: 'Otras oportunidades' },
+    ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
   return (
@@ -266,7 +266,7 @@ export function CandidateDrawer() {
             size="sm"
             icon={<Calendar size={14} />}
             onClick={() => setIsScheduleModalOpen(true)}
-            title="Agendar entrevista demostrativa"
+            title="Registrar una entrevista"
           >
             Entrevista
           </Button>
@@ -619,4 +619,3 @@ export function CandidateDrawer() {
     </>
   );
 }
-

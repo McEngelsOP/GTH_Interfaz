@@ -608,6 +608,13 @@ export function MejoresCandidatosView() {
       )}
 
       {/* Tabla central de candidatos */}
+      {!activeJobApplications.length && <div className="import-card" role="status">
+        <p style={{ marginBottom: '.75rem' }}>Esta convocatoria todavía no tiene candidatos. Carga un CSV o Excel para empezar.</p>
+        <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Cargar perfiles</Button>
+      </div>}
+      {activeJobApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
+        {activeJobApplications.filter((app) => app.llmScore === null).length} perfiles pendientes de evaluación LLM. El Top-N se habilita con puntajes y requisitos verificados.
+      </p>}
       <CandidateTable
         applications={displayedApplications}
         selectedMethod={appState.selectedMethod}
@@ -644,4 +651,3 @@ export function MejoresCandidatosView() {
     </div>
   );
 }
-

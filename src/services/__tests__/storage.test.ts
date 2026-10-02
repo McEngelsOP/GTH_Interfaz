@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { INITIAL_APP_STATE } from '../../data/initialData.ts';
+import { INITIAL_APP_STATE } from '../../../tests/fixtures/recruitmentData.ts';
 import { loadAppState, parseStoredState, resetAppState, saveAppState } from '../storage.ts';
 import { readRoute, routeHash } from '../navigation.ts';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
@@ -44,10 +44,10 @@ describe('persistencia y navegación', () => {
   it('funciona sin almacenamiento y el reset no comparte objetos con los datos base', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw { name: 'QuotaExceededError' }; }, removeItem: () => {} });
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const state = loadAppState(); state.applications[0].stage = 'no_continua';
+    const state = loadAppState(); expect(state.candidates).toEqual([]); expect(state.applications).toEqual([]);
     expect(INITIAL_APP_STATE.applications[0].stage).toBe('postulado');
     expect(saveAppState(state).success).toBe(false);
-    expect(resetAppState().applications[0].stage).toBe('postulado');
+    expect(resetAppState().applications).toEqual([]);
     vi.restoreAllMocks();
   });
   it('conserva vista y convocatoria y admite nombres heredados sin rutas arbitrarias', () => {

@@ -78,7 +78,7 @@ test('cambios rápidos conservan el último tema en escritorio y celular', async
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.locator('html')).not.toHaveClass(/theme-transition/);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('GTH_ESAN_STATE_V1')!).theme)).toBe('dark');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).theme)).toBe('dark');
   }
 });
 
@@ -94,9 +94,9 @@ test('tema guardado se aplica antes de cargar React, sin destello claro', async 
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(20, 23, 28)');
   await expect(page.locator('html')).not.toHaveClass(/theme-transition/);
   await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('GTH_ESAN_STATE_V1')!);
+    const state = JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!);
     state.theme = 'system';
-    localStorage.setItem('GTH_ESAN_STATE_V1', JSON.stringify(state));
+    localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state));
   });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -128,7 +128,7 @@ test('reducción de movimiento del sistema y de la app desactiva la transición'
 });
 
 test('almacenamiento corrupto o bloqueado permite iniciar y cambiar tema', async ({ page }) => {
-  await page.addInitScript(() => { try { localStorage.setItem('GTH_ESAN_STATE_V1', '{invalid'); } catch {} });
+  await page.addInitScript(() => { try { localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', '{invalid'); } catch {} });
   await page.goto(settings);
   await appearance(page, 'Modo Oscuro').click();
   await settled(page);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { INITIAL_APP_STATE } from '../../data/initialData.ts';
+import { INITIAL_APP_STATE } from '../../../tests/fixtures/recruitmentData.ts';
 import { advanceApplications, isEligibleForTopN, releaseApplication, simulateScoreRecalculation } from '../recruitmentRules.ts';
 import { createPendingApplication, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../workflow.ts';
 import { parseCSV, validateProfileCatalogCSV } from '../csvService.ts';

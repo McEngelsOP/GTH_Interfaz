@@ -59,6 +59,13 @@ export interface Candidate {
   talentPoolNotes?: string;
   talentPoolOriginJob?: string;
   potentialOpportunities?: string[];
+  importedProfile?: {
+    documentType: string;
+    documentNumber: string;
+    externalId: string;
+    emails?: string[];
+    records: Record<string, string>[];
+  };
 }
 
 export interface CriteriaScore {

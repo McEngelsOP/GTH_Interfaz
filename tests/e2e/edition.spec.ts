@@ -48,3 +48,10 @@ test('ETAPA-I limita menú y rutas y mantiene el cambio de convocatoria', async 
   }
   expect(errors).toEqual([]);
 });
+
+import { INITIAL_APP_STATE } from '../fixtures/recruitmentData.ts';
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((state) => {
+    if (!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')) localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state));
+  }, INITIAL_APP_STATE);
+});

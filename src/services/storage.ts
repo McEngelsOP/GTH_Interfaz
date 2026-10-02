@@ -5,7 +5,7 @@
 import { AppStateData, Application } from '../types/index.ts';
 import { INITIAL_APP_STATE } from '../data/initialData.ts';
 
-const STORAGE_KEY = 'GTH_ESAN_STATE_V1';
+export const STORAGE_KEY = 'GTH_ESAN_STAGE_I_STATE_V2';
 
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const strings = (value: Record<string, any>, keys: string[]) => keys.every((key) => typeof value[key] === 'string');
@@ -27,7 +27,10 @@ export function parseStoredState(raw: string): AppStateData | null {
       strings(c, ['id', 'name', 'currentTitle', 'currentCompany', 'source', 'summary', 'rawCvText']) && typeof c.savedInTalentPool === 'boolean' &&
       [c.email, c.phone].every((v) => v === null || typeof v === 'string') &&
       [c.talentPoolNotes, c.talentPoolOriginJob].every((v) => v === undefined || typeof v === 'string') &&
-      (c.potentialOpportunities === undefined || (Array.isArray(c.potentialOpportunities) && c.potentialOpportunities.every((v: unknown) => typeof v === 'string'))))) return null;
+      (c.potentialOpportunities === undefined || (Array.isArray(c.potentialOpportunities) && c.potentialOpportunities.every((v: unknown) => typeof v === 'string'))) &&
+      (c.importedProfile === undefined || (object(c.importedProfile) && strings(c.importedProfile, ['documentType', 'documentNumber', 'externalId']) &&
+        (c.importedProfile.emails === undefined || (Array.isArray(c.importedProfile.emails) && c.importedProfile.emails.every((email: unknown) => typeof email === 'string'))) &&
+        Array.isArray(c.importedProfile.records) && c.importedProfile.records.every((r: unknown) => object(r) && Object.values(r).every((v) => typeof v === 'string')))))) return null;
     if (!Array.isArray(data.applications) || !data.applications.every((a: unknown) => object(a) &&
       strings(a, ['id', 'jobPostingId', 'candidateId', 'createdAt', 'updatedAt']) &&
       ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado', 'no_continua'].includes(a.stage) &&
@@ -71,7 +74,12 @@ export function loadAppState(): AppStateData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return initialState();
+      const fresh = initialState();
+      // La nueva edición comienza sin perfiles de demostración y conserva la apariencia.
+      const legacy = localStorage.getItem('GTH_ESAN_STATE_V1');
+      const previous = legacy && parseStoredState(legacy);
+      return previous ? { ...fresh, theme: previous.theme, reducedMotion: previous.reducedMotion,
+        activeJobPostingId: fresh.jobPostings.some((j) => j.id === previous.activeJobPostingId) ? previous.activeJobPostingId : fresh.activeJobPostingId } : fresh;
     }
     return parseStoredState(raw) || initialState();
   } catch (error) {
