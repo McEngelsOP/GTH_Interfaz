@@ -38,7 +38,7 @@ const instruction = /(?:ignora|ignore|olvida|forget|desobedece|override|system\s
 
 export function hasSensitivePatterns(text: string): boolean {
   return new RegExp(email.source, 'iu').test(text) || new RegExp(url.source, 'i').test(text) ||
-    new RegExp(longNumber.source).test(text) || sensitiveLine.test(text) || new RegExp(date.source).test(text) || obscuredContact.test(text);
+    [...text.matchAll(new RegExp(longNumber.source,'g'))].some((match) => match[0].replace(/\D/g,'').length >= 7) || sensitiveLine.test(text) || new RegExp(date.source).test(text) || obscuredContact.test(text);
 }
 export function containsInstruction(text: string) { return instruction.test(text); }
 function knownTerms(candidate?: Candidate): string[] {
@@ -72,7 +72,7 @@ export function redactProfessionalText(value: string, candidate?: Candidate): { 
     if (sensitiveLine.test(line) || obscuredContact.test(line)) { count++; return false; } return true;
   }).join('\n');
   remove(email); remove(url); remove(date);
-  remove(longNumber);
+  text = text.replace(longNumber, (match) => { if (match.replace(/\D/g,'').length < 7) return match;count++;return '[DATO OMITIDO]'; });
   return { text: text.replace(/\s*\[DATO OMITIDO\](?:\s*\[DATO OMITIDO\])*/g, ' [DATO OMITIDO]').trim(), count };
 }
 export function prepareEvaluationProfile(candidate: Candidate): DepuratedProfile {

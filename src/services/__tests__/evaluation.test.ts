@@ -56,6 +56,9 @@ describe('privacidad y aplicación de resultados', () => {
   it('valida evidencia literal, pesos y ausencia de evidencia sin inventar un total', () => {
     const state=fixture(), prepared=prepareEvaluation(state,state.applications[0].id), payload=prepared.payload!;
     expect(validateEvaluationOutput(output(payload),payload).llmScore).toBe(80);
+    const multiline=structuredClone(payload);multiline.profile[1].text='Desarrolló soluciones\ncon Python y AWS.';
+    expect(validateEvaluationOutput(output(payload),multiline).llmScore).toBe(80);
+    expect(hasSensitivePatterns('Rango de puntaje 90 - 100')).toBe(false);
     const partial=output(payload); partial.criteria[0]={ key:partial.criteria[0].key,score:null as any,evidence:null as any };
     expect(validateEvaluationOutput(partial,payload).llmScore).toBeNull();
     const invented=output(payload); invented.criteria[0].evidence='Certificación no contenida en el perfil';

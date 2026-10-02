@@ -56,7 +56,7 @@ export function validateEvaluationOutput(value: unknown, payload: EvaluationPayl
     if (item.score === null && item.evidence === null) return { key: criterion.key, score: null, evidence: null };
     if (typeof item.score !== 'number' || !Number.isFinite(item.score) || item.score < 0 || item.score > 100) throw new Error('Puntaje inválido.');
     const evidence = safeText(item.evidence, 600);
-    if (evidence === '[DATO OMITIDO]' || !source.some((text) => text.includes(evidence))) throw new Error('La evidencia no corresponde al perfil depurado.');
+    if (evidence === '[DATO OMITIDO]' || !source.some((text) => text.normalize('NFC').replace(/\s+/g,' ').includes(evidence.normalize('NFC').replace(/\s+/g,' ')))) throw new Error('La evidencia no corresponde al perfil depurado.');
     return { key: criterion.key, score: Math.round(item.score * 10) / 10, evidence };
   });
   const llmScore = criteria.some((item, index) => item.score === null && payload.job.criteria[index].weightPct > 0) ? null

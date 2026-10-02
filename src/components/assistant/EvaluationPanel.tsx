@@ -77,6 +77,7 @@ export function EvaluationPanel() {
         } catch (e) {
           if (c.signal.aborted) break;
           failed = true; patch(id,{ status:'error', message:e instanceof Error ? e.message : 'No se pudo evaluar el perfil.' });
+          setProgress('Lote detenido.');
           setError('El lote se detuvo. Los resultados anteriores se conservaron; revisa el error y reintenta los pendientes.'); break;
         }
       }
