@@ -91,7 +91,14 @@ export function prepareEvaluationProfile(candidate: Candidate): DepuratedProfile
     if (containsInstruction(cleaned.text)) { issues.push('Una descripción contiene instrucciones ajenas al perfil. Revisa el archivo de origen.'); continue; }
     if (hasSensitivePatterns(cleaned.text)) { issues.push('Una descripción conserva datos que requieren revisión. Corrige el archivo de origen.'); continue; }
     if (!cleaned.text || !/[\p{L}\p{N}]/u.test(cleaned.text.replaceAll('[DATO OMITIDO]', ''))) continue;
-    fields.push({ label, text: cleaned.text });
+    // Fragmentos acotados: Gemini referencia su índice, el servidor recupera la cita exacta.
+    let remaining = cleaned.text;
+    while (remaining.length) {
+      let end = Math.min(600,remaining.length);
+      if (end < remaining.length) { const boundary=remaining.lastIndexOf(' ',end);if (boundary>300) end=boundary; }
+      const text=remaining.slice(0,end).trim(); if(text) fields.push({label,text});
+      remaining=remaining.slice(end).trim();
+    }
   }
   const unique = [...new Map(fields.map((field) => [JSON.stringify(field), field])).values()];
   if (!unique.length) issues.push('No hay información profesional suficiente en las columnas permitidas. No se envía este perfil.');

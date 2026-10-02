@@ -3,7 +3,7 @@ import { INITIAL_APP_STATE } from '../../data/initialData.ts';
 import { analyzeCandidateTables, applyCandidateImport, tableFromCSV } from '../candidateImport.ts';
 import { prepareEvaluationProfile, hasSensitivePatterns } from '../profilePrivacy.ts';
 import { prepareEvaluation, applyPreparedEvaluation, evaluatePreparedProfile } from '../evaluationService.ts';
-import { validateEvaluationPayload, validateEvaluationOutput } from '../evaluationContract.ts';
+import { validateEvaluationPayload, validateEvaluationOutput, validateProviderEvaluation } from '../evaluationContract.ts';
 import { reviewRequirement } from '../requirementReview.ts';
 import { parseStoredState } from '../storage.ts';
 import { updateJobCriteria } from '../workflow.ts';
@@ -23,7 +23,7 @@ const output = (payload:ReturnType<typeof prepareEvaluation>['payload']) => ({
 const env = { GEMINI_API_KEY:'FAKE_KEY_FOR_TEST_ONLY' };
 let ip = 1;
 const request = (body:unknown) => new Request('https://example.com/api/evaluate',{ method:'POST', headers:{ origin:'https://example.com', 'Content-Type':'application/json', 'x-forwarded-for':`test-${ip++}` }, body:JSON.stringify(body) });
-const provider = (body:unknown) => new Response(JSON.stringify({ candidates:[{ finishReason:'STOP', content:{ parts:[{ text:JSON.stringify(body) }] } }] }));
+const provider = (body:any) => new Response(JSON.stringify({ candidates:[{ finishReason:'STOP', content:{ parts:[{ text:JSON.stringify({ ...body,criteria:body.criteria.map((item:any) => ({key:item.key,score:item.score,evidenceKey:item.score===null?null:'field-2'})) }) }] } }] }));
 
 describe('privacidad y aplicación de resultados', () => {
   it('excluye identidades, entidades y columnas desconocidas; conserva hechos profesionales y años', () => {
@@ -59,6 +59,9 @@ describe('privacidad y aplicación de resultados', () => {
     const multiline=structuredClone(payload);multiline.profile[1].text='Desarrolló soluciones\ncon Python y AWS.';
     expect(validateEvaluationOutput(output(payload),multiline).llmScore).toBe(80);
     expect(hasSensitivePatterns('Rango de puntaje 90 - 100')).toBe(false);
+    const indexed={...output(payload),criteria:output(payload).criteria.map(item=>({key:item.key,score:item.score,evidenceKey:'field-2'}))};
+    expect(validateProviderEvaluation(indexed,payload).criteria[0].evidence).toBe(payload.profile[1].text);
+    indexed.criteria[0].evidenceKey='field-999';expect(()=>validateProviderEvaluation(indexed,payload)).toThrow(/fuente/);
     const partial=output(payload); partial.criteria[0]={ key:partial.criteria[0].key,score:null as any,evidence:null as any };
     expect(validateEvaluationOutput(partial,payload).llmScore).toBeNull();
     const invented=output(payload); invented.criteria[0].evidence='Certificación no contenida en el perfil';
@@ -122,7 +125,7 @@ describe('Gemini y adaptador seguro', () => {
     const prompt=sent.contents[0].parts[0].text;
     expect(prompt).not.toContain(prepared.payload!.requestId);
     expect(prompt).not.toMatch(/Privada|ana.private|01234567|cand-import|app-import/);
-    expect(JSON.parse(prompt).profile).toEqual(prepared.payload!.profile);
+    expect(JSON.parse(prompt).profile).toEqual(prepared.payload!.profile.map((field,index)=>({key:`field-${index+1}`,...field})));
     expect(result.headers.get('cache-control')).toBe('no-store');
   });
   it('cuota, respuesta insegura y evaluación incompleta fallan sin errores crudos del proveedor', async () => {

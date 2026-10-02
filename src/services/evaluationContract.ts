@@ -64,3 +64,17 @@ export function validateEvaluationOutput(value: unknown, payload: EvaluationPayl
   return { llmScore, criteria, explanation: safeText(result.explanation, 1800),
     strengths: result.strengths.map((value) => safeText(value, 300)), evidenceSummary: safeText(result.evidenceSummary, 1000) };
 }
+
+/** Google referencia fragmentos; el servidor genera la evidencia sin aceptar citas inventadas. */
+export function validateProviderEvaluation(value: unknown, payload: EvaluationPayload) {
+  const result=object(value); exact(result,['explanation','strengths','evidenceSummary','criteria']);
+  if(!Array.isArray(result.criteria)) throw new Error('Gemini devolvió una evaluación incompleta.');
+  const criteria=result.criteria.map((value) => {
+    const item=object(value);exact(item,['key','score','evidenceKey']);
+    if(item.score===null && item.evidenceKey===null) return {key:item.key,score:null,evidence:null};
+    const index=typeof item.evidenceKey==='string' ? payload.profile.findIndex((_,index) => item.evidenceKey===`field-${index+1}`) : -1;
+    if(index<0) throw new Error('La fuente de evidencia no corresponde al perfil depurado.');
+    return {key:item.key,score:item.score,evidence:payload.profile[index].text};
+  });
+  return validateEvaluationOutput({explanation:result.explanation,strengths:result.strengths,evidenceSummary:result.evidenceSummary,criteria},payload);
+}
