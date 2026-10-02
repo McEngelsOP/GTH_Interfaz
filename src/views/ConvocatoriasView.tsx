@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export function ConvocatoriasView() {
-  const { appState, setActiveJobPostingId, setCurrentView, showToast } = useApp();
+  const { appState, setActiveJobPostingId, setCurrentView, showToast, handleActivateJobPosting } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -70,7 +70,7 @@ export function ConvocatoriasView() {
       showToast(`Convocatoria "${job.title}" seleccionada. Aún no cuenta con postulantes registrados.`, 'info');
       setCurrentView('mejores_candidatos');
     } else {
-      showToast(`Convocatoria "${job.title}" activada con ${count} postulantes.`, 'info');
+      showToast(`Convocatoria "${job.title}" seleccionada con ${count} postulantes.`, 'info');
       setCurrentView('mejores_candidatos');
     }
   };
@@ -357,6 +357,8 @@ export function ConvocatoriasView() {
                   </span>
                 </div>
 
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {job.status === 'borrador' && <Button size="sm" variant="outline" onClick={() => handleActivateJobPosting(job.id)}>Activar convocatoria</Button>}
                 <Button
                   variant={isCurrentActive ? 'primary' : 'secondary'}
                   size="sm"
@@ -364,8 +366,9 @@ export function ConvocatoriasView() {
                   iconPosition="right"
                   onClick={() => handleOpenJob(job)}
                 >
-                  {isCurrentActive ? 'Puesto activo' : 'Abrir puesto'}
+                  {isCurrentActive ? 'Puesto seleccionado' : 'Abrir puesto'}
                 </Button>
+                </div>
               </div>
             </div>
           );
@@ -374,3 +377,4 @@ export function ConvocatoriasView() {
     </div>
   );
 }
+

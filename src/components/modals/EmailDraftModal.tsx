@@ -107,7 +107,7 @@ export function EmailDraftModal({
   }, [isOpen, templateType, lang, candidate, job]);
 
   const handleSave = () => {
-    if (to && !to.includes('@')) {
+    if (to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim())) {
       setEmailError('Ingrese un correo electrónico válido');
       return;
     }
@@ -141,7 +141,7 @@ export function EmailDraftModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" icon={<Mail size={16} />} onClick={handleSave}>
+          <Button variant="primary" icon={<Mail size={16} />} onClick={handleSave} disabled={!subject.trim() || !body.trim()}>
             Guardar borrador
           </Button>
         </>
@@ -292,3 +292,4 @@ export function EmailDraftModal({
     </Modal>
   );
 }
+

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
+import { getTopCandidates } from '../../services/recruitmentRules.ts';
 import { Drawer } from '../common/Drawer.tsx';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
@@ -44,6 +45,8 @@ export function GTHAssistantDrawer() {
     },
   ]);
 
+  useEffect(() => { setMessages([{ id: 'welcome', sender: 'assistant', text: `Consulta de demostración para ${activeJob?.code || 'la convocatoria activa'}.`, timestamp: 'Ahora' }]); setInputQuestion(''); }, [activeJob?.id]);
+
   // Preguntas sugeridas contextuales según la convocatoria activa
   const suggestedQuestions = [
     '¿Quiénes son los candidatos con mayor Score ML?',
@@ -70,22 +73,12 @@ export function GTHAssistantDrawer() {
 
     if (!activeJob) {
       assistantReply = 'Por favor selecciona primero una convocatoria activa para poder consultar candidatos y criterios.';
-    } else if (q.includes('score ml') || q.includes('mayor score') || q.includes('mejores ml')) {
-      const sortedByML = [...activeJobApplications]
-        .filter((a) => a.mlScore !== null)
-        .sort((a, b) => (b.mlScore || 0) - (a.mlScore || 0))
-        .slice(0, 3);
-
-      if (sortedByML.length === 0) {
-        assistantReply = 'No hay candidatos con puntaje ML calculado en esta convocatoria.';
-      } else {
-        const lines = sortedByML.map((a, i) => {
-          const cand = appState.candidates.find((c) => c.id === a.candidateId);
-          return `${i + 1}. ${cand?.name || 'Candidato'} — Score ML: ${a.mlScore}/100`;
-        });
-        assistantReply = `Los 3 candidatos con mayor Score ML para ${activeJob.code} son:\n${lines.join('\n')}`;
-        linkedCandidates = sortedByML.map((a) => a.candidateId);
-      }
+    } else if (q.includes('score') || q.includes('mejores') || q.includes('perfiles')) {
+      const method = q.includes('llm') ? 'LLM' : q.includes('ml') ? 'ML' : appState.selectedMethod;
+      const count = Math.min(500, Math.max(1, Number(q.match(/\d+/)?.[0]) || 3));
+      const top = getTopCandidates(activeJobApplications, method, count);
+      assistantReply = top.length ? `Los ${top.length} mejores pendientes elegibles según ${method} para ${activeJob.code}:\n${top.map((a, i) => `${i + 1}. ${appState.candidates.find((c) => c.id === a.candidateId)?.name || 'Candidato'} — ${method}: ${method === 'ML' ? a.mlScore : a.llmScore}/100`).join('\n')}` : `No hay pendientes elegibles con evaluación ${method}.`;
+      linkedCandidates = top.map((a) => a.candidateId);
     } else if (q.includes('requisito obligatorio') || q.includes('knockout') || q.includes('cumplen')) {
       const compliant = activeJobApplications.filter((a) => a.mandatoryRequirementStatus === 'verificado');
       assistantReply = `Para la convocatoria ${activeJob.code}, el requisito obligatorio es: "${activeJob.knockoutRule}".\nActualmente, ${compliant.length} de ${activeJobApplications.length} postulantes cumplen plenamente con esta condición.`;
@@ -114,6 +107,7 @@ export function GTHAssistantDrawer() {
   };
 
   const handleOpenCandidate = (candidateId: string) => {
+    setAssistantDrawerOpen(false);
     setSelectedCandidateId(candidateId);
     setCandidateDrawerOpen(true);
   };
@@ -326,3 +320,4 @@ export function GTHAssistantDrawer() {
     </Drawer>
   );
 }
+

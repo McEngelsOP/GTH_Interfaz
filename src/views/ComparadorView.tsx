@@ -19,7 +19,7 @@ import {
   ShieldCheck,
   Info,
 } from 'lucide-react';
-import { isEligibleForTopN } from '../services/recruitmentRules.ts';
+import { isEligibleForTopN, getTopCandidates } from '../services/recruitmentRules.ts';
 import { Application } from '../types/index.ts';
 
 export function ComparadorView() {
@@ -63,10 +63,7 @@ export function ComparadorView() {
   };
 
   const handleQuickAddTop3 = () => {
-    const eligibleApps = [...activeJobApplications]
-      .filter((a) => a.stage !== 'no_continua')
-      .slice(0, 3)
-      .map((a) => a.id);
+    const eligibleApps = getTopCandidates(activeJobApplications, appState.selectedMethod, 3).map((a) => a.id);
     selectAllApplications(eligibleApps);
     showToast(`Se agregaron ${eligibleApps.length} perfiles a la comparación.`, 'info');
   };
@@ -531,3 +528,4 @@ export function ComparadorView() {
     </div>
   );
 }
+

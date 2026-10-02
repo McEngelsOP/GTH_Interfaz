@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export function NuevaConvocatoriaView() {
-  const { handleCreateJobPosting, setCurrentView } = useApp();
+  const { handleCreateJobPosting, setCurrentView, appState } = useApp();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
@@ -100,6 +100,8 @@ export function NuevaConvocatoriaView() {
     if (!title.trim()) errs.title = 'Ingrese el título o denominación del puesto';
     if (!department.trim()) errs.department = 'Ingrese el área o departamento';
     if (!code.trim()) errs.code = 'El código de convocatoria es obligatorio';
+    else if (appState.jobPostings.some((j) => j.code.toLowerCase() === code.trim().toLowerCase())) errs.code = 'Ya existe una convocatoria con este código';
+    if (vacancies && (!Number.isInteger(Number(vacancies)) || Number(vacancies) < 1)) errs.vacancies = 'Indique un número entero positivo de vacantes';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -115,10 +117,11 @@ export function NuevaConvocatoriaView() {
   };
 
   const handleSave = (status: 'activa' | 'borrador') => {
+    if (!validateStep2() || !validateStep3()) return;
     const newJob: JobPosting = {
-      id: code,
-      code,
-      title,
+      id: code.trim(),
+      code: code.trim(),
+      title: title.trim(),
       category,
       department,
       period,
@@ -673,3 +676,4 @@ export function NuevaConvocatoriaView() {
     </div>
   );
 }
+

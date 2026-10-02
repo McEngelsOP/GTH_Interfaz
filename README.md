@@ -12,7 +12,7 @@ TalentAI es una plataforma de soporte para la toma de decisiones del comité eva
 
 1. **Separación Estricta de Identidades:** Se diferencian inequívocamente `jobPostingId` (convocatoria), `candidateId` (persona física) y `applicationId` (expediente de postulación).
 2. **Dualidad Analítica Sin Mezcla Arbitraria:** Los puntajes de **Machine Learning (ML)** y **Modelos de Lenguaje (LLM)** son métricas ortogonales (0–100) y **nunca se promedian en un score único compuesto artificial**.
-3. **Supervisión Humana Activa (Human-in-the-Loop):** Toda preselección o liberación requiere confirmación consciente con justificación registrada en una bitácora de auditoría inmutable.
+3. **Supervisión Humana Activa (Human-in-the-Loop):** Toda preselección o liberación requiere confirmación consciente con justificación registrada en un historial local de decisiones.
 4. **Honestidad Técnica Total:** No se simula telemetría falsa de ERP ni preguntas STAR inventadas. Las capacidades futuras se marcan explícitamente como pendientes de integración institucional.
 5. **Compatibilidad Excel Nativa:** Todas las descargas CSV utilizan codificación **UTF-8 con BOM (`\uFEFF`)** y delimitador de punto y coma (`;`), con sanitización activa para prevenir inyección de fórmulas (`'`, `=`, `+`, `-`, `@`).
 
@@ -36,13 +36,13 @@ TalentAI es una plataforma de soporte para la toma de decisiones del comité eva
 | **Convocatorias** | `convocatorias` | Catálogo de las 18 convocatorias institucionales con filtros por área y contadores en vivo. |
 | **Perfiles de Puesto** | `perfiles_puestos` | Biblioteca de 7 plantillas base de ESAN con matriz de criterios y reglas knockout. |
 | **Nueva Convocatoria** | `nueva_convocatoria` | Asistente guiado de 4 pasos con validación estricta de suma al 100% de ponderaciones. |
-| **Mejores Candidatos** | `mejores_candidatos` | Grilla de candidatos con ordenamiento dual (ML / LLM), filtros de estado, corte Top-N y acciones masivas. |
+| **Mejores Candidatos** | `mejores_candidatos` | Grilla con ML / LLM separados, Top-N pendientes, preseleccionados, contratados y decisiones confirmadas. |
 | **Comparador** | `comparador` | Matriz horizontal comparativa de candidatos sin límite artificial de 5 perfiles. |
 | **Tablero de Avance** | `avance_candidatos` | Tablero Kanban de 6 etapas institucionales con soporte Drag & Drop y botones accesibles. |
 | **Carga y Lotes** | `agregar_archivos` | Validador de archivos CSV y generador determinista de lotes de prueba (25, 100 y 500 registros). |
 | **Banco de Talento** | `banco_talento` | Repositorio institucional de perfiles para futuras oportunidades y centro de descargas CSV. |
 | **Criterios de Evaluación** | `criterios_evaluacion` | Sliders de ponderación con validación al 100% y simulación previa de recálculo en vivo. |
-| **Historial y Auditoría** | `historial_decisiones` | Bitácora cronológica inmutable de decisiones tomadas con filtros por acción y convocatoria. |
+| **Historial y Auditoría** | `historial_decisiones` | Historial cronológico local de decisiones tomadas con filtros por acción y convocatoria. |
 | **Resultados del Proceso** | `resultados_proceso` | Embudo de efectividad de postulaciones y seguimiento de contrataciones formalizadas. |
 | **Configuración** | `ajustes_generales` | Selector de tema (Claro / Oscuro / Sistema), modo de movimiento reducido y diagnóstico de integraciones. |
 
@@ -93,3 +93,17 @@ Esta demo incluye datos iniciales precargados específicamente diseñados para v
 ## 🏛️ Créditos y Licencia
 
 Desarrollado para **ESAN Graduate School of Business** — Dirección de Gestión del Talento Humano y Colaboradores (GTHC). Todos los derechos reservados.
+
+
+## Revisión funcional y prevención de regresiones
+
+La revisión de GEM y sus correcciones se documentan en [docs/GEM_DEBUG_REPORT.md](docs/GEM_DEBUG_REPORT.md). El perfil del Banco permanece guardado al vincularlo a otro puesto; esa nueva postulación empieza sin puntajes y con requisitos pendientes. El Top-N solo reúne pendientes de primera decisión; los preseleccionados y contratados tienen sus propias pestañas.
+
+Para ejecutar las pruebas de navegador:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+GitHub Actions ejecuta pruebas unitarias, compilación y estos escenarios al actualizar GEM. Los cambios de esta revisión no publican la web de producción. OCR, motores ML/LLM, portales, Gmail y calendarios continúan pendientes de integración. El CSV de catálogo se valida y previsualiza sin importar candidatos.

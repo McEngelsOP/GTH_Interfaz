@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, ReactNode } from 'react';
+import React, { useRef, useId, ReactNode } from 'react';
+import { useDialog } from './useDialog.ts';
 import { X } from 'lucide-react';
 
 export interface ModalProps {
@@ -22,22 +23,8 @@ export function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar con Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen, onClose]);
+  const titleId = useId();
+  useDialog(isOpen, modalRef, onClose);
 
   if (!isOpen) return null;
 
@@ -63,7 +50,8 @@ export function Modal({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         style={{
           width: '100%',
           maxWidth,
@@ -91,7 +79,7 @@ export function Modal({
           }}
         >
           <div>
-            <h2 id="modal-title" style={{ fontSize: '1.1875rem', fontWeight: 600 }}>
+            <h2 id={titleId} style={{ fontSize: '1.1875rem', fontWeight: 600 }}>
               {title}
             </h2>
             {subtitle && (
@@ -151,3 +139,4 @@ export function Modal({
     </div>
   );
 }
+

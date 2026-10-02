@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal.tsx';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import { ScoreBadge } from '../candidate/ScoreBadge.tsx';
 import { Application, Candidate, JobPosting, EvaluationMethod } from '../../types/index.ts';
+import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
 import { UserCheck, Eye, Info, CheckCircle2 } from 'lucide-react';
 
 interface AdvanceDecisionModalProps {
@@ -31,8 +32,10 @@ export function AdvanceDecisionModal({
   );
   const [showPreview, setShowPreview] = useState(false);
 
+  useEffect(() => { if (isOpen) { setRejectOthers(false); setShowPreview(false); } }, [isOpen, job.id]);
   if (!isOpen) return null;
 
+  const validSelection = selectedApplications.length > 0 && selectedApplications.every((app) => app.jobPostingId === job.id && isEligibleForTopN(app, method).eligible) && job.status === 'activa';
   const count = selectedApplications.length;
 
   const handleConfirm = () => {
@@ -64,6 +67,7 @@ export function AdvanceDecisionModal({
             variant="primary"
             icon={<UserCheck size={16} />}
             onClick={handleConfirm}
+            disabled={!validSelection || !customMessage.trim()}
           >
             Confirmar avance ({count} {count === 1 ? 'perfil' : 'perfiles'})
           </Button>
@@ -83,10 +87,11 @@ export function AdvanceDecisionModal({
             lineHeight: 1.45,
           }}
         >
+          {!validSelection && <p role="alert">Revise la selección: todos los expedientes deben estar pendientes, verificados y evaluados.</p>}
           <strong style={{ color: 'var(--text-primary)' }}>Efectos de esta decisión:</strong>
           <ul style={{ paddingLeft: '1.25rem', marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
             <li>Los perfiles elegidos pasarán de <em>Postulado</em> a <strong>Preseleccionado</strong>.</li>
-            <li>Dejarán la pestaña <em>Mejores perfiles</em> (ya recibieron decisión), y otros pendientes ocuparán sus posiciones.</li>
+            <li>Dejarán la pestaña <em>Top-N pendientes</em> (ya recibieron decisión), y otros pendientes ocuparán sus posiciones.</li>
             <li>Seguirán activos en <em>En proceso</em>, <em>Todos</em> y en el tablero <em>Avance de candidatos</em>.</li>
             <li>Los mensajes se guardarán como borradores locales (no se enviarán correos reales).</li>
           </ul>
@@ -232,3 +237,4 @@ export function AdvanceDecisionModal({
     </Modal>
   );
 }
+

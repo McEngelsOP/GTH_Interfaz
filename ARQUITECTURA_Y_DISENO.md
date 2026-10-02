@@ -1,5 +1,8 @@
 # 🏛️ Manual de Arquitectura, Estructura, Funcionalidad y Diseño del Sistema TalentAI · ESAN
 
+
+La revisión funcional posterior está documentada en [docs/GEM_DEBUG_REPORT.md](docs/GEM_DEBUG_REPORT.md). Ese informe describe las reglas corregidas de Top-N, decisiones por expediente, vinculación con evaluación pendiente y límites de las integraciones de esta demo.
+
 Este documento detalla exhaustivamente la arquitectura técnica, la estructura visual, la funcionalidad de cada componente y vista, y el sistema de diseño implementado en la plataforma **TalentAI** para la Dirección de Gestión del Talento Humano y Colaboradores (**GTHC**) de **ESAN Graduate School of Business**.
 
 ---
@@ -276,3 +279,4 @@ GTH_Interfaz/
 ├── README.md                   # Resumen técnico de ejecución y escenarios de aceptación
 └── package.json                # Dependencias (React 19, TypeScript, Lucide, Vite, Vitest)
 ```
+

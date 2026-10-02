@@ -7,6 +7,8 @@ import { StageBadge } from './StageBadge.tsx';
 import { RequirementPill } from './RequirementPill.tsx';
 import { ScoreBadge } from './ScoreBadge.tsx';
 import { Tabs } from '../common/Tabs.tsx';
+import { AdvanceDecisionModal } from '../modals/AdvanceDecisionModal.tsx';
+import { ReleaseModal } from '../modals/ReleaseModal.tsx';
 import { EmailDraftModal } from '../modals/EmailDraftModal.tsx';
 import { ScheduleModal } from '../modals/ScheduleModal.tsx';
 import { NoteModal } from '../modals/NoteModal.tsx';
@@ -33,7 +35,7 @@ export function CandidateDrawer() {
     openCandidateDrawer,
     activeJob,
     appState,
-    handleAdvanceSelected,
+    handleAdvanceApplications,
     handleReleaseApplication,
     handleAddNote,
     handleScheduleInterview,
@@ -42,6 +44,9 @@ export function CandidateDrawer() {
     setActiveJobPostingId,
   } = useApp();
 
+  const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+  const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
+
   const [activeTab, setActiveTab] = useState('puntaje');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -49,7 +54,7 @@ export function CandidateDrawer() {
 
   const app = selectedCandidateForDrawer;
   if (!app) return null;
-  const currentJob = activeJob || appState.jobPostings.find((j) => j.id === app.jobPostingId);
+  const currentJob = appState.jobPostings.find((j) => j.id === app.jobPostingId);
   if (!currentJob) return null;
   const candidate = appState.candidates.find((c) => c.id === app.candidateId);
   if (!candidate) return null;
@@ -210,8 +215,8 @@ export function CandidateDrawer() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => handleReleaseApplication(app.id, 'Liberado desde la ficha técnica del candidato')}
-              disabled={app.stage === 'no_continua'}
+              onClick={() => setIsReleaseModalOpen(true)}
+              disabled={app.stage === 'no_continua' || app.stage === 'contratado'}
             >
               {app.stage === 'no_continua' ? 'Postulación liberada' : 'Liberar postulación'}
             </Button>
@@ -226,11 +231,8 @@ export function CandidateDrawer() {
                   variant="primary"
                   size="sm"
                   icon={<UserCheck size={16} />}
-                  onClick={() => {
-                    handleAdvanceSelected();
-                    openCandidateDrawer(null);
-                  }}
-                  disabled={!eligibility.eligible}
+                  onClick={() => setIsAdvanceModalOpen(true)}
+                  disabled={!eligibility.eligible || currentJob.status !== 'activa'}
                   title={!eligibility.eligible ? eligibility.reason : 'Avanzar a etapa de Preseleccionado'}
                 >
                   Avanzar a Preseleccionado
@@ -610,6 +612,12 @@ export function CandidateDrawer() {
         candidateName={candidate.name}
         onSaveNote={(note) => handleAddNote(app.id, note)}
       />
+      <AdvanceDecisionModal isOpen={isAdvanceModalOpen} onClose={() => setIsAdvanceModalOpen(false)}
+        selectedApplications={[app]} candidates={appState.candidates} job={currentJob} method={appState.selectedMethod}
+        onConfirmAdvance={(reject, message) => handleAdvanceApplications([app.id], reject, message)} />
+      <ReleaseModal isOpen={isReleaseModalOpen} onClose={() => setIsReleaseModalOpen(false)} application={app} candidate={candidate} job={currentJob}
+        onConfirmRelease={(id, reason) => handleReleaseApplication(id, reason)} />
     </>
   );
 }
+

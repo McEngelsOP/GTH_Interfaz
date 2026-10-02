@@ -45,7 +45,7 @@ export function isEligibleForTopN(
   }
 
   const score = method === 'ML' ? application.mlScore : application.llmScore;
-  if (score === null || score === undefined) {
+  if (!isValidScore(score)) {
     return {
       eligible: false,
       reason: `Puntaje pendiente de cálculo para el método ${method}`,
@@ -62,7 +62,12 @@ export function getScoreByMethod(
   application: Application,
   method: EvaluationMethod
 ): number | null {
-  return method === 'ML' ? application.mlScore : application.llmScore;
+  const score = method === 'ML' ? application.mlScore : application.llmScore;
+  return isValidScore(score) ? score : null;
+}
+
+export function isValidScore(score: unknown): score is number {
+  return typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
 }
 
 /**
@@ -73,7 +78,7 @@ export function getTopCandidates(
   method: EvaluationMethod,
   count: number
 ): Application[] {
-  if (count <= 0) return [];
+  if (!Number.isFinite(count) || count <= 0) return [];
 
   // Filtrar solo candidatos elegibles pendientes
   const eligible = applications.filter((app) => isEligibleForTopN(app, method).eligible);
@@ -96,7 +101,7 @@ export function calculateJobMetrics(
   method: EvaluationMethod
 ) {
   const totalProcessed = applications.length;
-  const activeApplications = applications.filter((app) => app.stage !== 'no_continua');
+  const activeApplications = applications.filter((app) => app.stage !== 'no_continua' && app.stage !== 'contratado');
   const totalActive = activeApplications.length;
 
   const verifiedCount = activeApplications.filter(
@@ -148,6 +153,8 @@ export function calculateJobMetrics(
  * - Opción 'rejectOthersEvaluated': perfiles evaluados elegibles pendientes no elegidos pasan a no_continua.
  */
 export function advanceApplications(params: {
+  jobPostingId: string;
+  criteriaVersion: string;
   selectedAppIds: string[];
   applications: Application[];
   candidates: Candidate[];
@@ -158,6 +165,7 @@ export function advanceApplications(params: {
   customEmailMessage?: string;
 }): {
   updatedApplications: Application[];
+  updatedCandidates: Candidate[];
   newActivities: ActivityLog[];
   newDecisions: DecisionLog[];
   newDrafts: EmailDraft[];
@@ -171,6 +179,8 @@ export function advanceApplications(params: {
     author = 'Equipo de GTHC',
     rejectOthersEvaluated = false,
     customEmailMessage,
+    jobPostingId,
+    criteriaVersion,
   } = params;
 
   const now = new Date().toISOString();
@@ -179,8 +189,17 @@ export function advanceApplications(params: {
   const newActivities: ActivityLog[] = [];
   const newDecisions: DecisionLog[] = [];
   const newDrafts: EmailDraft[] = [];
+  const selected = applications.filter((app) => selectedSet.has(app.id));
+  // Revalidar toda la decisión: ni expedientes ajenos ni estados ya decididos.
+  if (!selected.length || selected.length !== selectedSet.size || selected.some((app) =>
+    app.jobPostingId !== jobPostingId || !isEligibleForTopN(app, method).eligible
+  )) {
+    return { updatedApplications: applications, updatedCandidates: candidates, newActivities, newDecisions, newDrafts };
+  }
+  const closedCandidateIds = new Set<string>();
 
   const updatedApplications = applications.map((app) => {
+    if (app.jobPostingId !== jobPostingId) return app;
     if (selectedSet.has(app.id)) {
       // 1. Avanzar a Preseleccionado
       const previousStage = app.stage;
@@ -212,7 +231,7 @@ export function advanceApplications(params: {
         newStage: 'preseleccionado',
         author,
         timestamp: now,
-        criteriaVersion: 'v2.4 (Dual ML-Embeddings)',
+        criteriaVersion,
         evaluationContext: {
           mlScore: app.mlScore,
           llmScore: app.llmScore,
@@ -251,6 +270,7 @@ export function advanceApplications(params: {
       app.stage === 'postulado' &&
       isEligibleForTopN(app, method).eligible
     ) {
+      closedCandidateIds.add(app.candidateId);
       const updatedApp: Application = {
         ...app,
         stage: 'no_continua',
@@ -277,13 +297,22 @@ export function advanceApplications(params: {
         newStage: 'no_continua',
         author,
         timestamp: now,
-        criteriaVersion: 'v2.4',
+        criteriaVersion,
         evaluationContext: {
           mlScore: app.mlScore,
           llmScore: app.llmScore,
           method,
         },
         notes: `No seleccionado en corte de mejores perfiles.`,
+      });
+
+      const cand = candidates.find((c) => c.id === app.candidateId);
+      newDrafts.push({
+        id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        applicationId: app.id, to: cand?.email || '', templateType: 'cierre', lang: 'es',
+        subject: `Resultado de su postulación: ${jobPostingTitle} · ESAN`,
+        body: `Estimado(a) ${cand?.name || 'Candidato'},\n\nGracias por participar en "${jobPostingTitle}". En esta oportunidad su postulación no continúa. Conservaremos su perfil en el Banco de Talento para futuras oportunidades.\n\nEquipo de GTHC · Universidad ESAN`,
+        status: 'borrador', updatedAt: now,
       });
 
       return updatedApp;
@@ -294,6 +323,8 @@ export function advanceApplications(params: {
 
   return {
     updatedApplications,
+    updatedCandidates: candidates.map((c) => closedCandidateIds.has(c.id)
+      ? { ...c, savedInTalentPool: true, talentPoolOriginJob: jobPostingTitle } : c),
     newActivities,
     newDecisions,
     newDrafts,
@@ -314,12 +345,14 @@ export function releaseApplication(params: {
   jobPostingTitle: string;
   author?: string;
   reason?: string;
+  criteriaVersion?: string;
+  method?: EvaluationMethod;
 }): {
   updatedApplications: Application[];
   updatedCandidates: Candidate[];
   newActivity: ActivityLog;
   newDecision: DecisionLog;
-} {
+} | null {
   const {
     applicationId,
     applications,
@@ -327,7 +360,12 @@ export function releaseApplication(params: {
     jobPostingTitle,
     author = 'Equipo de GTHC',
     reason = 'Liberación manual por el evaluador',
+    criteriaVersion = 'v1.0',
+    method = 'ML',
   } = params;
+
+  const target = applications.find((app) => app.id === applicationId);
+  if (!target || target.stage === 'no_continua' || target.stage === 'contratado' || !reason.trim()) return null;
 
   const now = new Date().toISOString();
   let candidateIdTarget = '';
@@ -381,11 +419,11 @@ export function releaseApplication(params: {
     newStage: 'no_continua',
     author,
     timestamp: now,
-    criteriaVersion: 'v2.4',
+    criteriaVersion,
     evaluationContext: {
       mlScore: appTarget?.mlScore ?? null,
       llmScore: appTarget?.llmScore ?? null,
-      method: 'ML',
+      method,
     },
     notes: reason,
   };
@@ -416,7 +454,9 @@ export function simulateScoreRecalculation(
   for (const crit of methodCriteria) {
     totalWeight += crit.weightPct;
     const scoreItem = breakdown[crit.id];
-    if (scoreItem && scoreItem.score !== undefined) {
+    if (!Number.isFinite(crit.weightPct) || crit.weightPct < 0) return null;
+    if (crit.weightPct > 0 && !isValidScore(scoreItem?.score)) return null;
+    if (scoreItem && isValidScore(scoreItem.score)) {
       weightedScore += (scoreItem.score * crit.weightPct) / 100;
     }
   }

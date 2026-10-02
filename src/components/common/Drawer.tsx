@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, ReactNode } from 'react';
+import React, { useRef, ReactNode } from 'react';
+import { useDialog } from './useDialog.ts';
 import { X } from 'lucide-react';
 
 export interface DrawerProps {
@@ -24,21 +25,7 @@ export function Drawer({
 }: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen, onClose]);
+  useDialog(isOpen, drawerRef, onClose);
 
   if (!isOpen) return null;
 
@@ -62,6 +49,8 @@ export function Drawer({
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
+        aria-label={typeof title === 'string' ? title : 'Ficha del candidato'}
+        tabIndex={-1}
         style={{
           width: '100%',
           maxWidth: width,
@@ -154,3 +143,4 @@ export function Drawer({
     </div>
   );
 }
+

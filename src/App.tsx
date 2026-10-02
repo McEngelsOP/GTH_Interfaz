@@ -84,6 +84,7 @@ function MainContent() {
 }
 
 function AppLayout() {
+  const { selectedCandidateForDrawer } = useApp();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -93,7 +94,7 @@ function AppLayout() {
         <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
         <MainContent />
       </div>
-      <CandidateDrawer />
+      <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
       <GTHAssistantDrawer />
       <ToastContainer />
     </div>
@@ -107,3 +108,4 @@ export default function App() {
     </AppProvider>
   );
 }
+

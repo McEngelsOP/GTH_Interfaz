@@ -42,7 +42,7 @@ export function ReleaseModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger" icon={<UserX size={15} />} onClick={handleConfirm}>
+          <Button variant="danger" icon={<UserX size={15} />} onClick={handleConfirm} disabled={!reason.trim()}>
             Confirmar liberación
           </Button>
         </>
@@ -101,3 +101,4 @@ export function ReleaseModal({
     </Modal>
   );
 }
+

@@ -23,7 +23,7 @@ import {
 import { formatDateTime } from '../services/recruitmentRules.ts';
 
 export function HistorialDecisionesView() {
-  const { appState, activeJob, setSelectedCandidateId, setCandidateDrawerOpen } = useApp();
+  const { appState, activeJob, openCandidateDrawer } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJobFilter, setSelectedJobFilter] = useState('ALL');
@@ -139,7 +139,7 @@ export function HistorialDecisionesView() {
               Historial de Decisiones y Auditoría
             </h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Trazabilidad inmutable de preselecciones, liberaciones de candidatos, cambios de fase y ajustes de ponderación.
+              Historial local de preselecciones, liberaciones de candidatos, cambios de fase y ajustes de ponderación.
             </p>
           </div>
         </div>
@@ -212,12 +212,7 @@ export function HistorialDecisionesView() {
           onChange={(e) => setSelectedActionFilter(e.target.value)}
           options={[
             { value: 'ALL', label: 'Todos los tipos de acción' },
-            { value: 'advance', label: 'Preselección (Avanzar)' },
-            { value: 'release', label: 'Liberación (No continúa)' },
-            { value: 'stage_change', label: 'Cambio de etapa manual' },
-            { value: 'criteria_update', label: 'Actualización de criterios' },
-            { value: 'job_created', label: 'Creación de convocatoria' },
-            { value: 'candidate_link', label: 'Candidato postulado a puesto' },
+            ...Array.from(new Set(appState.decisionLogs.map((log) => log.action))).map((action) => ({ value: action, label: action })),
           ]}
         />
       </div>
@@ -303,8 +298,7 @@ export function HistorialDecisionesView() {
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedCandidateId(cand.id);
-                              setCandidateDrawerOpen(true);
+                              openCandidateDrawer(appState.applications.find((app) => app.id === log.applicationId) || null);
                             }}
                             style={{
                               background: 'none',
@@ -366,3 +360,4 @@ export function HistorialDecisionesView() {
     </div>
   );
 }
+

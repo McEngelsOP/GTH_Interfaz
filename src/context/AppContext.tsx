@@ -12,12 +12,12 @@ import {
   Criterion,
   EmailDraft,
   InterviewRecord,
+  Stage,
 } from '../types/index.ts';
 import { loadAppState, saveAppState, resetAppState } from '../services/storage.ts';
-import {
-  advanceApplications,
-  releaseApplication,
-} from '../services/recruitmentRules.ts';
+import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
+import { readRoute, routeHash } from '../services/navigation.ts';
+import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -87,6 +87,9 @@ interface AppContextValue {
   showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
   removeToast: (id: string) => void;
   // Acciones de negocio
+  handleAdvanceApplications: (ids: string[], rejectOthers?: boolean, customMessage?: string) => void;
+  handleMoveStage: (appId: string, target: Stage, reason: string) => void;
+  handleSaveToTalentPool: (candidateId: string) => void;
   handleAdvanceSelected: (rejectOthers?: boolean, customMessage?: string) => void;
   handleReleaseApplication: (appId: string, reason?: string) => void;
   handleAddNote: (appId: string, noteText: string) => void;
@@ -104,6 +107,7 @@ interface AppContextValue {
     body: string;
   }) => void;
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
+  handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
   handleAddBatchCandidates: (newCandidates: Candidate[], newApps: Application[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
@@ -116,12 +120,39 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [appState, setAppState] = useState<AppStateData>(() => loadAppState());
-  const [currentView, setCurrentView] = useState<ViewType>('mejores_candidatos');
+  const [appState, setAppState] = useState<AppStateData>(() => {
+    const state = loadAppState();
+    const job = state.jobPostings.find((j) => j.id === readRoute(window.location.hash).jobId);
+    return job ? { ...state, activeJobPostingId: job.id, topN: job.id === state.activeJobPostingId ? state.topN : job.defaultTopN } : state;
+  });
+  const [currentView, setCurrentViewState] = useState<ViewType>(() => readRoute(window.location.hash).view);
+  const setCurrentView = (view: ViewType) => {
+    const normalized = readRoute(`#view=${view}`).view;
+    setCurrentViewState(normalized);
+    const hash = routeHash(normalized, appState.activeJobPostingId);
+    if (window.location.hash !== hash) window.history.pushState(null, '', hash);
+  };
   const [selectedApplicationIds, setSelectedApplicationIds] = useState<string[]>([]);
-  const [selectedCandidateForDrawer, setSelectedCandidateForDrawer] = useState<Application | null>(null);
+  const [drawerApplicationId, setDrawerApplicationId] = useState<string | null>(null);
+  const selectedCandidateForDrawer = appState.applications.find((app) => app.id === drawerApplicationId) || null;
+  const setSelectedCandidateForDrawer = (app: Application | null) => setDrawerApplicationId(app?.id || null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      const route = readRoute(window.location.hash);
+      setCurrentViewState(route.view);
+      setAppState((prev) => {
+        const job = prev.jobPostings.find((j) => j.id === route.jobId);
+        return job && job.id !== prev.activeJobPostingId ? { ...prev, activeJobPostingId: job.id, topN: job.defaultTopN } : prev;
+      });
+      setSelectedApplicationIds([]); setDrawerApplicationId(null);
+    };
+    window.addEventListener('hashchange', sync); window.addEventListener('popstate', sync);
+    return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
+  }, []);
+  useEffect(() => { window.history.replaceState(null, '', routeHash(currentView, appState.activeJobPostingId)); }, [currentView, appState.activeJobPostingId]);
 
   // Sincronizar persistencia ante cualquier cambio en appState
   useEffect(() => {
@@ -189,7 +220,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Cambiar convocatoria activa
   const setActiveJobPostingId = (jobId: string) => {
-    setAppState((prev) => ({ ...prev, activeJobPostingId: jobId }));
+    const job = appState.jobPostings.find((j) => j.id === jobId);
+    if (!job) return;
+    setAppState((prev) => ({ ...prev, activeJobPostingId: jobId, topN: job.defaultTopN }));
     setSelectedApplicationIds([]); // Limpiar marcas de otra convocatoria
     setSelectedCandidateForDrawer(null);
   };
@@ -199,7 +232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const setTopN = (n: number) => {
-    const val = Math.max(1, Math.floor(n));
+    const val = Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1;
     setAppState((prev) => ({ ...prev, topN: val }));
   };
 
@@ -221,7 +254,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const selectAllApplications = (appIds: string[]) => {
-    setSelectedApplicationIds(appIds);
+    const allowed = new Set(activeJobApplications.map((app) => app.id));
+    setSelectedApplicationIds([...new Set(appIds)].filter((id) => allowed.has(id)));
   };
 
   const clearApplicationSelection = () => {
@@ -236,45 +270,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsAssistantOpen((prev) => (open !== undefined ? open : !prev));
   };
 
-  // Avanzar candidatos marcados
-  const handleAdvanceSelected = (rejectOthers = false, customMessage?: string) => {
-    if (selectedApplicationIds.length === 0) return;
-
-    const result = advanceApplications({
-      selectedAppIds: selectedApplicationIds,
-      applications: appState.applications,
-      candidates: appState.candidates,
-      jobPostingTitle: activeJob?.title || 'Convocatoria Activa',
-      method: appState.selectedMethod,
-      rejectOthersEvaluated: rejectOthers,
-      customEmailMessage: customMessage,
+  // La decisión siempre identifica explícitamente sus expedientes y convocatoria.
+  const handleAdvanceApplications = (ids: string[], rejectOthers = false, customMessage?: string) => {
+    const target = appState.applications.find((app) => app.id === ids[0]);
+    const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
+    if (!job || job.status !== 'activa') { showToast('Seleccione una convocatoria activa.', 'warning'); return; }
+    const apply = (state: AppStateData) => advanceApplications({
+      selectedAppIds: ids, applications: state.applications, candidates: state.candidates,
+      jobPostingId: job.id, jobPostingTitle: state.jobPostings.find((j) => j.id === job.id)?.title || job.title, criteriaVersion: state.jobPostings.find((j) => j.id === job.id)?.criteriaVersion || job.criteriaVersion,
+      method: state.selectedMethod, rejectOthersEvaluated: rejectOthers, customEmailMessage: customMessage,
     });
-
-    setAppState((prev) => ({
-      ...prev,
-      applications: result.updatedApplications,
-      activities: [...result.newActivities, ...prev.activities],
-      decisionLogs: [...result.newDecisions, ...prev.decisionLogs],
-      emailDrafts: [...result.newDrafts, ...prev.emailDrafts],
-    }));
-
-    const count = selectedApplicationIds.length;
+    const result = apply(appState);
+    if (!result.newDecisions.length) {
+      showToast('Revise la selección: todos deben estar pendientes, verificados y evaluados para el mismo puesto.', 'warning'); return;
+    }
+    setAppState((prev) => {
+      const latest = apply(prev);
+      return { ...prev, applications: latest.updatedApplications, candidates: latest.updatedCandidates,
+        activities: [...latest.newActivities, ...prev.activities],
+        decisionLogs: [...latest.newDecisions, ...prev.decisionLogs], emailDrafts: [...latest.newDrafts, ...prev.emailDrafts] };
+    });
     clearApplicationSelection();
-    showToast(
-      `${count} ${count === 1 ? 'perfil avanzó' : 'perfiles avanzaron'} a Preseleccionado. Se guardaron los borradores correspondientes.`,
-      'success'
-    );
+    showToast(`${new Set(ids).size} perfiles avanzaron a Preseleccionado. Se guardaron borradores de avance${rejectOthers ? ' y cierre' : ''}.`, 'success');
+  };
+
+  const handleAdvanceSelected = (rejectOthers = false, customMessage?: string) => {
+    const ids = selectedApplicationIds.filter((id) => activeJobApplications.some((a) => a.id === id));
+    handleAdvanceApplications(ids, rejectOthers, customMessage);
+  };
+
+  const handleMoveStage = (appId: string, target: Stage, reason: string) => {
+    const app = appState.applications.find((a) => a.id === appId);
+    const error = app && validateStageTransition(app, target, appState.selectedMethod);
+    if (!app || error || !reason.trim()) { showToast(error || 'Registre el motivo de la decisión.', 'warning'); return; }
+    if (moveApplicationStage(appState, appId, target, reason) === appState) {
+      showToast('La convocatoria debe estar activa.', 'warning'); return;
+    }
+    setAppState((prev) => moveApplicationStage(prev, appId, target, reason));
+    setSelectedApplicationIds((prev) => prev.filter((id) => id !== appId));
+    showToast('Cambio de etapa registrado en el expediente y el historial.', 'success');
+  };
+
+  const handleSaveToTalentPool = (candidateId: string) => {
+    if (!appState.candidates.some((c) => c.id === candidateId)) return;
+    setAppState((prev) => ({ ...prev, candidates: prev.candidates.map((c) => c.id === candidateId ? {
+      ...c, savedInTalentPool: true, talentPoolOriginJob: c.talentPoolOriginJob || activeJob?.title,
+    } : c) }));
+    showToast('Perfil conservado en el Banco de Talento.', 'success');
   };
 
   // Liberar postulación
   const handleReleaseApplication = (appId: string, reason = 'Liberación manual por el evaluador') => {
+    const target = appState.applications.find((a) => a.id === appId);
+    const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
+    if (!job) return;
     const result = releaseApplication({
       applicationId: appId,
       applications: appState.applications,
       candidates: appState.candidates,
-      jobPostingTitle: activeJob?.title || 'Convocatoria Activa',
+      jobPostingTitle: job.title, criteriaVersion: job.criteriaVersion, method: appState.selectedMethod,
       reason,
     });
+
+    if (!result) { showToast('El expediente ya está cerrado o el motivo no es válido.', 'warning'); return; }
 
     // Desmarcar si estaba seleccionado
     setSelectedApplicationIds((prev) => prev.filter((id) => id !== appId));
@@ -282,19 +340,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSelectedCandidateForDrawer(null);
     }
 
-    setAppState((prev) => ({
-      ...prev,
-      applications: result.updatedApplications,
-      candidates: result.updatedCandidates,
-      activities: [result.newActivity, ...prev.activities],
-      decisionLogs: [result.newDecision, ...prev.decisionLogs],
-    }));
+    setAppState((prev) => {
+      const latest = releaseApplication({ applicationId: appId, applications: prev.applications, candidates: prev.candidates,
+        jobPostingTitle: job.title, reason, criteriaVersion: job.criteriaVersion, method: prev.selectedMethod });
+      if (!latest) return prev;
+      return { ...prev, applications: latest.updatedApplications, candidates: latest.updatedCandidates,
+        activities: [latest.newActivity, ...prev.activities], decisionLogs: [latest.newDecision, ...prev.decisionLogs] };
+    });
 
     showToast('Postulación liberada. El perfil continúa conservado en No continúan y en Banco de Talento.', 'info');
   };
 
   // Añadir nota
   const handleAddNote = (appId: string, noteText: string) => {
+    if (!noteText.trim() || !appState.applications.some((a) => a.id === appId)) return;
     const now = new Date().toISOString();
     const newAct = {
       id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -320,6 +379,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
   ) => {
     const now = new Date().toISOString();
+    if (!appState.applications.some((a) => a.id === appId) || !interviewData.title.trim() || !interviewData.locationOrLink.trim() || !Number.isFinite(new Date(interviewData.scheduledAt).getTime())) return;
     const newRecord: InterviewRecord = {
       id: `int-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       applicationId: appId,
@@ -361,6 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     body: string;
   }) => {
     const now = new Date().toISOString();
+    if (!appState.applications.some((a) => a.id === draft.applicationId) || !draft.subject.trim() || !draft.body.trim()) return;
     const newDraft: EmailDraft = {
       id: `draft-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       ...draft,
@@ -380,65 +441,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setAppState((prev) => ({
       ...prev,
-      emailDrafts: [newDraft, ...prev.emailDrafts.filter((d) => d.applicationId !== draft.applicationId)],
+      emailDrafts: [newDraft, ...prev.emailDrafts],
       activities: [newAct, ...prev.activities],
     }));
 
     showToast('Borrador guardado. El correo aún no se ha enviado (Gmail pendiente de conexión).', 'info');
   };
 
-  // Actualizar criterios de evaluación y guardar versión
+  // Aplicar exactamente la simulación a pendientes con evidencias completas.
   const handleUpdateJobCriteria = (jobId: string, criteria: Criterion[]) => {
-    setAppState((prev) => {
-      const now = new Date().toISOString();
-      const updatedJobs = prev.jobPostings.map((j) => {
-        if (j.id === jobId) {
-          const nextVersion = `v${(parseFloat(j.criteriaVersion.replace(/[^0-9.]/g, '') || '1.0') + 0.1).toFixed(1)}`;
-          return {
-            ...j,
-            criteria,
-            criteriaVersion: nextVersion,
-          };
-        }
-        return j;
-      });
-
-      const newDecision = {
-        id: `dec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        jobPostingId: jobId,
-        applicationId: '',
-        candidateId: '',
-        action: 'Actualización de Criterios y Ponderaciones',
-        author: 'Equipo de GTHC',
-        timestamp: now,
-        criteriaVersion: 'Nueva versión',
-        evaluationContext: {
-          mlScore: null,
-          llmScore: null,
-          method: prev.selectedMethod,
-        },
-        notes: 'Ponderaciones reajustadas al 100%.',
-      };
-
-      return {
-        ...prev,
-        jobPostings: updatedJobs,
-        decisionLogs: [newDecision, ...prev.decisionLogs],
-      };
-    });
-
-    showToast('Nuevos criterios guardados exitosamente como nueva versión.', 'success');
+    if (!hasValidCriteria(criteria)) { showToast('Los criterios deben ser válidos y sumar 100%.', 'warning'); return; }
+    setAppState((prev) => updateJobCriteria(prev, jobId, criteria));
+    showToast('Criterios versionados y puntajes de pendientes recalculados. Los ya decididos conservan su evaluación.', 'success');
   };
 
   // Crear nueva convocatoria
   const handleCreateJobPosting = (newJob: JobPosting) => {
+    if (!newJob.code.trim() || !newJob.title.trim() || !hasValidCriteria(newJob.criteria) || appState.jobPostings.some((j) => j.id === newJob.id || j.code.toLowerCase() === newJob.code.toLowerCase())) {
+      showToast('Revise los datos: el código debe ser único y los criterios válidos.', 'warning'); return;
+    }
+    clearApplicationSelection(); setSelectedCandidateForDrawer(null);
     setAppState((prev) => ({
       ...prev,
       jobPostings: [newJob, ...prev.jobPostings],
-      activeJobPostingId: newJob.id,
+      activeJobPostingId: newJob.id, topN: newJob.defaultTopN,
     }));
     setCurrentView('convocatorias');
     showToast(`Convocatoria "${newJob.title}" creada como ${newJob.status}.`, 'success');
+  };
+
+  const handleActivateJobPosting = (jobId: string) => {
+    const job = appState.jobPostings.find((j) => j.id === jobId);
+    if (!job || job.status !== 'borrador' || !hasValidCriteria(job.criteria) || !job.knockoutRule.trim()) return;
+    const now = new Date().toISOString();
+    setAppState((prev) => ({ ...prev,
+      jobPostings: prev.jobPostings.map((j) => j.id === jobId ? { ...j, status: 'activa', phase: 'Convocatoria Abierta' } : j),
+      decisionLogs: [{ id: `dec-job-${Date.now()}`, jobPostingId: jobId, applicationId: '', candidateId: '',
+        action: 'Convocatoria activada', author: 'Equipo de GTHC', timestamp: now, criteriaVersion: job.criteriaVersion,
+        evaluationContext: { mlScore: null, llmScore: null, method: prev.selectedMethod }, notes: 'Borrador activado sin añadir postulaciones ficticias.' }, ...prev.decisionLogs] }));
+    showToast('Convocatoria activada. Las postulaciones se incorporan desde Carga o Banco de Talento.', 'success');
   };
 
   // Carga masiva de lotes de candidatos
@@ -451,121 +492,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast(`Se incorporaron ${newApps.length} perfiles a la convocatoria activa.`, 'success');
   };
 
-  // Vincular candidato a nueva convocatoria
+  // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.
   const handleLinkCandidateToJob = (candidateId: string, targetJobId: string) => {
-    // Verificar si ya existe postulación en esa convocatoria
-    const existing = appState.applications.find(
-      (a) => a.candidateId === candidateId && a.jobPostingId === targetJobId
-    );
-    if (existing) {
-      showToast('Esta persona ya cuenta con una postulación en esa convocatoria.', 'warning');
-      return;
-    }
-
-    const now = new Date().toISOString();
     const cand = appState.candidates.find((c) => c.id === candidateId);
-    const targetJob = appState.jobPostings.find((j) => j.id === targetJobId);
-
-    // Evaluación adaptativa inicial para el nuevo puesto (conforme a perfil profesional verificado)
-    const initialMlScore = Math.floor(Math.random() * 8) + 88; // 88 - 95
-    const initialLlmScore = Math.floor(Math.random() * 8) + 87; // 87 - 94
-
-    const newApp: Application = {
-      id: `app-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      jobPostingId: targetJobId,
-      candidateId,
-      stage: 'postulado',
-      mlScore: initialMlScore,
-      llmScore: initialLlmScore,
-      mandatoryRequirementStatus: 'verificado',
-      requirementJustification: `Requisitos validados para ${targetJob?.title || 'la convocatoria'}: Grados académicos y trayectoria técnica verificados.`,
-      whyScoreNotes: {
-        explanation: `Postulación incorporada desde el Banco de Talento para ${targetJob?.code || 'la convocatoria'}. Evaluación inicial computada exitosamente.`,
-        strengths: ['Perfil destacado conservado institucionalmente', 'Compatibilidad alta con el perfil de la cátedra'],
-        evidenceSummary: 'Expediente recuperado del Banco de Talento de ESAN y normalizado a Markdown.',
-      },
-      criteriaBreakdown: {},
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    setAppState((prev) => ({
-      ...prev,
-      candidates: prev.candidates.map((c) =>
-        c.id === candidateId ? { ...c, savedInTalentPool: false } : c
-      ),
-      applications: [newApp, ...prev.applications],
-      activeJobPostingId: targetJobId,
-    }));
-
-    // Seleccionarlo inmediatamente para que el evaluador lo vea destacado
-    setSelectedApplicationIds([newApp.id]);
-
-    setCurrentView('mejores_candidatos');
-    showToast(
-      `Se vinculó a ${cand?.name || 'candidato'} a ${targetJob?.code || targetJobId}. Salió del Banco de Talento y figura activo junto a los demás postulantes.`,
-      'success'
-    );
-  };
-
-  // Designar candidato como uno de Los Mejores directamente (preseleccionar)
-  const handleQuickAdvanceToBest = (applicationId: string) => {
-    const result = advanceApplications({
-      selectedAppIds: [applicationId],
-      applications: appState.applications,
-      candidates: appState.candidates,
-      jobPostingTitle: activeJob?.title || 'Convocatoria Activa',
-      method: appState.selectedMethod,
-      rejectOthersEvaluated: false,
+    const job = appState.jobPostings.find((j) => j.id === targetJobId && j.status === 'activa');
+    if (!cand || !job) { showToast('Seleccione una persona y una convocatoria activa.', 'warning'); return; }
+    if (appState.applications.some((a) => a.candidateId === candidateId && a.jobPostingId === targetJobId)) {
+      showToast('Esta persona ya cuenta con una postulación en esa convocatoria.', 'warning'); return;
+    }
+    const newApp = createPendingApplication(candidateId, job);
+    setAppState((prev) => {
+      if (prev.applications.some((a) => a.candidateId === candidateId && a.jobPostingId === targetJobId)) return prev;
+      return { ...prev, applications: [newApp, ...prev.applications], activeJobPostingId: job.id, topN: job.defaultTopN,
+        activities: [{ id: `act-link-${newApp.id}`, applicationId: newApp.id, type: 'note', title: 'Perfil vinculado desde Banco de Talento',
+          details: 'Nueva postulación con requisitos y evaluaciones pendientes.', author: 'Equipo de GTHC', timestamp: newApp.createdAt }, ...prev.activities] };
     });
-
-    setAppState((prev) => ({
-      ...prev,
-      applications: result.updatedApplications,
-      activities: [...result.newActivities, ...prev.activities],
-      decisionLogs: [...result.newDecisions, ...prev.decisionLogs],
-      emailDrafts: [...result.newDrafts, ...prev.emailDrafts],
-    }));
-
-    const app = appState.applications.find((a) => a.id === applicationId);
-    const cand = appState.candidates.find((c) => c.id === app?.candidateId);
-
-    showToast(
-      `⭐ ${cand?.name || 'Candidato'} fue designado como Mejor Perfil y avanzó a Preseleccionado.`,
-      'success'
-    );
+    setSelectedCandidateForDrawer(null); clearApplicationSelection();
+    setCurrentView('mejores_candidatos');
+    showToast(`${cand.name} vinculado a ${job.code}. Requisitos y puntajes pendientes; perfil conservado en Banco de Talento.`, 'success');
   };
 
-  // Revertir de preseleccionado a postulado si se desea ajustar
-  const handleRevertToPostulado = (applicationId: string) => {
-    const now = new Date().toISOString();
-    const app = appState.applications.find((a) => a.id === applicationId);
-    const cand = appState.candidates.find((c) => c.id === app?.candidateId);
-
-    setAppState((prev) => ({
-      ...prev,
-      applications: prev.applications.map((a) =>
-        a.id === applicationId ? { ...a, stage: 'postulado', updatedAt: now } : a
-      ),
-      activities: [
-        {
-          id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          applicationId,
-          type: 'stage_change',
-          title: 'Reversión a Postulado',
-          details: 'Se retiró la designación de preselección para revisión regular.',
-          author: 'Equipo de GTHC',
-          timestamp: now,
-        },
-        ...prev.activities,
-      ],
-    }));
-
-    showToast(
-      `${cand?.name || 'Candidato'} fue retornado a etapa Postulado (en proceso regular).`,
-      'info'
-    );
-  };
+  const handleQuickAdvanceToBest = (applicationId: string) => handleAdvanceApplications([applicationId]);
+  const handleRevertToPostulado = (applicationId: string) => handleMoveStage(applicationId, 'postulado', 'Revisión de la preselección por el equipo de GTHC');
 
   // Restablecer datos iniciales de demo
   const handleResetData = () => {
@@ -581,6 +529,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setSelectedCandidateId = (candId: string | null) => {
     setSelectedCandidateIdState(candId);
+    setSelectedCandidateForDrawer(null);
     if (!candId) {
       setSelectedCandidateForDrawer(null);
     } else {
@@ -632,6 +581,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReducedMotion,
     showToast,
     removeToast,
+    handleAdvanceApplications,
+    handleMoveStage,
+    handleSaveToTalentPool,
     handleAdvanceSelected,
     handleReleaseApplication,
     handleAddNote,
@@ -639,6 +591,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleSaveEmailDraft,
     handleUpdateJobCriteria,
     handleCreateJobPosting,
+    handleActivateJobPosting,
     handleAddBatchCandidates,
     handleLinkCandidateToJob,
     handleQuickAdvanceToBest,
@@ -657,3 +610,4 @@ export function useApp() {
   }
   return context;
 }
+

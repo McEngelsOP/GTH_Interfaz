@@ -121,7 +121,7 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
 
   it('avanza candidatos a preseleccionado sin eliminarlos del sistema', () => {
     const result = advanceApplications({
-      selectedAppIds: ['app-1'],
+      selectedAppIds: ['app-1'], jobPostingId: 'REQ-1', criteriaVersion: 'v3.0',
       applications: [mockApp1, mockApp2],
       candidates: [mockCandidate],
       jobPostingTitle: 'Docente TI',
@@ -145,6 +145,8 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
       reason: 'Liberación de prueba',
     });
 
+    expect(result).not.toBeNull();
+    if (!result) throw new Error('Expected release result');
     const updatedApp1 = result.updatedApplications.find((a) => a.id === 'app-1');
     expect(updatedApp1?.stage).toBe('no_continua');
 
@@ -154,3 +156,4 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
     expect(result.newDecision.action).toContain('Liberar');
   });
 });
+

@@ -157,3 +157,8 @@ secrets.yaml
 .env~
 .vercel
 .env*
+
+
+# Browser test artifacts
+playwright-report/
+test-results/

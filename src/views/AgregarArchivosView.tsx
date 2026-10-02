@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Button } from '../components/common/Button.tsx';
 import { Badge } from '../components/common/Badge.tsx';
+import { validateProfileCatalogCSV } from '../services/csvService.ts';
+import { simulateScoreRecalculation } from '../services/recruitmentRules.ts';
 import { Candidate, Application } from '../types/index.ts';
 import {
   UploadCloud,
@@ -31,7 +33,13 @@ export function AgregarArchivosView() {
   const [files, setFiles] = useState<UploadedFilePreview[]>([]);
   const [csvContentPreview, setCsvContentPreview] = useState<{ headers: string[]; rows: string[][]; errors: string[] } | null>(null);
 
-  // Carga automática multi-plataforma
+  const timers = useRef<ReturnType<typeof setInterval>[]>([]);
+  useEffect(() => {
+    setFiles([]); setCsvContentPreview(null); setIsAutoIngesting(false); setIsGenerating(false);
+    return () => { timers.current.forEach(clearInterval); timers.current = []; };
+  }, [activeJob?.id]);
+
+  // Simulación de carga multi-plataforma
   const [isAutoIngesting, setIsAutoIngesting] = useState(false);
   const [autoIngestProgress, setAutoIngestProgress] = useState(0);
   const [autoIngestPhase, setAutoIngestPhase] = useState('');
@@ -44,41 +52,41 @@ export function AgregarArchivosView() {
 
   // Iniciar carga automática de CV's multi-plataforma (simulación de integración con LinkedIn y Bolsa ESAN)
   const handleStartAutoIngest = () => {
-    if (!activeJob) return;
+    if (!activeJob || activeJob.status !== 'activa' || isAutoIngesting || isGenerating) return;
 
     setIsAutoIngesting(true);
     setAutoIngestProgress(0);
-    setAutoIngestPhase('Conectando con APIs de LinkedIn Talent y Bolsa Laboral ESAN...');
+    setAutoIngestPhase('Preparando 6 perfiles ficticios de demostración...');
 
     let p = 0;
     const interval = setInterval(() => {
       p += 20;
       if (p <= 30) {
-        setAutoIngestPhase('Sincronizando expedientes y extrayendo 6 CVs postulados...');
+        setAutoIngestPhase('Generando expedientes ficticios...');
         setAutoIngestProgress(p);
       } else if (p <= 60) {
-        setAutoIngestPhase('Normalizando currículos a formato Markdown (.md) estructurado...');
+        setAutoIngestPhase('Preparando texto sintético del CV...');
         setAutoIngestProgress(p);
       } else if (p <= 85) {
-        setAutoIngestPhase('Extrayendo entidades clave y calculando puntuaciones semánticas...');
+        setAutoIngestPhase('Asignando puntajes demostrativos independientes...');
         setAutoIngestProgress(p);
       } else if (p >= 100) {
         clearInterval(interval);
         setAutoIngestProgress(100);
-        setAutoIngestPhase('¡Carga automática completada!');
+        setAutoIngestPhase('¡Simulación completada!');
 
-        setTimeout(() => {
+        timers.current.push(setTimeout(() => {
           finalizeBatchGeneration(6);
           setIsAutoIngesting(false);
-          showToast(`Carga automática completada: 6 CVs extraídos de LinkedIn y Bolsa ESAN y normalizados a Markdown.`, 'success');
-        }, 500);
+          showToast('Simulación completada: 6 perfiles ficticios. Los portales y el OCR aún no están conectados.', 'info');
+        }, 500));
       }
     }, 280);
+    timers.current.push(interval);
   };
 
   // Manejo de carga de archivos locales manuales
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploaded = e.target.files;
+  const processFiles = (uploaded: FileList | null) => {
     if (!uploaded) return;
 
     const list: UploadedFilePreview[] = [];
@@ -90,25 +98,26 @@ export function AgregarArchivosView() {
 
       if (ext === 'md') {
         recognized = true;
-        statusMessage = 'Formato Markdown directo. Estructura optimizada para inferencia sin consumo excesivo de tokens.';
+        statusMessage = 'Texto Markdown detectado; evaluación y conversión a CSV pendientes de integración.';
       } else if (ext === 'pdf') {
         recognized = true;
-        statusMessage = 'PDF detectado. Conversión y normalización interna a Markdown estructurado en cola.';
+        statusMessage = 'PDF detectado. OCR pipeline → CSV pendiente de integración; archivo detectado, aún no procesado.';
       } else if (ext === 'doc' || ext === 'docx') {
         recognized = true;
-        statusMessage = 'Documento Word detectado. Extracción de entidades y conversión a Markdown en cola.';
+        statusMessage = 'Documento Word detectado. Extracción → CSV pendiente de integración; archivo detectado, aún no procesado.';
       } else if (['png', 'jpg', 'jpeg'].includes(ext || '')) {
         recognized = true;
-        statusMessage = 'Imagen detectada. OCR para transcripción a Markdown pendiente de procesamiento.';
+        statusMessage = 'Imagen detectada. OCR pipeline → CSV pendiente de integración.';
       } else if (ext === 'csv') {
         recognized = true;
-        statusMessage = 'Archivo CSV tabular detectado. Procesando catálogo de candidatos...';
+        statusMessage = 'Archivo CSV tabular detectado. Validando catálogo de perfiles de puesto (vista previa, sin importar candidatos)...';
 
         const reader = new FileReader();
         reader.onload = (event) => {
           const text = event.target?.result as string;
           parseAndValidateCSV(text);
         };
+        reader.onerror = () => showToast(`No se pudo leer ${file.name}.`, 'error');
         reader.readAsText(file, 'UTF-8');
       } else {
         recognized = false;
@@ -126,48 +135,13 @@ export function AgregarArchivosView() {
 
     setFiles((prev) => [...prev, ...list]);
   };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { processFiles(e.target.files); e.target.value = ''; };
 
-  // Validador de CSV de catálogo (ID; Perfil; Categoría; Requisito)
-  const parseAndValidateCSV = (text: string) => {
-    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length === 0) return;
-
-    const delimiter = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(delimiter).map((h) => h.trim().replace(/^["']|["']$/g, ''));
-
-    const expectedHeaders = ['ID', 'Perfil', 'Categoría', 'Requisito'];
-    const errors: string[] = [];
-
-    expectedHeaders.forEach((expected) => {
-      if (!headers.some((h) => h.toLowerCase() === expected.toLowerCase())) {
-        errors.push(`Columna faltante requerida: "${expected}"`);
-      }
-    });
-
-    const rows: string[][] = [];
-    const seenIds = new Set<string>();
-
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(delimiter).map((c) => c.trim().replace(/^["']|["']$/g, ''));
-      if (cols.length >= 4) {
-        const id = cols[0];
-        if (seenIds.has(id)) {
-          errors.push(`Fila ${i + 1}: Identificador duplicado "${id}"`);
-        } else {
-          seenIds.add(id);
-        }
-        rows.push(cols.slice(0, 4));
-      } else if (cols.length > 1) {
-        errors.push(`Fila ${i + 1}: Número insuficiente de columnas (esperadas 4, encontradas ${cols.length})`);
-      }
-    }
-
-    setCsvContentPreview({ headers, rows: rows.slice(0, 5), errors });
-  };
+  const parseAndValidateCSV = (text: string) => setCsvContentPreview(validateProfileCatalogCSV(text));
 
   // Generador de lotes demostrativos (25, 100, 500)
   const handleStartBatchGeneration = () => {
-    if (!activeJob) return;
+    if (!activeJob || activeJob.status !== 'activa' || isAutoIngesting || isGenerating) return;
 
     setIsGenerating(true);
     setGenerationProgress(0);
@@ -190,13 +164,14 @@ export function AgregarArchivosView() {
         setGenerationProgress(100);
         setCurrentPhase('¡Lote normalizado generado exitosamente!');
 
-        setTimeout(() => {
+        timers.current.push(setTimeout(() => {
           finalizeBatchGeneration(batchSize);
           setIsGenerating(false);
           showToast(`Se incorporaron ${batchSize} candidatos de prueba a "${activeJob.title}".`, 'success');
-        }, 500);
+        }, 500));
       }
     }, 280);
+    timers.current.push(interval);
   };
 
   const finalizeBatchGeneration = (count: number) => {
@@ -240,17 +215,19 @@ export function AgregarArchivosView() {
     const newApps: Application[] = [];
 
     for (let i = 0; i < count; i++) {
-      const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
-      const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
-      const comp = companies[Math.floor(Math.random() * companies.length)];
-      const tit = titles[Math.floor(Math.random() * titles.length)];
+      const fn = firstNames[i % firstNames.length];
+      const ln = lastNames[(i * 7) % lastNames.length];
+      const comp = companies[i % companies.length];
+      const tit = titles[i % titles.length];
 
       const candId = `cand-gen-${Date.now()}-${i}`;
       const appId = `app-gen-${Date.now()}-${i}`;
 
-      const baseScore = Math.floor(65 + Math.random() * 32);
-      const mlScore = Math.min(100, Math.max(50, baseScore + Math.floor(Math.random() * 7 - 3)));
-      const llmScore = Math.min(100, Math.max(50, baseScore + Math.floor(Math.random() * 7 - 3)));
+      const criteriaBreakdown = Object.fromEntries(activeJob.criteria.map((c, ci) => [c.id, {
+        score: 65 + ((i * 7 + ci * 11) % 33), evidence: 'Dato sintético de demostración, no verificación documental real.',
+      }]));
+      const mlScore = simulateScoreRecalculation(activeJob.criteria, criteriaBreakdown, 'ML');
+      const llmScore = simulateScoreRecalculation(activeJob.criteria, criteriaBreakdown, 'LLM');
 
       newCandidates.push({
         id: candId,
@@ -259,7 +236,7 @@ export function AgregarArchivosView() {
         phone: `+51 9${Math.floor(10000000 + Math.random() * 89999999)}`,
         currentTitle: tit,
         currentCompany: comp,
-        source: ['Bolsa ESAN', 'LinkedIn Talent', 'Portal Universitario', 'Referencia Académica'][i % 4],
+        source: 'Lote ficticio de demostración',
         summary: `Perfil normalizado a Markdown desde CV multi-plataforma. Experiencia comprobada en ${tit} en ${comp}.`,
         rawCvText: `# Currículum Vitae — ${fn} ${ln}\n\n## Perfil Profesional\n${tit} en ${comp}.\n\n## Educación & Certificaciones\n- Grado de Maestría o equivalente verificado.\n- Especialización en ${activeJob.department}.\n\n## Experiencia Relevante\n- Trayectoria de más de 6 años liderando proyectos en el sector.`,
         savedInTalentPool: false,
@@ -273,13 +250,13 @@ export function AgregarArchivosView() {
         mlScore,
         llmScore,
         mandatoryRequirementStatus: i % 8 === 0 ? 'sin_verificar' : 'verificado',
-        requirementJustification: 'Extracción y validación automática de requisitos desde CV normalizado en Markdown.',
+        requirementJustification: i % 8 === 0 ? 'Caso ficticio: requisito pendiente de verificación.' : 'Caso ficticio: requisito verificado para probar el flujo.',
         whyScoreNotes: {
           explanation: `Score asignado mediante evaluación demostrativa con ${activeJob.criteriaVersion} sobre Markdown optimizado.`,
           strengths: ['Experiencia en el sector comprobada', 'Buena alineación semántica con syllabus'],
           evidenceSummary: 'Documentación normalizada a Markdown en lote demostrativo.',
         },
-        criteriaBreakdown: {},
+        criteriaBreakdown,
         createdAt: now,
         updatedAt: now,
       });
@@ -337,7 +314,7 @@ export function AgregarArchivosView() {
               </Badge>
             </div>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-              Extracción automatizada multi-plataforma y procesamiento a Markdown para inferencia óptima. Exportable a CSV desde el Banco de Talento.
+              Detección de archivos y validación CSV. OCR y conectores externos pendientes. Los lotes de prueba contienen datos ficticios.
             </p>
           </div>
         </div>
@@ -347,7 +324,7 @@ export function AgregarArchivosView() {
         </Button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '1.5rem' }}>
         {/* Panel 1: Ingesta Automatizada y Carga de CV's */}
         <div
           style={{
@@ -367,15 +344,15 @@ export function AgregarArchivosView() {
                 Ingesta y Carga de CV's
               </h2>
               <Badge variant="neutral" size="sm" icon={<FileCode2 size={12} />}>
-                Conversión a Markdown
+                OCR pipeline → CSV
               </Badge>
             </div>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              Los CVs se extraen automáticamente de múltiples bolsas y plataformas de empleo, procesándose internamente a formato <strong>Markdown estructurado</strong> para optimizar la velocidad y precisión del modelo de lenguaje.
+              El flujo previsto convierte CVs a <strong>CSV estructurado</strong>. En esta demo, PDF, Word e imágenes se detectan; el OCR y la evaluación requieren la integración del equipo.
             </p>
           </div>
 
-          {/* Bloque de Acción Principal: Iniciar Carga Automática */}
+          {/* Bloque de Acción Principal: Iniciar Simulación de Carga */}
           <div
             style={{
               padding: '1.15rem',
@@ -391,7 +368,7 @@ export function AgregarArchivosView() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <Sparkles size={16} style={{ color: 'var(--primary-red)' }} />
                 <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Extracción Automática de Plataformas
+                  Simulación con perfiles ficticios
                 </span>
               </div>
               <Badge variant="purple" size="sm">
@@ -399,18 +376,18 @@ export function AgregarArchivosView() {
               </Badge>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-              Ejecuta el conector institucional para sincronizar automáticamente los nuevos CVs postulados a esta convocatoria, convirtiéndolos en Markdown para evaluación en cliente.
+              Genera 6 perfiles ficticios para probar el flujo. No consulta LinkedIn, Bolsa ESAN ni otros portales.
             </p>
 
             <Button
               variant="primary"
               size="lg"
               icon={isAutoIngesting ? <RefreshCw size={18} className="spin" /> : <Sparkles size={18} />}
-              disabled={isAutoIngesting || isGenerating}
+              disabled={isAutoIngesting || isGenerating || activeJob.status !== 'activa'}
               onClick={handleStartAutoIngest}
               style={{ width: '100%' }}
             >
-              {isAutoIngesting ? 'Extrayendo y normalizando CVs a Markdown...' : "⚡ Iniciar Carga Automática de CV's"}
+              {isAutoIngesting ? 'Generando perfiles ficticios...' : "⚡ Iniciar Simulación de Carga de CV's"}
             </Button>
 
             {/* Barra de progreso de carga automática */}
@@ -452,6 +429,8 @@ export function AgregarArchivosView() {
 
           {/* Zona de Drop / Input de archivo */}
           <label
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); processFiles(e.dataTransfer.files); }}
             style={{
               border: '2px dashed var(--border-strong)',
               borderRadius: 'var(--radius-md)',
@@ -518,10 +497,10 @@ export function AgregarArchivosView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingLeft: '0.25rem' }}>
               <div>
-                <strong>1. Ingesta Multi-Plataforma:</strong> Captura automatizada de expedientes desde LinkedIn Talent, Bolsa ESAN y portales de convocatoria.
+                <strong>1. Ingesta Multi-Plataforma:</strong> Conectores de portales pendientes de integración. La simulación genera solo perfiles ficticios locales.
               </div>
               <div>
-                <strong>2. Normalización a Markdown:</strong> Cada currículum se convierte a Markdown (`.md`) para eliminar ruido visual y permitir una evaluación semántica por tokens ultrarrápida.
+                <strong>2. OCR pipeline → CSV:</strong> OCR pipeline → CSV previsto en el acta. La extracción documental y los motores de matching aún no están conectados.
               </div>
               <div>
                 <strong>3. Exportación CSV en Banco de Talento:</strong> Los expedientes consolidados quedan archivados en el <em>Banco de Talento</em>, donde pueden descargarse en formato CSV (UTF-8 con BOM) para auditoría o comités.
@@ -753,3 +732,4 @@ export function AgregarArchivosView() {
     </div>
   );
 }
+

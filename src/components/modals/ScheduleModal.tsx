@@ -19,8 +19,8 @@ export function ScheduleModal({ isOpen, onClose, candidateName, onSchedule }: Sc
   const [dateError, setDateError] = useState('');
 
   const handleSave = () => {
-    if (!scheduledAt) {
-      setDateError('Seleccione una fecha y hora para la entrevista');
+    if (!title.trim() || !locationOrLink.trim() || !scheduledAt || !Number.isFinite(new Date(scheduledAt).getTime())) {
+      setDateError('Ingrese el título, lugar y una fecha y hora válidos para la entrevista');
       return;
     }
     setDateError('');
@@ -47,7 +47,7 @@ export function ScheduleModal({ isOpen, onClose, candidateName, onSchedule }: Sc
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" icon={<Calendar size={16} />} onClick={handleSave}>
+          <Button variant="primary" icon={<Calendar size={16} />} onClick={handleSave} disabled={!title.trim() || !locationOrLink.trim() || !scheduledAt}>
             Guardar registro de entrevista
           </Button>
         </>
@@ -130,3 +130,4 @@ export function ScheduleModal({ isOpen, onClose, candidateName, onSchedule }: Sc
     </Modal>
   );
 }
+

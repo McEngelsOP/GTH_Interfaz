@@ -18,29 +18,8 @@ export function RequirementPill({
   totalCount: explicitTotal,
   criteriaBreakdown,
 }: RequirementPillProps) {
-  // Cantidad total de requisitos (por defecto 5 para ajustarse al modelo del puesto)
-  const total =
-    explicitTotal ??
-    (criteriaBreakdown && Object.keys(criteriaBreakdown).length > 0
-      ? Object.keys(criteriaBreakdown).length
-      : 5);
-
-  // Cantidad de requisitos cumplidos
-  let met = 0;
-  if (explicitMet !== undefined) {
-    met = explicitMet;
-  } else if (status === 'no_cumple' || status === 'sin_verificar') {
-    met = 0;
-  } else if (status === 'verificado') {
-    met = total;
-  } else if (status === 'parcial') {
-    if (criteriaBreakdown && Object.keys(criteriaBreakdown).length > 0) {
-      met = Object.values(criteriaBreakdown).filter((c) => c.score >= 60).length;
-      if (met === 0) met = Math.max(1, Math.floor(total * 0.6));
-    } else {
-      met = Math.max(1, Math.floor(total * 0.6));
-    }
-  }
+  const total = explicitTotal && explicitTotal > 0 ? explicitTotal : null;
+  const met = total !== null && explicitMet !== undefined ? Math.max(0, Math.min(total, explicitMet)) : null;
 
   const statusLabel =
     status === 'verificado'
@@ -52,7 +31,7 @@ export function RequirementPill({
       : 'Sin verificar';
 
   const tooltipText =
-    justification || `${met}/${total} requisitos cumplidos (${statusLabel})`;
+    justification || statusLabel;
 
   return (
     <div
@@ -75,7 +54,7 @@ export function RequirementPill({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {met}/{total} cumplen
+        {met !== null && total !== null ? `${met}/${total} cumplen` : statusLabel}
       </span>
       <div
         style={{
@@ -84,7 +63,7 @@ export function RequirementPill({
           gap: '4.5px',
         }}
       >
-        {Array.from({ length: total }).map((_, idx) => {
+        {total !== null && met !== null && Array.from({ length: total }).map((_, idx) => {
           const isMet = idx < met;
           return (
             <span
@@ -104,3 +83,4 @@ export function RequirementPill({
     </div>
   );
 }
+

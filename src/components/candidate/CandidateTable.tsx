@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
+import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { RequirementPill } from './RequirementPill.tsx';
 import { ScoreBadge } from './ScoreBadge.tsx';
@@ -44,10 +45,13 @@ export function CandidateTable({
     selectAllApplications,
     clearApplicationSelection,
     openCandidateDrawer,
-    handleQuickAdvanceToBest,
-    handleRevertToPostulado,
+    handleSaveToTalentPool,
+    handleMoveStage,
     showToast,
   } = useApp();
+
+  const [revertTarget, setRevertTarget] = useState<Application | null>(null);
+  useEffect(() => { setSearchQuery(''); setSourceFilter('ALL'); setRequirementFilter('ALL'); setCurrentPage(1); }, [activeJob?.id]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('ALL');
@@ -140,8 +144,8 @@ export function CandidateTable({
     }
   };
 
-  const handleSaveToTalentPool = (cand: Candidate) => {
-    showToast(`El perfil de ${cand.name} ha sido guardado en el Banco de Talento.`, 'success');
+  const saveCandidateToPool = (cand: Candidate) => {
+    handleSaveToTalentPool(cand.id);
   };
 
   const handleExportCurrentTable = () => {
@@ -151,6 +155,7 @@ export function CandidateTable({
       return;
     }
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: sortedApplications,
       candidates: appState.candidates,
       job: activeJob,
@@ -163,6 +168,7 @@ export function CandidateTable({
   const handleExportSingle = (app: Application, cand?: Candidate) => {
     if (!activeJob) return;
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: [app],
       candidates: cand ? [cand] : appState.candidates,
       job: activeJob,
@@ -506,7 +512,8 @@ export function CandidateTable({
                             variant="secondary"
                             size="sm"
                             icon={<Star size={13} fill="#D97706" style={{ color: '#D97706' }} />}
-                            onClick={() => handleQuickAdvanceToBest(app.id)}
+                            onClick={() => onQuickAdvance(app)}
+                            disabled={!isEligibleForTopN(app, selectedMethod).eligible || activeJob?.status !== 'activa'}
                             title="Designar y mover directamente a Los Mejores (Preseleccionado)"
                           >
                             Mejor
@@ -516,7 +523,7 @@ export function CandidateTable({
                         {app.stage === 'preseleccionado' && (
                           <span
                             title="Candidato ya designado en Los Mejores (Preseleccionado). Clic para revertir a Postulado si lo requiere."
-                            onClick={() => handleRevertToPostulado(app.id)}
+                            onClick={() => setRevertTarget(app)}
                             style={{ cursor: 'pointer' }}
                           >
                             <Badge variant="success" size="sm" icon={<Star size={11} fill="currentColor" />}>
@@ -538,11 +545,11 @@ export function CandidateTable({
                           variant="ghost"
                           size="sm"
                           icon={<Bookmark size={14} />}
-                          onClick={() => cand && handleSaveToTalentPool(cand)}
+                          onClick={() => cand && saveCandidateToPool(cand)}
                           title="Conservar en Banco de Talento"
                         />
 
-                        {app.stage !== 'no_continua' && (
+                        {app.stage !== 'no_continua' && app.stage !== 'contratado' && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -622,6 +629,10 @@ export function CandidateTable({
           />
         </div>
       </div>
+      {revertTarget && <StageDecisionModal key={revertTarget.id} application={revertTarget} target="postulado"
+        candidateName={candidateMap.get(revertTarget.candidateId)?.name || 'Candidato'} onClose={() => setRevertTarget(null)}
+        onConfirm={(reason) => handleMoveStage(revertTarget.id, 'postulado', reason)} />}
     </div>
   );
 }
+

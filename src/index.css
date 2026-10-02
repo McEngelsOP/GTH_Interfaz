@@ -222,6 +222,10 @@ a {
 }
 
 @media (max-width: 768px) {
+  .toast-item:not(:last-child) { display: none !important; }
+  .mobile-only { display: inline-flex !important; }
+  .hide-on-mobile { display: none !important; }
+  aside:not(.sidebar-mobile-open) { display: none !important; }
   .desktop-only {
     display: none !important;
   }

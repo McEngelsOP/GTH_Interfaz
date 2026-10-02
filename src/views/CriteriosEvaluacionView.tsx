@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Criterion, EvaluationMethod } from '../types/index.ts';
@@ -29,6 +29,8 @@ export function CriteriosEvaluacionView() {
   const [pageSize, setPageSize] = useState<number>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
+  useEffect(() => { setCriteria(activeJob?.criteria.map((c) => ({ ...c })) || []); setShowSimulation(false); setCurrentPage(1); }, [activeJob?.id, activeJob?.criteriaVersion]);
+
   // Suma total y diferencia al 100%
   const totalWeight = criteria.reduce((sum, c) => sum + (Number(c.weightPct) || 0), 0);
   const delta = 100 - totalWeight;
@@ -49,7 +51,7 @@ export function CriteriosEvaluacionView() {
   const simulationResults = useMemo(() => {
     if (!activeJob) return [];
 
-    return activeJobApplications.map((app) => {
+    return activeJobApplications.filter((app) => app.stage === 'postulado').map((app) => {
       const cand = app;
       const simML = simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'ML');
       const simLLM = simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM');
@@ -462,3 +464,4 @@ export function CriteriosEvaluacionView() {
     </div>
   );
 }
+

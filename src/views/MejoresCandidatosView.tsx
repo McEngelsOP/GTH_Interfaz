@@ -47,7 +47,7 @@ export function MejoresCandidatosView() {
     showToast,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'marcados' | 'no_continuan' | 'todos'>('en_proceso');
+  const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'no_continuan' | 'todos'>('en_proceso');
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [releaseTarget, setReleaseTarget] = useState<{ app: Application; cand: Candidate } | null>(null);
 
@@ -66,23 +66,16 @@ export function MejoresCandidatosView() {
     return getTopCandidates(activeJobApplications, appState.selectedMethod, appState.topN);
   }, [activeJobApplications, appState.selectedMethod, appState.topN]);
 
-  // Conjunto consolidado de Los Mejores (Preseleccionados confirmados + Top elegibles por score)
-  const allBestApplications = useMemo(() => {
-    const preselectedIds = new Set(preselectedCandidates.map((a) => a.id));
-    const combined = [...preselectedCandidates];
-    topEligiblePending.forEach((a) => {
-      if (!preselectedIds.has(a.id)) {
-        combined.push(a);
-      }
-    });
-    return combined;
-  }, [preselectedCandidates, topEligiblePending]);
+  // El Top-N contiene únicamente expedientes pendientes de primera decisión.
+  const allBestApplications = topEligiblePending;
 
   // Selección de conjunto según pestaña activa
   const displayedApplications = useMemo(() => {
     switch (activeTab) {
       case 'mejores':
         return allBestApplications;
+      case 'preseleccionados': return preselectedCandidates;
+      case 'contratados': return activeJobApplications.filter((a) => a.stage === 'contratado');
       case 'marcados':
         return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
       case 'no_continuan':
@@ -91,7 +84,7 @@ export function MejoresCandidatosView() {
         return activeJobApplications;
       case 'en_proceso':
       default:
-        return activeJobApplications.filter((a) => a.stage !== 'no_continua');
+        return activeJobApplications.filter((a) => a.stage !== 'no_continua' && a.stage !== 'contratado');
     }
   }, [activeTab, activeJobApplications, allBestApplications, selectedApplicationIds]);
 
@@ -104,9 +97,11 @@ export function MejoresCandidatosView() {
     },
     {
       id: 'mejores',
-      label: 'Mejores perfiles',
+      label: 'Top-N pendientes',
       count: allBestApplications.length,
     },
+    { id: 'preseleccionados', label: 'Preseleccionados', count: preselectedCandidates.length },
+    { id: 'contratados', label: 'Contratados', count: metrics.stageCounts.contratado },
     {
       id: 'marcados',
       label: 'Marcados',
@@ -173,6 +168,7 @@ export function MejoresCandidatosView() {
       return;
     }
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: activeJobApplications,
       candidates: appState.candidates,
       job: activeJob,
@@ -190,6 +186,7 @@ export function MejoresCandidatosView() {
       return;
     }
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: allBestApplications,
       candidates: appState.candidates,
       job: activeJob,
@@ -207,6 +204,7 @@ export function MejoresCandidatosView() {
       return;
     }
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: markedApps,
       candidates: appState.candidates,
       job: activeJob,
@@ -222,9 +220,7 @@ export function MejoresCandidatosView() {
       showToast('No hay candidatos marcados para mover a Los Mejores.', 'warning');
       return;
     }
-    const count = markedApps.length;
-    handleAdvanceSelected(false);
-    showToast(`⭐ Se movieron ${count} candidatos a Los Mejores (Preseleccionados).`, 'success');
+    setIsAdvanceModalOpen(true);
   };
 
   if (!activeJob) {
@@ -421,7 +417,7 @@ export function MejoresCandidatosView() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <button
                 onClick={() => setTopN(appState.topN - 1)}
@@ -443,6 +439,7 @@ export function MejoresCandidatosView() {
               </button>
               <input
                 type="number"
+                aria-label="Cantidad Top-N"
                 min={1}
                 value={appState.topN}
                 onChange={(e) => setTopN(parseInt(e.target.value) || 1)}
@@ -525,7 +522,7 @@ export function MejoresCandidatosView() {
             onClick={handleExportAll}
             title="Descargar todos los candidatos del puesto en archivo CSV"
           >
-            Exportar todos ({metrics.totalActive})
+            Exportar todos ({metrics.totalProcessed})
           </Button>
 
           <Button
@@ -533,7 +530,7 @@ export function MejoresCandidatosView() {
             size="sm"
             icon={<Star size={14} style={{ color: '#D97706' }} />}
             onClick={handleExportBest}
-            title="Descargar solo los mejores perfiles (preseleccionados y top) en CSV"
+            title="Descargar el Top-N de expedientes pendientes en CSV"
           >
             Exportar Mejores ({allBestApplications.length})
           </Button>
@@ -575,7 +572,7 @@ export function MejoresCandidatosView() {
             animation: 'fadeIn 150ms ease-out',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
             <CheckSquare size={18} style={{ color: 'var(--primary-red)' }} />
             <div>
               <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--primary-red)' }}>
@@ -583,7 +580,7 @@ export function MejoresCandidatosView() {
                 {selectedApplicationIds.length === 1 ? 'perfil' : 'perfiles'} para revisarlos juntos.
               </span>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
-                Puedes moverlos directamente a Los Mejores o exportarlos a CSV.
+                Puedes comparar sus perfiles y revisar la decisión de avance.
               </span>
             </div>
           </div>
@@ -616,7 +613,7 @@ export function MejoresCandidatosView() {
               onClick={handleMoveMarkedToBest}
               title="Designar y mover directamente a Los Mejores (Preseleccionados)"
             >
-              ⭐ Mover a Mejores ({selectedApplicationIds.length})
+              Avanzar a Preselección ({selectedApplicationIds.length})
             </Button>
             <Button
               variant="secondary"
@@ -678,3 +675,4 @@ export function MejoresCandidatosView() {
     </div>
   );
 }
+

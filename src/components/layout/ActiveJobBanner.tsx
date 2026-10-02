@@ -25,7 +25,7 @@ export function ActiveJobBanner() {
         gap: '1rem',
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', minWidth: '280px', flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', minWidth: 0, flex: '1 1 280px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <Badge variant="primary" size="sm">
             {activeJob.code}
@@ -98,12 +98,13 @@ export function ActiveJobBanner() {
       </div>
 
       {/* Botones de acción contextual rápida */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', maxWidth: '100%', alignItems: 'center', gap: '0.65rem' }}>
         <Button
           variant="secondary"
           size="sm"
           icon={<Sliders size={15} />}
           onClick={() => setCurrentView('criterios_evaluacion')}
+          style={{ maxWidth: '100%', whiteSpace: 'normal' }}
           title="Ver o simular ponderación de criterios"
         >
           Criterios ({activeJob.criteriaVersion})
@@ -121,3 +122,4 @@ export function ActiveJobBanner() {
     </div>
   );
 }
+

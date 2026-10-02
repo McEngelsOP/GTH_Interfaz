@@ -102,9 +102,9 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
                 {activeJob?.title || 'Seleccionar convocatoria'}
               </span>
               {activeJob && (
-                <Badge size="sm" variant="primary">
+                <span className="hide-on-mobile"><Badge size="sm" variant="primary">
                   {activeJob.code}
-                </Badge>
+                </Badge></span>
               )}
             </div>
             {activeJob && (
@@ -221,3 +221,4 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     </header>
   );
 }
+

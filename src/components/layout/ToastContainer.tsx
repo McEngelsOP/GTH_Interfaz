@@ -22,7 +22,7 @@ export function ToastContainer() {
         pointerEvents: 'none',
       }}
     >
-      {toasts.map((toast) => {
+      {toasts.slice(-3).map((toast) => {
         const icons = {
           success: <CheckCircle2 size={18} style={{ color: '#16A34A', flexShrink: 0 }} />,
           warning: <AlertTriangle size={18} style={{ color: '#D97706', flexShrink: 0 }} />,
@@ -35,7 +35,7 @@ export function ToastContainer() {
             key={toast.id}
             role="status"
             aria-live="polite"
-            className="glass-panel"
+            className="glass-panel toast-item"
             style={{
               pointerEvents: 'auto',
               display: 'flex',
@@ -74,3 +74,4 @@ export function ToastContainer() {
     </div>
   );
 }
+

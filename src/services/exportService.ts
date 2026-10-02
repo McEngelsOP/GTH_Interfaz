@@ -3,14 +3,14 @@
    UTF-8 con BOM (\uFEFF) y delimitador ';' para compatibilidad Excel
    ========================================================================== */
 
-import { Application, Candidate, JobPosting, EvaluationMethod, ProfileTemplate } from '../types/index.ts';
+import { Application, Candidate, JobPosting, EvaluationMethod, ProfileTemplate, EmailDraft } from '../types/index.ts';
 import { getScoreByMethod, isEligibleForTopN } from './recruitmentRules.ts';
 
 /**
  * Sanitiza texto para evitar inyecciones de fórmulas en hojas de cálculo
  * y escapa comillas dobles y punto y coma.
  */
-function sanitizeCell(value: any): string {
+export function sanitizeCell(value: any): string {
   if (value === null || value === undefined) return '';
   let str = String(value).trim();
 
@@ -48,13 +48,14 @@ function triggerDownload(content: string, filename: string) {
  * ID; Candidato; Perfil; Categoría; Requisito; Convocatoria; Puntaje según Machine Learning; Puntaje según LLM (embeddings); Ordenado según; Etapa; Fuente; Explicación; Estado del mensaje
  */
 export function exportCandidatesCSV(params: {
+  emailDrafts?: EmailDraft[];
   applications: Application[];
   candidates: Candidate[];
   job: JobPosting;
   method: EvaluationMethod;
   scopeName: string; // 'Todos', 'Mejores_perfiles', 'Marcados'
 }) {
-  const { applications, candidates, job, method, scopeName } = params;
+  const { applications, candidates, job, method, scopeName, emailDrafts = [] } = params;
 
   const candidateMap = new Map<string, Candidate>();
   candidates.forEach((c) => candidateMap.set(c.id, c));
@@ -90,11 +91,11 @@ export function exportCandidatesCSV(params: {
       app.stage,
       cand?.source || 'No registrada',
       app.whyScoreNotes?.explanation || '',
-      app.stage === 'postulado' ? 'Sin mensaje' : 'Borrador guardado',
+      emailDrafts.some((draft) => draft.applicationId === app.id) ? 'Borrador guardado' : 'Sin mensaje',
     ].map(sanitizeCell).join(';');
   });
 
-  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const csv = [headers.map(sanitizeCell).join(';'), ...rows].join('\r\n');
   const filename = `Candidatos_${job.code}_${scopeName}_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
@@ -162,7 +163,7 @@ export function exportComparisonCSV(params: {
     return row.map(sanitizeCell).join(';');
   });
 
-  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const csv = [headers.map(sanitizeCell).join(';'), ...rows].join('\r\n');
   const filename = `Comparativa_${job.code}_Mejores_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
@@ -179,7 +180,7 @@ export function exportProfileCatalogCSV(templates: ProfileTemplate[]) {
       .join(';');
   });
 
-  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const csv = [headers.map(sanitizeCell).join(';'), ...rows].join('\r\n');
   const filename = `Catalogo_Perfiles_Puestos_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
@@ -216,7 +217,7 @@ export function exportTalentPoolCSV(candidates: Candidate[]) {
       .join(';');
   });
 
-  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const csv = [headers.map(sanitizeCell).join(';'), ...rows].join('\r\n');
   const filename = `Banco_Talento_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
@@ -272,7 +273,7 @@ export function exportHiresCsv(
       .join(';');
   });
 
-  const csv = [headers.join(';'), ...rows].join('\r\n');
+  const csv = [headers.map(sanitizeCell).join(';'), ...rows].join('\r\n');
   const filename = `Contrataciones_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }

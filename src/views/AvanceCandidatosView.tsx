@@ -4,6 +4,8 @@ import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Stage, Application, Candidate } from '../types/index.ts';
 import { ScoreBadge } from '../components/candidate/ScoreBadge.tsx';
 import { RequirementPill } from '../components/candidate/RequirementPill.tsx';
+import { StageDecisionModal } from '../components/modals/StageDecisionModal.tsx';
+import { validateStageTransition } from '../services/workflow.ts';
 import { Badge } from '../components/common/Badge.tsx';
 import { Button } from '../components/common/Button.tsx';
 import {
@@ -34,7 +36,10 @@ export function AvanceCandidatosView() {
     openCandidateDrawer,
     setCurrentView,
     showToast,
+    handleMoveStage,
   } = useApp();
+
+  const [pendingMove, setPendingMove] = useState<{ app: Application; target: Stage } | null>(null);
 
   const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
 
@@ -65,71 +70,25 @@ export function AvanceCandidatosView() {
     return groups;
   }, [activeJobApplications]);
 
-  // Mover etapa manualmente o por drag & drop
-  const handleMoveStage = (appId: string, targetStage: Stage) => {
+  const requestMoveStage = (appId: string, targetStage: Stage) => {
     const app = activeJobApplications.find((a) => a.id === appId);
-    if (!app) return;
-
-    if (app.stage === targetStage) return;
-
-    // Validación de requisitos obligatorios para avanzar más allá de postulado
-    if (targetStage !== 'postulado' && app.mandatoryRequirementStatus === 'no_cumple') {
-      showToast('No se puede avanzar: el candidato no cumple el requisito obligatorio.', 'error');
-      return;
-    }
-
-    const prevStage = app.stage;
-    const now = new Date().toISOString();
-    const cand = candidateMap.get(app.candidateId);
-
-    // Actualizar aplicación en appState
-    app.stage = targetStage;
-    app.updatedAt = now;
-
-    // Registrar actividad
-    appState.activities.unshift({
-      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      applicationId: app.id,
-      type: 'stage_change',
-      title: `Cambio de etapa: ${targetStage}`,
-      details: `Candidato trasladado de "${prevStage}" a "${targetStage}" en el tablero de avance.`,
-      author: 'Equipo de GTHC',
-      timestamp: now,
-    });
-
-    // Registrar decisión
-    appState.decisionLogs.unshift({
-      id: `dec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      jobPostingId: app.jobPostingId,
-      applicationId: app.id,
-      candidateId: app.candidateId,
-      action: `Cambio de etapa a ${targetStage}`,
-      previousStage: prevStage,
-      newStage: targetStage,
-      author: 'Equipo de GTHC',
-      timestamp: now,
-      criteriaVersion: activeJob?.criteriaVersion || 'v1.0',
-      evaluationContext: {
-        mlScore: app.mlScore,
-        llmScore: app.llmScore,
-        method: appState.selectedMethod,
-      },
-    });
-
-    showToast(`${cand?.name || 'Candidato'} trasladado a ${targetStage}.`, 'success');
+    if (!app || app.stage === targetStage) return;
+    const error = validateStageTransition(app, targetStage, appState.selectedMethod);
+    if (error) { showToast(error, 'warning'); return; }
+    setPendingMove({ app, target: targetStage });
   };
 
   const handleNextStage = (app: Application) => {
     const currentIndex = STAGES_ORDER.findIndex((s) => s.id === app.stage);
     if (currentIndex >= 0 && currentIndex < STAGES_ORDER.length - 1) {
-      handleMoveStage(app.id, STAGES_ORDER[currentIndex + 1].id);
+      requestMoveStage(app.id, STAGES_ORDER[currentIndex + 1].id);
     }
   };
 
   const handlePrevStage = (app: Application) => {
     const currentIndex = STAGES_ORDER.findIndex((s) => s.id === app.stage);
     if (currentIndex > 0) {
-      handleMoveStage(app.id, STAGES_ORDER[currentIndex - 1].id);
+      requestMoveStage(app.id, STAGES_ORDER[currentIndex - 1].id);
     }
   };
 
@@ -228,7 +187,7 @@ export function AvanceCandidatosView() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => {
                 if (draggedAppId) {
-                  handleMoveStage(draggedAppId, stageItem.id);
+                  requestMoveStage(draggedAppId, stageItem.id);
                   setDraggedAppId(null);
                 }
               }}
@@ -386,7 +345,7 @@ export function AvanceCandidatosView() {
                         >
                           <button
                             onClick={() => handlePrevStage(app)}
-                            disabled={stageIdx === 0}
+                            disabled={stageIdx === 0 || app.stage === 'contratado'}
                             className="focus-ring"
                             title={stageIdx > 0 ? `Volver a ${STAGES_ORDER[stageIdx - 1].label}` : undefined}
                             style={{
@@ -445,6 +404,12 @@ export function AvanceCandidatosView() {
           );
         })}
       </div>
+      {pendingMove && <StageDecisionModal key={pendingMove.app.id + pendingMove.target}
+        application={pendingMove.app} target={pendingMove.target}
+        candidateName={candidateMap.get(pendingMove.app.candidateId)?.name || 'Candidato'}
+        onClose={() => setPendingMove(null)}
+        onConfirm={(reason) => handleMoveStage(pendingMove.app.id, pendingMove.target, reason)} />}
     </div>
   );
 }
+

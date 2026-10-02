@@ -23,30 +23,32 @@ import {
 import { formatDateTime } from '../services/recruitmentRules.ts';
 
 export function ResultadosProcesoView() {
-  const { appState, activeJob, setSelectedCandidateId, setCandidateDrawerOpen, showToast } = useApp();
+  const { appState, activeJob, openCandidateDrawer, showToast } = useApp();
+
+  const applications = appState.applications.filter((app) => app.jobPostingId === activeJob?.id);
 
   // Candidatos contratados en todas las convocatorias o en la activa
   const hiredApplications = useMemo(() => {
-    return appState.applications.filter((app) => app.stage === 'contratado');
-  }, [appState.applications]);
+    return applications.filter((app) => app.stage === 'contratado');
+  }, [appState.applications, activeJob?.id]);
 
   // Candidatos preseleccionados u oferta
   const advancedApplications = useMemo(() => {
-    return appState.applications.filter(
-      (app) => app.stage === 'preseleccionado' || app.stage === 'en_entrevista' || app.stage === 'en_oferta' || app.stage === 'contratado'
+    return applications.filter(
+      (app) => app.stage === 'preseleccionado' || app.stage === 'en_entrevista' || app.stage === 'en_evaluacion' || app.stage === 'en_oferta' || app.stage === 'contratado'
     );
-  }, [appState.applications]);
+  }, [appState.applications, activeJob?.id]);
 
   // Embudo de conversión real sobre datos existentes
   const funnelMetrics = useMemo(() => {
-    const total = appState.applications.length;
-    const preselected = appState.applications.filter((a) =>
-      ['preseleccionado', 'en_entrevista', 'en_oferta', 'contratado'].includes(a.stage)
+    const total = applications.length;
+    const preselected = applications.filter((a) =>
+      ['preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'].includes(a.stage)
     ).length;
-    const interviewed = appState.applications.filter((a) =>
-      ['en_entrevista', 'en_oferta', 'contratado'].includes(a.stage)
+    const interviewed = applications.filter((a) =>
+      ['en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'].includes(a.stage)
     ).length;
-    const offered = appState.applications.filter((a) =>
+    const offered = applications.filter((a) =>
       ['en_oferta', 'contratado'].includes(a.stage)
     ).length;
     const hired = hiredApplications.length;
@@ -60,14 +62,14 @@ export function ResultadosProcesoView() {
       hiredPct: total > 0 ? Math.round((hired / total) * 100) : 0,
       preselectedPct: total > 0 ? Math.round((preselected / total) * 100) : 0,
     };
-  }, [appState.applications, hiredApplications.length]);
+  }, [appState.applications, activeJob?.id, hiredApplications.length]);
 
   const handleExportHires = () => {
     if (hiredApplications.length === 0) {
       showToast('No hay candidatos en etapa de "Contratado" para exportar.', 'info');
       return;
     }
-    exportHiresCsv(appState.applications, appState.candidates, appState.jobPostings);
+    exportHiresCsv(applications, appState.candidates, appState.jobPostings);
     showToast(`Se descargó el reporte de ${hiredApplications.length} contrataciones.`, 'success');
   };
 
@@ -409,8 +411,7 @@ export function ResultadosProcesoView() {
                           size="sm"
                           onClick={() => {
                             if (cand) {
-                              setSelectedCandidateId(cand.id);
-                              setCandidateDrawerOpen(true);
+                              openCandidateDrawer(app);
                             }
                           }}
                         >
@@ -515,3 +516,4 @@ export function ResultadosProcesoView() {
     </div>
   );
 }
+

@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
+import { Modal } from '../components/common/Modal.tsx';
 import { getScoreByMethod, isEligibleForTopN } from '../services/recruitmentRules.ts';
 
 export function BancoTalentoView() {
@@ -39,6 +40,7 @@ export function BancoTalentoView() {
     showToast,
   } = useApp();
 
+  const [profileToView, setProfileToView] = useState<Candidate | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCandidateForLink, setSelectedCandidateForLink] = useState<Candidate | null>(null);
 
@@ -111,6 +113,7 @@ export function BancoTalentoView() {
       return;
     }
     exportCandidatesCSV({
+      emailDrafts: appState.emailDrafts,
       applications: applicationsToExport,
       candidates: appState.candidates,
       job: activeJob,
@@ -151,7 +154,7 @@ export function BancoTalentoView() {
     if (app) {
       openCandidateDrawer(app);
     } else {
-      showToast(`Perfil de ${cand.name}: Sin postulación activa en el puesto actual.`, 'info');
+      setProfileToView(cand);
     }
   };
 
@@ -522,7 +525,7 @@ export function BancoTalentoView() {
                           size="sm"
                           icon={<Link2 size={13} />}
                           onClick={() => setSelectedCandidateForLink(cand)}
-                          title="Vincular a nueva convocatoria (saldrá de almacenados y pasará al puesto)"
+                          title="Crear postulación pendiente en otro puesto; conservar el perfil en el Banco"
                         >
                           Vincular a puesto
                         </Button>
@@ -570,6 +573,19 @@ export function BancoTalentoView() {
         activeJobId={activeJob?.id || ''}
         onConfirmLink={handleLinkCandidateToJob}
       />
+      {profileToView && <Modal isOpen onClose={() => setProfileToView(null)} title={profileToView.name}
+        subtitle="Banco de Talento · Perfil sin postulación" maxWidth="660px"
+        footer={<><Button variant="ghost" onClick={() => setProfileToView(null)}>Cerrar</Button>
+          <Button onClick={() => { setSelectedCandidateForLink(profileToView); setProfileToView(null); }}>Vincular a puesto</Button></>}>
+        <p><strong>{profileToView.currentTitle}</strong> · {profileToView.currentCompany}</p>
+        <p style={{ marginTop: '0.75rem' }}>{profileToView.summary}</p>
+        <p style={{ marginTop: '0.75rem' }}>Correo: {profileToView.email || 'No registrado'} · Teléfono: {profileToView.phone || 'No registrado'}</p>
+        <p style={{ marginTop: '0.75rem' }}>{profileToView.talentPoolNotes}</p>
+        <h3 style={{ marginTop: '1.25rem', marginBottom: '0.5rem' }}>CV registrado</h3>
+        <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--text-secondary)' }}>{profileToView.rawCvText || 'Sin documento registrado'}</div>
+        <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Al vincularlo a un puesto se crea un expediente independiente con evaluación pendiente.</p>
+      </Modal>}
     </div>
   );
 }
+

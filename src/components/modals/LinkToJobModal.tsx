@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal.tsx';
 import { Button } from '../common/Button.tsx';
 import { Select } from '../common/Select.tsx';
@@ -23,6 +23,8 @@ export function LinkToJobModal({
   onConfirmLink,
 }: LinkToJobModalProps) {
   const [targetJobId, setTargetJobId] = useState(activeJobId);
+
+  useEffect(() => { if (isOpen) setTargetJobId(jobs.find((j) => j.id === activeJobId && j.status === 'activa')?.id || jobs.find((j) => j.status === 'activa')?.id || ''); }, [isOpen, activeJobId, candidate?.id]);
 
   if (!isOpen || !candidate) return null;
 
@@ -50,7 +52,7 @@ export function LinkToJobModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" icon={<ArrowRight size={15} />} onClick={handleLink}>
+          <Button variant="primary" icon={<ArrowRight size={15} />} onClick={handleLink} disabled={!jobs.some((j) => j.id === targetJobId && j.status === 'activa')}>
             Crear nueva postulación
           </Button>
         </>
@@ -91,3 +93,4 @@ export function LinkToJobModal({
     </Modal>
   );
 }
+
