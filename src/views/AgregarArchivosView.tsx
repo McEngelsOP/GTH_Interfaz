@@ -501,7 +501,7 @@ export function AgregarArchivosView() {
                 <strong>2. OCR pipeline → CSV:</strong> OCR pipeline → CSV previsto en el acta. La extracción documental y los motores de matching aún no están conectados.
               </div>
               <div>
-                <strong>3. Exportación CSV en Banco de Talento:</strong> Los expedientes consolidados quedan archivados en el <em>Banco de Talento</em>, donde pueden descargarse en formato CSV (UTF-8 con BOM) para auditoría o comités.
+                <strong>3. Exportación CSV:</strong> Descargue los expedientes desde <em>Mejores candidatos</em> en formato CSV (UTF-8 con BOM) para revisión del comité.
               </div>
             </div>
           </div>
