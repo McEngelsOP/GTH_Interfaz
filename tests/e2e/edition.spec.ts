@@ -38,7 +38,7 @@ test('ETAPA-I limita menú y rutas y mantiene el cambio de convocatoria', async 
   for (const name of ['Convocatorias', 'Perfiles de puestos', 'Nueva convocatoria', 'Banco de Talento', 'Criterios de evaluación', 'Historial de decisiones', 'Resultados del proceso', 'Ajustes generales', 'Resumen general']) {
     await expect(page.locator('aside').getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
   }
-  await expect(page.getByRole('button', { name: 'Asistente GTH', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Asistente GTH', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Cambiar puesto', exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Convocatoria activa' }).selectOption('REQ-2026-ADM-032');
   await expect(page).toHaveURL(/job=REQ-2026-ADM-032/);

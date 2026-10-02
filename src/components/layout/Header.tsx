@@ -144,8 +144,9 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
       {/* Lado derecho: Asistente GTH + Selector de Tema + Perfil GTHC */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         {/* Botón Asistente GTH */}
-        {!IS_STAGE_ONE && <button
+        <button
           onClick={() => toggleAssistant()}
+          aria-label="Asistente GTH"
           className="focus-ring"
           style={{
             display: 'flex',
@@ -161,11 +162,11 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
             cursor: 'pointer',
             transition: 'all var(--transition-fast)',
           }}
-          title="Abrir Asistente GTH de demostración"
+          title="Abrir Asistente GTH · Google Gemini"
         >
           <Sparkles size={16} style={{ color: 'var(--primary-red)' }} />
           <span className="hide-on-mobile">Asistente GTH</span>
-        </button>}
+        </button>
 
         {/* Alternador de Tema */}
         <button
@@ -237,4 +238,3 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     </header>
   );
 }
-

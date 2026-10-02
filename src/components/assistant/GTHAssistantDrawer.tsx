@@ -1,323 +1,138 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
-import { getTopCandidates } from '../../services/recruitmentRules.ts';
 import { Drawer } from '../common/Drawer.tsx';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
-import {
-  Sparkles,
-  Send,
-  Info,
-  ShieldCheck,
-  User,
-  Bot,
-  HelpCircle,
-  ExternalLink,
-  RotateCcw,
-} from 'lucide-react';
+import { Bot, Send, RotateCcw, PlugZap, RefreshCw } from 'lucide-react';
+import { askAssistant, AssistantConfiguration, AssistantMessage, buildAssistantContext, getAssistantConfiguration, testAssistantConnection } from '../../services/assistantService.ts';
+import '../../styles/assistant.css';
 
-interface ChatMessage {
-  id: string;
-  sender: 'user' | 'assistant';
-  text: string;
-  candidateIds?: string[];
-  timestamp: string;
-}
+interface ChatMessage extends AssistantMessage { id: string }
 
 export function GTHAssistantDrawer() {
-  const {
-    isAssistantDrawerOpen,
-    setAssistantDrawerOpen,
-    activeJob,
-    activeJobApplications,
-    appState,
-    setSelectedCandidateId,
-    setCandidateDrawerOpen,
-  } = useApp();
+  const { isAssistantDrawerOpen, setAssistantDrawerOpen, activeJob, appState } = useApp();
+  const [question, setQuestion] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [configuration, setConfiguration] = useState<AssistantConfiguration | null>(null);
+  const [includeCandidates, setIncludeCandidates] = useState(false);
+  const [busy, setBusy] = useState<'chat' | 'check' | null>(null);
+  const [error, setError] = useState('');
+  const [connectionChecked, setConnectionChecked] = useState(false);
+  const [checkingConfiguration, setCheckingConfiguration] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  const requestVersion = useRef(0);
+  const transcriptEnd = useRef<HTMLDivElement>(null);
 
-  const [inputQuestion, setInputQuestion] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: '¡Hola! Soy el asistente de demostración de TalentAI · GTH ESAN. Puedo ayudarte a responder consultas sobre los candidatos y requisitos de la convocatoria activa basándome en los datos estructurados en memoria.',
-      timestamp: 'Ahora',
-    },
-  ]);
-
-  useEffect(() => { setMessages([{ id: 'welcome', sender: 'assistant', text: `Consulta de demostración para ${activeJob?.code || 'la convocatoria activa'}.`, timestamp: 'Ahora' }]); setInputQuestion(''); }, [activeJob?.id]);
-
-  // Preguntas sugeridas contextuales según la convocatoria activa
-  const suggestedQuestions = [
-    '¿Quiénes son los candidatos con mayor Score LLM?',
-    '¿Quiénes cumplen el requisito obligatorio?',
-    '¿Cuántos candidatos se encuentran preseleccionados?',
-    '¿Cuáles son las ponderaciones de esta convocatoria?',
-  ];
-
-  const handleAsk = (questionText: string) => {
-    if (!questionText.trim()) return;
-
-    const userMsg: ChatMessage = {
-      id: String(Date.now()),
-      sender: 'user',
-      text: questionText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    // Procesamiento contextual inteligente en memoria
-    let assistantReply = '';
-    let linkedCandidates: string[] = [];
-
-    const q = questionText.toLowerCase();
-
-    if (!activeJob) {
-      assistantReply = 'Por favor selecciona primero una convocatoria activa para poder consultar candidatos y criterios.';
-    } else if (q.includes('score') || q.includes('mejores') || q.includes('perfiles')) {
-      const method = 'LLM';
-      const count = Math.min(500, Math.max(1, Number(q.match(/\d+/)?.[0]) || 3));
-      const top = getTopCandidates(activeJobApplications, method, count);
-      assistantReply = top.length ? `Los ${top.length} mejores pendientes elegibles según ${method} para ${activeJob.code}:\n${top.map((a, i) => `${i + 1}. ${appState.candidates.find((c) => c.id === a.candidateId)?.name || 'Candidato'} — ${method}: ${a.llmScore}/100`).join('\n')}` : `No hay pendientes elegibles con evaluación ${method}.`;
-      linkedCandidates = top.map((a) => a.candidateId);
-    } else if (q.includes('requisito obligatorio') || q.includes('knockout') || q.includes('cumplen')) {
-      const compliant = activeJobApplications.filter((a) => a.mandatoryRequirementStatus === 'verificado');
-      assistantReply = `Para la convocatoria ${activeJob.code}, el requisito obligatorio es: "${activeJob.knockoutRule}".\nActualmente, ${compliant.length} de ${activeJobApplications.length} postulantes cumplen plenamente con esta condición.`;
-      linkedCandidates = compliant.slice(0, 4).map((a) => a.candidateId);
-    } else if (q.includes('preseleccionado') || q.includes('etapa') || q.includes('avance')) {
-      const preselected = activeJobApplications.filter((a) => a.stage === 'preseleccionado');
-      assistantReply = `En la convocatoria ${activeJob.code}, hay actualmente ${preselected.length} candidato(s) en etapa "Preseleccionado".`;
-      linkedCandidates = preselected.map((a) => a.candidateId);
-    } else if (q.includes('ponderacion') || q.includes('criterio') || q.includes('pesos')) {
-      const critLines = activeJob.criteria.map((c) => `• ${c.label} (${c.type}): ${c.weightPct}%`);
-      assistantReply = `Los criterios de evaluación de la versión ${activeJob.criteriaVersion} para ${activeJob.code} son:\n${critLines.join('\n')}\n(Total: 100%)`;
-    } else {
-      assistantReply = `He consultado los registros de ${activeJob.code}: Hay ${activeJobApplications.length} candidatos registrados. Puedes consultar sobre puntajes LLM, cumplimiento de requisitos knockout o candidatos preseleccionados.`;
-    }
-
-    const assistantMsg: ChatMessage = {
-      id: String(Date.now() + 1),
-      sender: 'assistant',
-      text: assistantReply,
-      candidateIds: linkedCandidates.length > 0 ? linkedCandidates : undefined,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setInputQuestion('');
+  const cancelRequest = () => { requestVersion.current++; controller.current?.abort(); controller.current = null; };
+  const refreshConfiguration = async () => {
+    cancelRequest();
+    const version = requestVersion.current, abort = new AbortController(); controller.current = abort;
+    setCheckingConfiguration(true); setError(''); setConnectionChecked(false);
+    try {
+      const config = await getAssistantConfiguration(abort.signal);
+      if (version === requestVersion.current) setConfiguration(config);
+    } catch (reason) {
+      if (version === requestVersion.current) { setConfiguration(null); setError(reason instanceof Error ? reason.message : 'No se pudo revisar Gemini.'); }
+    } finally { if (version === requestVersion.current) setCheckingConfiguration(false); }
   };
 
-  const handleOpenCandidate = (candidateId: string) => {
-    setAssistantDrawerOpen(false);
-    setSelectedCandidateId(candidateId);
-    setCandidateDrawerOpen(true);
+  useEffect(() => {
+    setMessages([]); setQuestion(''); setIncludeCandidates(false); setError(''); setConnectionChecked(false);
+  }, [activeJob?.id]);
+  useEffect(() => {
+    if (isAssistantDrawerOpen) void refreshConfiguration();
+    return () => { cancelRequest(); setBusy(null); setCheckingConfiguration(false); };
+  }, [isAssistantDrawerOpen, activeJob?.id]);
+  useEffect(() => { transcriptEnd.current?.scrollIntoView({ behavior: 'auto', block: 'end' }); }, [messages, busy]);
+
+  const ask = async (value: string) => {
+    if (!value.trim() || value.length > 2000 || busy || !configuration?.configured || !activeJob || checkingConfiguration) return;
+    cancelRequest();
+    const version = requestVersion.current, abort = new AbortController(); controller.current = abort;
+    const snapshot = value.trim();
+    setBusy('chat'); setError('');
+    try {
+      const answer = await askAssistant(snapshot, messages.map(({ role, text }) => ({ role, text })),
+        buildAssistantContext(appState, activeJob, includeCandidates), abort.signal);
+      if (version !== requestVersion.current) return;
+      setMessages((previous) => [...previous, { id: crypto.randomUUID(), role: 'user' as const, text: snapshot },
+        { id: crypto.randomUUID(), role: 'assistant' as const, text: answer.text }].slice(-24));
+      setQuestion(''); setConnectionChecked(true);
+    } catch (reason) {
+      if (version === requestVersion.current) { setQuestion(snapshot); setError(reason instanceof Error ? reason.message : 'No se pudo responder la consulta.'); }
+    } finally { if (version === requestVersion.current) setBusy(null); }
   };
 
-  return (
-    <Drawer
-      isOpen={isAssistantDrawerOpen}
-      onClose={() => setAssistantDrawerOpen(false)}
-      title="Asistente de Consulta · TalentAI"
-      subtitle={activeJob ? `Convocatoria: ${activeJob.code} · ${activeJob.title}` : 'Sin convocatoria activa'}
-      width="460px"
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem' }}>
-        {/* Banner de Honestidad Técnica (Sección 21 de la especificación) */}
-        <div
-          style={{
-            padding: '0.75rem 0.85rem',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--bg-base)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '0.78rem',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.65rem',
-            lineHeight: 1.45,
-          }}
-        >
-          <Info size={16} style={{ color: 'var(--accent-gold)', flexShrink: 0, marginTop: '0.1rem' }} />
-          <div>
-            <strong>Asistente de demostración · Sin conexión a IA externa:</strong> Responde en base a las reglas y
-            datos estructurados cargados en memoria. No realiza llamadas de red ni envía datos a proveedores de LLM.
-          </div>
+  const checkConnection = async () => {
+    if (busy || checkingConfiguration || !configuration?.configured) return;
+    cancelRequest();
+    const version = requestVersion.current, abort = new AbortController(); controller.current = abort;
+    setBusy('check'); setError(''); setConnectionChecked(false);
+    try {
+      await testAssistantConnection(abort.signal);
+      if (version === requestVersion.current) setConnectionChecked(true);
+    } catch (reason) {
+      if (version === requestVersion.current) setError(reason instanceof Error ? reason.message : 'No se pudo probar Gemini.');
+    } finally { if (version === requestVersion.current) setBusy(null); }
+  };
+
+  return <Drawer isOpen={isAssistantDrawerOpen} onClose={() => setAssistantDrawerOpen(false)}
+    title="Asistente GTH · Gemini" subtitle={activeJob ? `${activeJob.code} · ${activeJob.title}` : 'Selecciona una convocatoria'} width="500px"
+    footer={<form className="assistant-compose" onSubmit={(event) => { event.preventDefault(); void ask(question); }}>
+      <label htmlFor="assistant-question">Pregunta al asistente</label>
+      <textarea id="assistant-question" value={question} maxLength={2000} rows={2}
+        placeholder="Escribe tu consulta sobre esta convocatoria…" disabled={Boolean(busy)}
+        onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void ask(question); }
+        }} />
+      <div className="assistant-compose-actions"><span>Enter para enviar · Shift + Enter para nueva línea</span>
+        <Button type="submit" variant="primary" size="sm" icon={<Send size={15} />}
+          disabled={!question.trim() || !configuration?.configured || Boolean(busy) || checkingConfiguration || !activeJob}>Enviar consulta</Button></div>
+    </form>}>
+    <div className="assistant-content">
+      <div className="assistant-configuration">
+        <div className="assistant-configuration-heading"><strong>Google Gemini</strong>
+          <Badge size="sm" variant={connectionChecked ? 'success' : configuration?.configured ? 'info' : 'neutral'}>
+            {checkingConfiguration ? 'Revisando…' : connectionChecked ? 'Conexión verificada' : configuration?.configured ? 'Clave configurada' : 'Pendiente de configurar'}
+          </Badge></div>
+        <p>{configuration?.configured ? `Modelo: ${configuration.model}` : 'Configura tu clave API en Vercel para activar las respuestas.'}</p>
+        <div className="assistant-controls">
+          <Button size="sm" variant="secondary" icon={<RefreshCw size={14} />} onClick={() => void refreshConfiguration()}
+            disabled={Boolean(busy) || checkingConfiguration}>Actualizar estado</Button>
+          <Button size="sm" variant="secondary" icon={<PlugZap size={14} />} onClick={() => void checkConnection()}
+            disabled={Boolean(busy) || checkingConfiguration || !configuration?.configured}>Probar conexión</Button>
         </div>
-
-        {/* Historial de Mensajes */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.85rem',
-            paddingRight: '0.25rem',
-          }}
-        >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  fontSize: '0.72rem',
-                  color: 'var(--text-muted)',
-                  marginBottom: '0.25rem',
-                }}
-              >
-                {msg.sender === 'user' ? (
-                  <>
-                    <span>Tú</span>
-                    <User size={12} />
-                  </>
-                ) : (
-                  <>
-                    <Bot size={12} style={{ color: 'var(--primary-red)' }} />
-                    <span>Asistente TalentAI</span>
-                  </>
-                )}
-                <span>· {msg.timestamp}</span>
-              </div>
-
-              <div
-                style={{
-                  maxWidth: '90%',
-                  padding: '0.75rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor:
-                    msg.sender === 'user' ? 'var(--primary-red)' : 'var(--bg-surface)',
-                  color: msg.sender === 'user' ? '#FFFFFF' : 'var(--text-primary)',
-                  border: msg.sender === 'user' ? 'none' : '1px solid var(--border-default)',
-                  fontSize: '0.8125rem',
-                  lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                {msg.text}
-
-                {/* Enlaces directos a expedientes de candidatos */}
-                {msg.candidateIds && msg.candidateIds.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: '0.65rem',
-                      paddingTop: '0.5rem',
-                      borderTop: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.35rem',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      Candidatos referenciados:
-                    </span>
-                    {msg.candidateIds.map((cid) => {
-                      const cand = appState.candidates.find((c) => c.id === cid);
-                      if (!cand) return null;
-                      return (
-                        <button
-                          key={cid}
-                          type="button"
-                          onClick={() => handleOpenCandidate(cid)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            backgroundColor: 'var(--bg-base)',
-                            border: '1px solid var(--border-subtle)',
-                            padding: '0.35rem 0.6rem',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.75rem',
-                            color: 'var(--primary-red)',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                          }}
-                        >
-                          <span>{cand.name}</span>
-                          <ExternalLink size={12} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Preguntas Sugeridas */}
-        <div>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-            Preguntas sugeridas:
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-            {suggestedQuestions.map((q, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleAsk(q)}
-                style={{
-                  fontSize: '0.72rem',
-                  padding: '0.35rem 0.55rem',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-base)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Input de Pregunta */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAsk(inputQuestion);
-          }}
-          style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}
-        >
-          <input
-            type="text"
-            placeholder="Haz una consulta sobre la convocatoria..."
-            value={inputQuestion}
-            onChange={(e) => setInputQuestion(e.target.value)}
-            className="focus-ring"
-            style={{
-              flex: 1,
-              padding: '0.6rem 0.75rem',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-default)',
-              backgroundColor: 'var(--bg-surface)',
-              color: 'var(--text-primary)',
-              fontSize: '0.84rem',
-            }}
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            icon={<Send size={14} />}
-            disabled={!inputQuestion.trim()}
-          >
-            Enviar
-          </Button>
-        </form>
+        <details open={configuration?.configured === false} className="assistant-setup"><summary>Configurar Gemini</summary>
+          <ol><li>Crea o copia tu clave en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>.</li>
+            <li>En Vercel abre <strong>etapa_1 → Settings → Environment Variables</strong>.</li>
+            <li>Añade <code>GEMINI_API_KEY</code> y pega la clave como valor. Selecciona <strong>Production</strong> y guarda.</li>
+            <li>El modelo predeterminado es <code>gemini-3.5-flash-lite</code>. Para cambiarlo añade <code>GEMINI_MODEL</code>.</li>
+            <li>En <strong>Deployments</strong>, vuelve a desplegar la versión de <strong>ETAPA-I</strong>. Después pulsa <strong>Actualizar estado</strong> y <strong>Probar conexión</strong>.</li>
+          </ol></details>
       </div>
-    </Drawer>
-  );
+      <div className="assistant-sharing">
+        <p>Al enviar compartes con Google Gemini la conversación, los criterios y los conteos de esta convocatoria.</p>
+        <label><input type="checkbox" checked={includeCandidates} disabled={Boolean(busy)} onChange={(event) => {
+          setIncludeCandidates(event.target.checked); setMessages([]); setError('');
+        }} /> Incluir nombres, etapas y puntajes de candidatos (hasta 50)</label>
+      </div>
+      {error && <p className="assistant-error" role="alert">{error}</p>}
+      <div className="assistant-transcript" role="log" aria-label="Conversación con Gemini" aria-live="polite" aria-busy={Boolean(busy)}>
+        {!messages.length && <div className="assistant-welcome"><Bot size={22} />
+          <p>Consulta sobre los criterios, el avance y los resultados registrados de esta convocatoria. Las respuestas orientan la revisión del equipo.</p></div>}
+        {messages.map((message) => <div key={message.id} className={`assistant-message ${message.role}`}>
+          <span>{message.role === 'user' ? 'Tú' : 'Gemini'}</span><p>{message.text}</p>
+        </div>)}
+        {busy && <p className="assistant-pending" role="status">{busy === 'check' ? 'Probando conexión con Gemini…' : 'Gemini está preparando la respuesta…'}</p>}
+        <div ref={transcriptEnd} />
+      </div>
+      <div className="assistant-suggestions">
+        {['¿Cuántos candidatos hay y en qué etapas están?', '¿Qué falta para elegir el Top-N?', '¿Cuáles son los criterios y sus pesos?'].map((suggestion) =>
+          <button key={suggestion} type="button" className="assistant-suggestion" disabled={Boolean(busy) || checkingConfiguration || !configuration?.configured || !activeJob}
+            onClick={() => { setQuestion(suggestion); void ask(suggestion); }}>{suggestion}</button>)}
+        <Button variant="ghost" size="sm" icon={<RotateCcw size={14} />} disabled={Boolean(busy) || !messages.length}
+          onClick={() => { setMessages([]); setQuestion(''); setError(''); }}>Limpiar conversación</Button>
+      </div>
+    </div>
+  </Drawer>;
 }
-

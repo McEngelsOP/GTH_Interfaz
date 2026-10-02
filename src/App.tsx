@@ -4,6 +4,7 @@ import { Header } from './components/layout/Header.tsx';
 import { Sidebar } from './components/layout/Sidebar.tsx';
 import { ToastContainer } from './components/layout/ToastContainer.tsx';
 import { CandidateDrawer } from './components/candidate/CandidateDrawer.tsx';
+import { GTHAssistantDrawer } from './components/assistant/GTHAssistantDrawer.tsx';
 
 // Vistas del sistema GTH ESAN
 import { AgregarArchivosView } from './views/AgregarArchivosView.tsx';
@@ -56,6 +57,7 @@ function AppLayout() {
         <MainContent />
       </div>
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
+      <GTHAssistantDrawer />
       <ToastContainer />
     </div>
   );
@@ -68,4 +70,3 @@ export default function App() {
     </AppProvider>
   );
 }
-
