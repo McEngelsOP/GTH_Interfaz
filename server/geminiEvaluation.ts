@@ -61,7 +61,7 @@ export async function handleGeminiEvaluation(request: Request, dependencies: Gem
       return reply(response.status === 429 ? 429 : 502, { error:errors[response.status] || 'Gemini no está disponible. Reintenta más tarde.' });
     }
     const data = await response.json(), candidate = data.candidates?.[0];
-    if (data.promptFeedback?.blockReason || candidate?.finishReason !== 'STOP') return reply(422, { error:'La evaluación quedó bloqueada o incompleta. El perfil conserva su estado previo.' });
+    if (data.promptFeedback?.blockReason || candidate?.finishReason !== 'STOP') return reply(422, { code:'PROFILE_RESPONSE_BLOCKED', error:'La evaluación quedó bloqueada o incompleta. El perfil conserva su estado previo.' });
     const text = (candidate.content?.parts || []).filter((part:{ text?:unknown; thought?:boolean }) => !part.thought && typeof part.text === 'string')
       .map((part:{ text:string }) => part.text).join('').trim();
     try {
@@ -74,7 +74,8 @@ export async function handleGeminiEvaluation(request: Request, dependencies: Gem
         'Gemini devolvió una evaluación incompleta.', 'Gemini devolvió criterios desconocidos o repetidos.',
         'Puntaje inválido.', 'El texto requiere depuración o revisión antes de evaluar.', 'La evidencia no corresponde al perfil depurado.', 'La fuente de evidencia no corresponde al perfil depurado.'];
       const reason = error instanceof Error && reasons.includes(error.message) ? error.message : 'Formato de respuesta no válido.';
-      return reply(422,{ code:'INVALID_EVALUATION', error:`No se guardó la evaluación. ${reason}` });
+      const code = reason === 'La fuente de evidencia no corresponde al perfil depurado.' ? 'EVIDENCE_SOURCE_MISMATCH' : 'INVALID_EVALUATION';
+      return reply(422,{ code, error:`No se guardó la evaluación. ${reason}` });
     }
   } catch { return reply(504, { error:'La evaluación tardó demasiado o no se pudo contactar a Gemini. Reintenta el perfil.' }); }
 }

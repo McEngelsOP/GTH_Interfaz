@@ -20,7 +20,7 @@ import { readRoute, routeHash } from '../services/navigation.ts';
 import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 import { useTheme } from './useTheme.ts';
 import { applyCandidateImport, ImportRow, ImportSummary } from '../services/candidateImport.ts';
-import { applyPreparedEvaluation } from '../services/evaluationService.ts';
+import { applyPreparedEvaluation, recordEvaluationIssue, EvaluationError } from '../services/evaluationService.ts';
 import type { PreparedEvaluation } from '../services/evaluationService.ts';
 import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
@@ -117,6 +117,7 @@ interface AppContextValue {
   handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
   handleApplyEvaluation: (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => void;
+  handleEvaluationIssue: (applicationId: string, error: EvaluationError) => void;
   handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
   handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
@@ -475,6 +476,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAppState((prev) => updateEvaluationReference(prev,jobId,reference));
     showToast('Referencia del puesto guardada. Puntajes pendientes de evaluación para este puesto.', 'success');
   };
+  const handleEvaluationIssue = (applicationId: string, error: EvaluationError) => {
+    setAppState((prev) => recordEvaluationIssue(prev, applicationId, error));
+  };
   const handleReviewRequirement = (applicationId: string, status: RequirementStatus, justification: string) => {
     reviewRequirement(appState, applicationId, status, justification);
     setAppState((prev) => reviewRequirement(prev, applicationId, status, justification));
@@ -591,6 +595,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleActivateJobPosting,
     handleImportCandidates,
     handleApplyEvaluation,
+    handleEvaluationIssue,
     handleReviewRequirement,
     handleUpdateEvaluationReference,
     handleLinkCandidateToJob,

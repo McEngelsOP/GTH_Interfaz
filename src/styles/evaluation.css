@@ -16,6 +16,10 @@
 .evaluation-reference textarea { display:block; width:100%; padding:.6rem; margin:.5rem 0; border:1px solid var(--border-default); border-radius:var(--radius-sm); background:var(--bg-base); color:var(--text-primary); font: .85rem/1.5 var(--font-body); }
 
 .evaluation-actions { display:flex; flex-wrap:wrap; gap:.5rem; }
+.evaluation-special-cases { padding:1rem; margin-bottom:1rem; border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--bg-surface); }
+.evaluation-special-cases summary { cursor:pointer; font-size:.88rem; font-weight:600; padding:.5rem 0; }
+.evaluation-special-cases .evaluation-row { overflow-wrap:anywhere; }
+.evaluation-review { font-size:.85rem; color:var(--status-partial-text); margin:.5rem 0; }
 .evaluation-batch-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem; padding:.85rem; margin:.8rem 0; border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--bg-base); font-size:.85rem; }
 .evaluation-batch-summary span { color:var(--text-secondary); }
 .evaluation-batch-consent { padding:1rem; border:1px solid var(--primary-red-border); border-radius:var(--radius-md); background:var(--primary-red-subtle); }

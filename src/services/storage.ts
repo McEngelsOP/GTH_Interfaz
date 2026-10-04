@@ -37,6 +37,8 @@ export function parseStoredState(raw: string): AppStateData | null {
       ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado', 'no_continua'].includes(a.stage) &&
       ['verificado', 'parcial', 'no_cumple', 'sin_verificar'].includes(a.mandatoryRequirementStatus) &&
       [a.llmScore].every((s) => s === null || (typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 100)) &&
+      (a.evaluationIssue === undefined || (object(a.evaluationIssue) && strings(a.evaluationIssue, ['code', 'message', 'lastAttemptAt']) &&
+        Number.isInteger(a.evaluationIssue.attempts) && a.evaluationIssue.attempts >= 1 && Number.isFinite(Date.parse(a.evaluationIssue.lastAttemptAt)))) &&
       (a.llmEvaluation === undefined || (object(a.llmEvaluation) && strings(a.llmEvaluation, ['model', 'evaluatedAt', 'criteriaVersion', 'profileHash', 'privacyVersion']) && /^gemini-[\w.-]+$/.test(a.llmEvaluation.model) && Number.isFinite(Date.parse(a.llmEvaluation.evaluatedAt)) && /^[a-f0-9]{64}$/.test(a.llmEvaluation.profileHash) && Array.isArray(a.llmEvaluation.missingCriteria) && a.llmEvaluation.missingCriteria.every((id: unknown) => typeof id === 'string'))) &&
       object(a.whyScoreNotes) && strings(a.whyScoreNotes, ['explanation', 'evidenceSummary']) && Array.isArray(a.whyScoreNotes.strengths) &&
       a.whyScoreNotes.strengths.every((s: unknown) => typeof s === 'string') && object(a.criteriaBreakdown) &&

@@ -16,6 +16,6 @@ export function updateEvaluationReference(state: AppStateData, jobId: string, re
   const now = new Date().toISOString();
   const version = `${job.criteriaVersion.split(' · ref ')[0]} · ref ${Date.now()}`;
   return { ...state, jobPostings:state.jobPostings.map((item) => item.id === jobId ? { ...item,evaluationReference:reference.trim(),criteriaVersion:version }:item),
-    applications:state.applications.map((app) => app.jobPostingId === jobId && app.stage === 'postulado' ? { ...app,llmScore:null,llmEvaluation:undefined,criteriaBreakdown:{},updatedAt:now,
+    applications:state.applications.map((app) => app.jobPostingId === jobId && app.stage === 'postulado' ? { ...app,llmScore:null,llmEvaluation:undefined,evaluationIssue:undefined,criteriaBreakdown:{},updatedAt:now,
       whyScoreNotes:{ explanation:'La referencia del puesto cambió. Evaluación LLM pendiente.',strengths:[],evidenceSummary:'Requiere evaluación contra la referencia vigente.' } }:app) };
 }

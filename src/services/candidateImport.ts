@@ -204,7 +204,7 @@ export function planCandidateImport(state: AppStateData, job: JobPosting, rows: 
         if (state.candidates.some((c) => c.id === candidate.id)) updated.add(candidate.id);
         if (merged.rawCvText !== candidate.rawCvText) {
           applications = applications.map((app) => app.candidateId === candidate.id && app.stage === 'postulado' ? {
-            ...app, llmScore: null, llmEvaluation: undefined, mandatoryRequirementStatus: 'sin_verificar', criteriaBreakdown: {},
+            ...app, llmScore: null, llmEvaluation: undefined, evaluationIssue: undefined, mandatoryRequirementStatus: 'sin_verificar', criteriaBreakdown: {},
             requirementJustification: 'Perfil actualizado. Requisito pendiente de revisión.',
             whyScoreNotes: { explanation: 'Perfil actualizado. Evaluación LLM pendiente.', strengths: [], evidenceSummary: 'Se incorporó información del archivo cargado.' },
           } : app);

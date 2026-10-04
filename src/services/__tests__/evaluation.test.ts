@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { INITIAL_APP_STATE } from '../../data/initialData.ts';
 import { analyzeCandidateTables, applyCandidateImport, tableFromCSV } from '../candidateImport.ts';
 import { prepareEvaluationProfile, hasSensitivePatterns } from '../profilePrivacy.ts';
-import { prepareEvaluation, applyPreparedEvaluation, evaluatePreparedProfile } from '../evaluationService.ts';
+import { prepareEvaluation, applyPreparedEvaluation, evaluatePreparedProfile, recordEvaluationIssue, EvaluationError } from '../evaluationService.ts';
 import { validateEvaluationPayload, validateEvaluationOutput, validateProviderEvaluation } from '../evaluationContract.ts';
-import { reviewRequirement } from '../requirementReview.ts';
+import { reviewRequirement, updateEvaluationReference } from '../requirementReview.ts';
 import { parseStoredState } from '../storage.ts';
 import { updateJobCriteria } from '../workflow.ts';
 import { handleGeminiEvaluation } from '../../../server/geminiEvaluation.ts';
@@ -26,6 +26,41 @@ const request = (body:unknown) => new Request('https://example.com/api/evaluate'
 const provider = (body:any) => new Response(JSON.stringify({ candidates:[{ finishReason:'STOP', content:{ parts:[{ text:JSON.stringify({ ...body,criteria:body.criteria.map((item:any) => ({key:item.key,score:item.score,evidenceKey:item.score===null?null:'field-2'})) }) }] } }] }));
 
 describe('privacidad y aplicación de resultados', () => {
+  it('persiste incidencias sin cambiar etapa, requisito ni puntaje y las limpia al recibir una evaluación válida', () => {
+    const state = fixture(), id = state.applications[0].id;
+    const error = new EvaluationError('La fuente de evidencia no corresponde al perfil depurado.', 'EVIDENCE_SOURCE_MISMATCH', 422);
+    const first = recordEvaluationIssue(state,id,error);
+    const next = recordEvaluationIssue(first,id,error);
+    expect(next.applications[0]).toMatchObject({stage:'postulado',llmScore:null,mandatoryRequirementStatus:'sin_verificar',evaluationIssue:{code:'EVIDENCE_SOURCE_MISMATCH',attempts:2}});
+    expect(parseStoredState(JSON.stringify(next))).toEqual(next);
+    expect(recordEvaluationIssue(next,id,new EvaluationError('Cuota agotada.','QUOTA',429))).toBe(next);
+    const prepared = prepareEvaluation(next,id), validated = validateEvaluationOutput(output(prepared.payload),prepared.payload!);
+    const applied = applyPreparedEvaluation(next,prepared,{...validated,requestId:prepared.payload!.requestId,model:'gemini-test',evaluatedAt:new Date().toISOString()},'a'.repeat(64));
+    expect(applied.applications[0].evaluationIssue).toBeUndefined();
+    expect(applied.applications[0].llmScore).toBe(80);
+    expect(updateEvaluationReference(next,next.activeJobPostingId,'Nueva referencia profesional.').applications[0].evaluationIssue).toBeUndefined();
+    const job = next.jobPostings.find((job) => job.id === next.activeJobPostingId)!;
+    expect(updateJobCriteria(next,job.id,job.criteria.map((c,i)=>i===0?{...c,label:'Nuevo criterio'}:c)).applications[0].evaluationIssue).toBeUndefined();
+    const imported = applyCandidateImport(next,next.activeJobPostingId,analyzeCandidateTables([tableFromCSV(raw.replace('Python y AWS','Python y Azure'),'fake-only.csv')]).rows).state;
+    expect(imported.applications[0].evaluationIssue).toBeUndefined();
+  });
+  it('conserva códigos HTTP y distingue errores individuales de cuota, conexión y configuración', async () => {
+    const state = fixture(), prepared = prepareEvaluation(state,state.applications[0].id);
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({code:'EVIDENCE_SOURCE_MISMATCH',error:'Evidencia inválida.'}),{status:422})));
+    try {
+      await expect(evaluatePreparedProfile(prepared,new AbortController().signal)).rejects.toMatchObject({code:'EVIDENCE_SOURCE_MISMATCH',status:422,isProfileIssue:true});
+      for (const status of [400,401,403,429,502,503,504]) expect(new EvaluationError('Fallo.','SERVICE',status).isProfileIssue).toBe(false);
+      vi.stubGlobal('fetch',vi.fn(async()=>new Response('invalid json')));
+      await expect(evaluatePreparedProfile(prepared,new AbortController().signal)).rejects.toMatchObject({code:'INVALID_RESPONSE',status:200,isProfileIssue:true});
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it('el servidor identifica una fuente inexistente sin devolver texto crudo del proveedor', async () => {
+    const state=fixture(), payload=prepareEvaluation(state,state.applications[0].id).payload!;
+    const result={...output(payload),criteria:payload.job.criteria.map(c=>({key:c.key,score:80,evidenceKey:'field-999'}))};
+    const response=await handleGeminiEvaluation(request(payload),{env,fetch:async()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(result)}]}}]}))});
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({code:'EVIDENCE_SOURCE_MISMATCH',error:'No se guardó la evaluación. La fuente de evidencia no corresponde al perfil depurado.'});
+  });
   it('excluye identidades, entidades y columnas desconocidas; conserva hechos profesionales y años', () => {
     const state=fixture(), person=state.candidates[0], original=person.rawCvText;
     const prepared=prepareEvaluation(state,state.applications[0].id);

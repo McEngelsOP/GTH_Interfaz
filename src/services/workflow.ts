@@ -69,7 +69,7 @@ export function updateJobCriteria(state: AppStateData, jobId: string, criteria: 
     applications: state.applications.map((app) => app.jobPostingId === jobId && app.stage === 'postulado' ? {
       ...app,
       llmScore: sameDefinitions ? simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM') : null,
-      llmEvaluation: undefined, criteriaBreakdown: sameDefinitions ? app.criteriaBreakdown : {}, updatedAt: now,
+      llmEvaluation: undefined, evaluationIssue: undefined, criteriaBreakdown: sameDefinitions ? app.criteriaBreakdown : {}, updatedAt: now,
     } : app),
     decisionLogs: [{ id: `dec-criteria-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       jobPostingId: jobId, applicationId: '', candidateId: '', action: 'Actualización de Criterios y Ponderaciones',

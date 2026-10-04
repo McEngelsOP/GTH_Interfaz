@@ -74,12 +74,20 @@ export interface CriteriaScore {
   evidence: string;
 }
 
+export interface EvaluationIssue {
+  code: string;
+  message: string;
+  attempts: number;
+  lastAttemptAt: string;
+}
+
 export interface Application {
   id: string; // stable applicationId e.g. "app-001"
   jobPostingId: string;
   candidateId: string;
   stage: Stage;
   llmScore: number | null; // 0-100 or null if pending
+  evaluationIssue?: EvaluationIssue;
   llmEvaluation?: { model: string; evaluatedAt: string; criteriaVersion: string; profileHash: string;
     privacyVersion: string; missingCriteria: string[] };
   mandatoryRequirementStatus: RequirementStatus;

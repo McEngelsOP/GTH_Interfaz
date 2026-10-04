@@ -4,6 +4,26 @@ import type { DepuratedProfile } from './profilePrivacy.ts';
 import { validateEvaluationPayload, validateEvaluationOutput } from './evaluationContract.ts';
 import type { EvaluationPayload, EvaluationReply } from './evaluationContract.ts';
 
+export class EvaluationError extends Error {
+  constructor(message: string, public readonly code: string, public readonly status: number) {
+    super(message); this.name = 'EvaluationError';
+  }
+  get isProfileIssue() {
+    return this.status === 422 || ['PROFILE_CHANGED', 'INVALID_RESPONSE'].includes(this.code);
+  }
+}
+
+export function recordEvaluationIssue(state: AppStateData, applicationId: string, error: EvaluationError): AppStateData {
+  const application = state.applications.find((app) => app.id === applicationId);
+  if (!application || application.stage !== 'postulado' || application.llmEvaluation || !error.isProfileIssue) return state;
+  const now = new Date().toISOString();
+  return { ...state, applications: state.applications.map((app) => app.id === applicationId ? { ...app,
+    evaluationIssue: { code: error.code, message: error.message, attempts: (app.evaluationIssue?.attempts || 0) + 1, lastAttemptAt: now },
+    updatedAt: now } : app),
+    activities: [{ id: crypto.randomUUID(), applicationId, type: 'note', title: 'Caso especial de evaluación',
+      details: error.message, author: 'Evaluador · apoyo a GTHC', timestamp: now }, ...state.activities] };
+}
+
 export interface PreparedEvaluation {
   applicationId: string; candidateId: string; candidateName: string; jobId: string;
   snapshot: string; privacy: DepuratedProfile; payload: EvaluationPayload | null;
@@ -44,7 +64,7 @@ export function applyPreparedEvaluation(state: AppStateData, prepared: PreparedE
     profileHash: hash, privacyVersion: PRIVACY_VERSION,
     missingCriteria: validated.criteria.flatMap((item,index) => item.score === null ? [job.criteria[index].id] : []) };
   return { ...state, applications: state.applications.map((app) => app.id === prepared.applicationId ? { ...app,
-    llmScore: validated.llmScore, criteriaBreakdown: breakdown, updatedAt: reply.evaluatedAt, llmEvaluation: metadata,
+    llmScore: validated.llmScore, evaluationIssue: undefined, criteriaBreakdown: breakdown, updatedAt: reply.evaluatedAt, llmEvaluation: metadata,
     whyScoreNotes: { explanation: validated.explanation, strengths: validated.strengths, evidenceSummary: validated.evidenceSummary } } : app),
     activities: [{ id: crypto.randomUUID(), applicationId: prepared.applicationId, type: 'note', title: 'Evaluación LLM recibida',
       details: validated.llmScore === null ? 'Evidencia insuficiente para el puntaje ponderado. Revisión pendiente.' : `Puntaje ponderado: ${validated.llmScore}. Revisión humana del requisito por separado.`,
@@ -59,6 +79,9 @@ export async function evaluatePreparedProfile(prepared: PreparedEvaluation, sign
   const response = await fetch('/api/evaluate', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.any([signal, AbortSignal.timeout(55_000)]) });
   const result = await response.json().catch(() => null);
-  if (!response.ok || !result) throw new Error(result?.error || 'No se pudo evaluar el perfil. Intenta de nuevo.');
+  if (response.ok && !result) throw new EvaluationError('La respuesta de evaluación tiene un formato inválido.', 'INVALID_RESPONSE', response.status);
+  if (!response.ok) throw new EvaluationError(
+    typeof result?.error === 'string' ? result.error : 'No se pudo evaluar el perfil. Intenta de nuevo.',
+    typeof result?.code === 'string' ? result.code : 'EVALUATION_UNAVAILABLE', response.status);
   return { reply: result as EvaluationReply, hash };
 }
