@@ -55,8 +55,10 @@ export function MejoresCandidatosView() {
 
   // Métricas vivas calculadas del puesto activo
   const metrics = useMemo(() => {
-    return calculateJobMetrics(activeJobApplications, appState.selectedMethod);
-  }, [activeJobApplications, appState.selectedMethod]);
+    return calculateJobMetrics(activeJobApplications, appState.selectedMethod, activeJob?.criteria);
+  }, [activeJobApplications, appState.selectedMethod, activeJob?.criteria]);
+  const showingPartialAverage = metrics.avgScore === null && metrics.avgPartialScore !== null;
+  const displayedAverage = metrics.avgScore ?? metrics.avgPartialScore;
   const topNAvailability = useMemo(() => getTopNAvailability(activeJobApplications, appState.selectedMethod),
     [activeJobApplications, appState.selectedMethod]);
 
@@ -291,6 +293,8 @@ export function MejoresCandidatosView() {
         {/* KPI 2: Puntaje Promedio del Método Seleccionado */}
         <div
           className="hover-lift"
+          role="region"
+          aria-label="Resumen del promedio LLM"
           style={{
             backgroundColor: 'var(--bg-surface)',
             padding: '1rem 1.25rem',
@@ -318,11 +322,21 @@ export function MejoresCandidatosView() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-              Promedio ({appState.selectedMethod})
+              {showingPartialAverage ? 'Promedio parcial' : 'Promedio'} ({appState.selectedMethod})
             </span>
             <span style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }} className="tabular-nums">
-              {metrics.avgScore !== null ? `${metrics.avgScore} / 100` : 'Sin datos'}
+              {displayedAverage !== null ? `${displayedAverage} / 100` : metrics.evaluatedWithoutScoreCount > 0 ? 'Sin evidencia' : 'Sin datos'}
             </span>
+            {metrics.avgScore !== null && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {metrics.scoredCount} {metrics.scoredCount === 1 ? 'evaluación completa' : 'evaluaciones completas'}
+            </span>}
+            {metrics.avgPartialScore !== null && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {!showingPartialAverage && <>Parciales: {metrics.avgPartialScore} / 100 · </>}
+              {metrics.partialScoreCount} {metrics.partialScoreCount === 1 ? 'evaluación parcial' : 'evaluaciones parciales'} · cobertura media {metrics.avgPartialCoverage}%
+            </span>}
+            {displayedAverage === null && metrics.evaluatedWithoutScoreCount > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {metrics.evaluatedWithoutScoreCount} {metrics.evaluatedWithoutScoreCount === 1 ? 'evaluación recibida sin criterios puntuables' : 'evaluaciones recibidas sin criterios puntuables'}
+            </span>}
           </div>
         </div>
 

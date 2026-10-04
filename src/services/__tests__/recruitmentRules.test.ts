@@ -7,7 +7,7 @@ import {
   releaseApplication,
   getTopNAvailability,
 } from '../recruitmentRules.ts';
-import { Application, Candidate } from '../../types/index.ts';
+import { Application, Candidate, Criterion } from '../../types/index.ts';
 
 const mockCandidate: Candidate = {
   id: 'cand-001',
@@ -74,6 +74,17 @@ const mockAppUnverified: Application = {
   updatedAt: '2026-08-01',
 };
 
+const partialCriteria: Criterion[] = [
+  { id: 'experience', label: 'Experiencia', weightPct: 40, type: 'LLM' },
+  { id: 'technology', label: 'Tecnología', weightPct: 60, type: 'LLM' },
+];
+const mockPartial: Application = {
+  ...mockAppMissingScore,
+  criteriaBreakdown: { experience: { score: 80, evidence: 'Experiencia declarada.' } },
+  llmEvaluation: { model: 'gemini-test', evaluatedAt: '2026-10-04T20:00:00Z', criteriaVersion: 'v1',
+    profileHash: 'a'.repeat(64), privacyVersion: 'v1', missingCriteria: ['technology'] },
+};
+
 describe('recruitmentRules · TalentAI GTH ESAN', () => {
   it('requiere puntaje LLM y requisitos verificados para Top-N', () => {
     expect(isEligibleForTopN(mockApp1, 'LLM').eligible).toBe(true);
@@ -105,6 +116,34 @@ describe('recruitmentRules · TalentAI GTH ESAN', () => {
     expect(metrics.totalActive).toBe(4);
     expect(metrics.verifiedCount).toBe(3);
     expect(metrics.avgScore).toBe(92);
+  });
+
+  it('calcula el promedio parcial y cobertura sin sumar pendientes, liberados o contratados', () => {
+    const secondPartial = { ...mockPartial, criteriaBreakdown: { technology: { score: 40, evidence: 'Tecnología declarada.' } } };
+    const metrics = calculateJobMetrics([mockPartial, secondPartial, mockAppMissingScore,
+      { ...mockPartial, stage: 'no_continua' }, { ...mockPartial, stage: 'contratado' },
+      { ...mockPartial, criteriaBreakdown: {} }, { ...mockPartial, llmEvaluation: undefined }], 'LLM', partialCriteria);
+    expect(metrics).toMatchObject({ avgScore: null, scoredCount: 0, avgPartialScore: 60, avgPartialCoverage: 50,
+      partialScoreCount: 2, evaluatedWithoutScoreCount: 1 });
+    expect(mockPartial.llmScore).toBeNull();
+    expect(isEligibleForTopN(mockPartial, 'LLM').eligible).toBe(false);
+  });
+
+  it('mantiene separados el promedio completo y el parcial, incluyendo ceros válidos', () => {
+    const zeroPartial = { ...mockPartial, criteriaBreakdown: { experience: { score: 0, evidence: 'Evidencia de alineamiento bajo.' } } };
+    const metrics = calculateJobMetrics([mockApp1, mockApp2, zeroPartial], 'LLM', partialCriteria);
+    expect(metrics).toMatchObject({ avgScore: 88.5, scoredCount: 2, avgPartialScore: 0, avgPartialCoverage: 40, partialScoreCount: 1 });
+    expect(calculateJobMetrics([mockAppMissingScore, { ...mockPartial, criteriaBreakdown: {} }], 'LLM', partialCriteria))
+      .toMatchObject({ avgScore: null, avgPartialScore: null, avgPartialCoverage: null, partialScoreCount: 0, evaluatedWithoutScoreCount: 1 });
+  });
+
+  it('usa los pesos vigentes para calcular el parcial de evidencia guardada', () => {
+    const criteria: Criterion[] = [
+      { ...partialCriteria[0], weightPct: 20 }, { ...partialCriteria[1], weightPct: 30 },
+      { id: 'reference', label: 'Referencia', type: 'LLM', weightPct: 50 },
+    ];
+    const app = { ...mockPartial, criteriaBreakdown: { experience: { score: 80, evidence: 'Experiencia.' }, technology: { score: 20, evidence: 'Tecnología.' } } };
+    expect(calculateJobMetrics([app], 'LLM', criteria)).toMatchObject({ avgPartialScore: 44, avgPartialCoverage: 50 });
   });
 
   it('avanza candidatos a preseleccionado sin eliminarlos del sistema', () => {

@@ -13,6 +13,7 @@ import {
   Criterion,
   CriteriaScore,
 } from '../types/index.ts';
+import { evaluationSummary } from './evaluationSummary.ts';
 
 /**
  * Regla de Elegibilidad para Top-N y Primera Decisión de Avance:
@@ -122,7 +123,8 @@ export function getTopCandidates(
  */
 export function calculateJobMetrics(
   applications: Application[],
-  method: EvaluationMethod
+  method: EvaluationMethod,
+  criteria: Criterion[] = []
 ) {
   const totalProcessed = applications.length;
   const activeApplications = applications.filter((app) => app.stage !== 'no_continua' && app.stage !== 'contratado');
@@ -143,6 +145,21 @@ export function calculateJobMetrics(
           (scoresWithData.reduce((acc, curr) => acc + curr, 0) / scoresWithData.length) * 10
         ) / 10
       : null;
+
+  // Los parciales tienen evidencia puntuable, pero conservan el total nulo.
+  // Se informan aparte para evitar mezclarlos con evaluaciones completas.
+  const incompleteEvaluations = activeApplications
+    .filter((app) => app.llmScore === null && app.llmEvaluation)
+    .map((app) => evaluationSummary(app, criteria));
+  const partials = incompleteEvaluations
+    .filter((summary): summary is typeof summary & { partialScore: number } => summary.partialScore !== null);
+  const avgPartialScore = partials.length > 0
+    ? Math.round(partials.reduce((sum, summary) => sum + summary.partialScore, 0) / partials.length * 10) / 10
+    : null;
+  const avgPartialCoverage = partials.length > 0
+    ? Math.round(partials.reduce((sum, summary) => sum + summary.coverage, 0) / partials.length * 10) / 10
+    : null;
+  const evaluatedWithoutScoreCount = incompleteEvaluations.filter((summary) => summary.partialScore === null).length;
 
   const stageCounts: Record<Stage, number> = {
     postulado: 0,
@@ -165,6 +182,11 @@ export function calculateJobMetrics(
     totalActive,
     verifiedCount,
     avgScore,
+    scoredCount: scoresWithData.length,
+    avgPartialScore,
+    avgPartialCoverage,
+    partialScoreCount: partials.length,
+    evaluatedWithoutScoreCount,
     stageCounts,
   };
 }

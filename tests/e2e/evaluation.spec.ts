@@ -17,6 +17,77 @@ const preview = async (page:Page) => {
   return dialog;
 };
 
+function averageFixture(total: number) {
+  const state = structuredClone(fixture);
+  const job = state.jobPostings.find(job => job.id === state.activeJobPostingId)!;
+  job.criteria = [{ id:'experience', label:'Experiencia', type:'LLM', weightPct:40 },
+    { id:'technology', label:'Tecnología', type:'LLM', weightPct:60 }];
+  state.candidates = Array.from({ length:total }, (_,i) => ({ ...structuredClone(fixture.candidates[0]), id:`average-person-${i}`, name:`Perfil promedio ${i}` }));
+  state.applications = Array.from({ length:total }, (_,i) => ({ ...structuredClone(fixture.applications[0]), id:`average-app-${i}`, candidateId:`average-person-${i}`,
+    criteriaBreakdown:{ experience:{ score:42.5, evidence:'Desarrolló soluciones con Python y AWS.' } },
+    llmEvaluation:{ model:'gemini-test', evaluatedAt:'2026-10-04T20:00:00Z', criteriaVersion:job.criteriaVersion,
+      profileHash:'a'.repeat(64), privacyVersion:'v1', missingCriteria:['technology'] } }));
+  return state;
+}
+
+test('119 evaluaciones parciales muestran promedio y cobertura al recargar y liberar perfiles', async ({page}) => {
+  const state = averageFixture(127);
+  for (let i=119;i<122;i++) { state.applications[i].llmEvaluation=undefined;state.applications[i].criteriaBreakdown={}; }
+  for (let i=122;i<127;i++) state.applications[i].stage='no_continua';
+  await page.addInitScript(s=>{if(!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2'))localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s));},state);
+  await page.goto('/#view=mejores_candidatos');
+  const average=page.getByRole('region',{name:'Resumen del promedio LLM'});
+  await expect(average).toContainText('Promedio parcial (LLM)');
+  await expect(average).toContainText('42.5 / 100');
+  await expect(average).toContainText('119 evaluaciones parciales · cobertura media 40%');
+  await expect(average).not.toContainText('Sin datos');
+  await expect(page.getByText(/3 sin evaluar · 119 con evidencia incompleta · 0 casos especiales/)).toBeVisible();
+  await page.reload();
+  await expect(average).toContainText('119 evaluaciones parciales');
+  await page.getByRole('table').getByRole('row').filter({hasText:'Perfil promedio 0'}).getByTitle('Liberar postulación (No continúa)',{exact:true}).click();
+  await page.getByRole('dialog',{name:'Confirmar liberación de postulación'}).getByRole('button',{name:'Confirmar liberación',exact:true}).click();
+  await expect(average).toContainText('118 evaluaciones parciales · cobertura media 40%');
+  const apps=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications);
+  expect(apps.every((app:any)=>app.llmScore===null)).toBe(true);
+  await expect(page.getByRole('button',{name:'Elegir los mejores',exact:true})).toBeDisabled();
+  await average.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'/tmp/gth-average-desktop.png',fullPage:true,animations:'disabled'});
+  await page.setViewportSize({width:390,height:844});
+  await average.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:'/tmp/gth-average-mobile.png',fullPage:true,animations:'disabled'});
+});
+
+test('promedio completo, parcial cero y evaluaciones sin evidencia se distinguen en el indicador', async ({page}) => {
+  const state=averageFixture(6);
+  state.applications[0].llmScore=80;
+  state.applications[0].criteriaBreakdown.experience.score=80;
+  state.applications[0].criteriaBreakdown.technology={score:80,evidence:'Tecnología declarada.'};
+  state.applications[0].llmEvaluation!.missingCriteria=[];
+  state.applications[1].criteriaBreakdown.experience.score=0;
+  state.applications[2].criteriaBreakdown={};
+  state.applications[2].llmEvaluation!.missingCriteria=['experience','technology'];
+  state.applications[3].llmEvaluation=undefined;state.applications[3].criteriaBreakdown={};
+  state.applications[4].llmScore=100;state.applications[4].stage='no_continua';
+  state.applications[5].llmScore=100;state.applications[5].stage='contratado';
+  await page.addInitScript(s=>{if(!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2'))localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s));},state);
+  await page.goto('/#view=mejores_candidatos');
+  const average=page.getByRole('region',{name:'Resumen del promedio LLM'});
+  await expect(average).toContainText('Promedio (LLM)');
+  await expect(average).toContainText('80 / 100');
+  await expect(average).toContainText('1 evaluación completa');
+  await expect(average).toContainText('Parciales: 0 / 100 · 1 evaluación parcial · cobertura media 40%');
+  for (let i=0;i<2;i++) {
+    await page.getByRole('table').getByRole('row').filter({hasText:`Perfil promedio ${i}`}).getByTitle('Liberar postulación (No continúa)',{exact:true}).click();
+    await page.getByRole('dialog',{name:'Confirmar liberación de postulación'}).getByRole('button',{name:'Confirmar liberación',exact:true}).click();
+    if(i===0) {await expect(average).toContainText('Promedio parcial (LLM)');await expect(average).toContainText('0 / 100');}
+  }
+  await page.reload();
+  await expect(average).toContainText('Sin evidencia');
+  await expect(average).toContainText('1 evaluación recibida sin criterios puntuables');
+  await expect(average).not.toContainText('Sin datos');
+});
+
 test('cola concurrente conserva resultados fuera de orden, parciales y puntajes tras liberar un caso especial',async({page})=>{
   const state=structuredClone(fixture);
   state.candidates=Array.from({length:6},(_,i)=>({...structuredClone(fixture.candidates[0]),id:`parallel-person-${i}`,name:`Perfil concurrente ${i}`}));
