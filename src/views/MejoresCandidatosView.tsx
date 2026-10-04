@@ -72,6 +72,7 @@ export function MejoresCandidatosView() {
 
   // El Top-N contiene únicamente expedientes pendientes de primera decisión.
   const allBestApplications = topEligiblePending;
+  const evaluationApplications = activeJobApplications.filter(app => app.stage === 'postulado');
 
   // Selección de conjunto según pestaña activa
   const displayedApplications = useMemo(() => {
@@ -620,8 +621,8 @@ export function MejoresCandidatosView() {
         <p style={{ marginBottom: '.75rem' }}>Esta convocatoria todavía no tiene candidatos. Carga un CSV o Excel para empezar.</p>
         <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Cargar perfiles</Button>
       </div>}
-      {activeJobApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
-        {activeJobApplications.filter((app) => app.llmScore === null).length} perfiles pendientes de evaluación LLM. El Top-N se habilita con puntajes y requisitos verificados.
+      {evaluationApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
+        {evaluationApplications.filter((app) => app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue).length} sin evaluar · {evaluationApplications.filter((app) => app.llmScore === null && app.llmEvaluation).length} con evidencia incompleta · {evaluationApplications.filter((app) => app.evaluationIssue).length} casos especiales. El Top-N se habilita con puntajes completos y requisitos verificados.
       </p>}
       <CandidateTable
         applications={displayedApplications}

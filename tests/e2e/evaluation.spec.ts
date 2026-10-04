@@ -17,6 +17,77 @@ const preview = async (page:Page) => {
   return dialog;
 };
 
+test('cola concurrente conserva resultados fuera de orden, parciales y puntajes tras liberar un caso especial',async({page})=>{
+  const state=structuredClone(fixture);
+  state.candidates=Array.from({length:6},(_,i)=>({...structuredClone(fixture.candidates[0]),id:`parallel-person-${i}`,name:`Perfil concurrente ${i}`}));
+  state.applications=Array.from({length:6},(_,i)=>({...structuredClone(fixture.applications[0]),id:`parallel-app-${i}`,candidateId:`parallel-person-${i}`}));
+  await page.addInitScript(s=>{if(!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2'))localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s));},state);
+  await page.clock.install();
+  let posts=0;const held:(()=>void)[]=[];
+  await page.route('**/api/evaluate',async route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{configured:true,concurrency:3,intervalSeconds:3.1}});
+    const index=++posts,body=route.request().postDataJSON();
+    if(index<=2)await new Promise<void>(resolve=>held.push(resolve));
+    if(index===4)return route.fulfill({status:422,json:{code:'INVALID_EVALUATION',error:'Caso especial de prueba.'}});
+    await route.fulfill({json:jsonReply(body,index===6)});
+    if(index===3)held.forEach(resolve=>resolve());
+  });
+  await page.goto('/#view=mejores_candidatos');const dialog=await preview(page);
+  await expect(dialog).toContainText('Hasta 3 perfiles simultáneos');
+  await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Evaluar 6 perfiles',exact:true}).click();
+  await expect.poll(()=>posts).toBe(1);await page.clock.runFor(3101);
+  await expect.poll(()=>posts).toBe(2);await page.clock.runFor(3101);
+  await expect(dialog.getByLabel('Resumen del lote')).toContainText('3 resultados recibidos');
+  for(let i=4;i<=6;i++){await page.clock.runFor(3101);await expect.poll(()=>posts).toBe(i);}
+  await expect(dialog.getByText(/Lote completado/)).toContainText('5 resultados recibidos · 1 casos especiales');
+  await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+  const table=page.getByRole('table');
+  await expect(table.getByText('Parcial · 80',{exact:true})).toBeVisible();
+  await expect(page.getByText(/0 sin evaluar · 1 con evidencia incompleta · 1 casos especiales/)).toBeVisible();
+  await table.getByRole('row').filter({hasText:'Perfil concurrente 3'}).getByTitle('Liberar postulación (No continúa)',{exact:true}).click();
+  await page.getByRole('dialog',{name:'Confirmar liberación de postulación'}).getByRole('button',{name:'Confirmar liberación',exact:true}).click();
+  await page.reload();
+  const apps=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications);
+  expect(apps.map((app:any)=>app.llmScore)).toEqual([80,80,80,null,80,null]);
+  expect(apps[3].stage).toBe('no_continua');expect(apps[5].llmEvaluation.missingCriteria).toHaveLength(1);
+  await expect(page.getByRole('table').getByText('Parcial · 80',{exact:true})).toBeVisible();
+  await expect(page.getByText(/0 sin evaluar · 1 con evidencia incompleta · 0 casos especiales/)).toBeVisible();
+  await page.getByText('Evaluaciones recibidas · evidencia incompleta (1)',{exact:true}).click();
+  await expect(page.getByText(/Puntaje parcial: 80\/100 · Cobertura:/)).toBeVisible();
+  await page.getByRole('table').scrollIntoViewIfNeeded();
+  await page.clock.runFor(1000);
+  await page.screenshot({path:'/tmp/gth-evaluation-results-desktop.png',fullPage:true,animations:'disabled'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.getByText('Evaluaciones recibidas · evidencia incompleta (1)',{exact:true}).evaluate(el=>el.scrollIntoView({block:'start'}));
+  await page.screenshot({path:'/tmp/gth-evaluation-results-mobile.png',fullPage:true,animations:'disabled'});
+  await page.getByRole('button',{name:'Reevaluar perfiles incompletos',exact:true}).click();
+  await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+  await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
+  await expect(dialog.getByText(/Lote completado/)).toContainText('1 resultados recibidos');
+  await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await expect(page.getByText('Evaluaciones recibidas · evidencia incompleta (1)',{exact:true})).not.toBeVisible();
+  const next=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications);
+  expect(next[5].llmScore).toBe(80);expect(posts).toBe(7);
+});
+
+test('Retry-After permite continuar automáticamente sin repetir los resultados previos',async({page})=>{
+  await page.clock.install();let posts=0;
+  await page.route('**/api/evaluate',route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{configured:true,concurrency:3,intervalSeconds:3.1}});
+    if(++posts===1)return route.fulfill({status:429,headers:{'Retry-After':'20'},json:{code:'PROVIDER_RATE_LIMIT',error:'Espera temporal.'}});
+    return route.fulfill({json:jsonReply(route.request().postDataJSON())});
+  });
+  await setup(page);const dialog=await preview(page);
+  await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
+  await expect(dialog.getByRole('status')).toContainText('Esperando 20 segundos por cuota');
+  await page.clock.runFor(19000);expect(posts).toBe(1);
+  await page.clock.runFor(1001);await expect(dialog.getByText(/Lote completado/)).toBeVisible();
+  expect(posts).toBe(2);
+  const app=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications[0]);
+  expect(app.llmScore).toBe(80);expect(app.evaluationIssue).toBeUndefined();
+});
+
 test('autorización única, envío depurado, persistencia y verificación humana habilitan Top-N', async ({page}) => {
   const sent:any[]=[];
   await page.route('**/api/evaluate',async route => {

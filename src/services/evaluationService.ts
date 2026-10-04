@@ -5,7 +5,7 @@ import { validateEvaluationPayload, validateEvaluationOutput } from './evaluatio
 import type { EvaluationPayload, EvaluationReply } from './evaluationContract.ts';
 
 export class EvaluationError extends Error {
-  constructor(message: string, public readonly code: string, public readonly status: number) {
+  constructor(message: string, public readonly code: string, public readonly status: number, public readonly retryAfterMs?: number) {
     super(message); this.name = 'EvaluationError';
   }
   get isProfileIssue() {
@@ -80,8 +80,12 @@ export async function evaluatePreparedProfile(prepared: PreparedEvaluation, sign
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.any([signal, AbortSignal.timeout(55_000)]) });
   const result = await response.json().catch(() => null);
   if (response.ok && !result) throw new EvaluationError('La respuesta de evaluación tiene un formato inválido.', 'INVALID_RESPONSE', response.status);
+  const retryAfter = response.headers.get('retry-after');
+  const seconds = retryAfter === null ? NaN : Number(retryAfter);
+  const retryAfterMs = Number.isFinite(seconds) ? Math.max(1000,seconds * 1000) : retryAfter ? Math.max(1000,Date.parse(retryAfter) - Date.now()) : undefined;
   if (!response.ok) throw new EvaluationError(
     typeof result?.error === 'string' ? result.error : 'No se pudo evaluar el perfil. Intenta de nuevo.',
-    typeof result?.code === 'string' ? result.code : 'EVALUATION_UNAVAILABLE', response.status);
+    typeof result?.code === 'string' ? result.code : 'EVALUATION_UNAVAILABLE', response.status,
+    Number.isFinite(retryAfterMs) ? retryAfterMs : undefined);
   return { reply: result as EvaluationReply, hash };
 }

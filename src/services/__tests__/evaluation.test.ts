@@ -179,7 +179,7 @@ describe('Gemini y adaptador seguro', () => {
     const fake=vi.fn(async () => provider(output(payload)));
     for(let i=0;i<6;i++) {
       const req=request(payload); req.headers.set('x-forwarded-for','rate-test');
-      expect((await handleGeminiEvaluation(req,{ env,fetch:fake,now:()=>1 })).status).toBe(i<5?200:429);
+      expect((await handleGeminiEvaluation(req,{ env:{...env,GEMINI_EVALUATION_RPM:'5'},fetch:fake,now:()=>1 })).status).toBe(i<5?200:429);
     }
     expect(fake).toHaveBeenCalledTimes(5);
   });
@@ -191,5 +191,28 @@ describe('Gemini y adaptador seguro', () => {
       expect(res.statusCode).toBe(200); expect(JSON.parse(body)).toMatchObject({configured:false,profilesPerRequest:1});
       expect(body).not.toContain('apiKey');
     } finally { vi.unstubAllEnvs(); }
+  });
+  it('acepta fragmentos largos y conserva una cita literal limitada a 600 caracteres', () => {
+    const state=fixture(), payload=prepareEvaluation(state,state.applications[0].id).payload!;
+    payload.profile[1].text='Desarrolló soluciones con Python y AWS. '.repeat(40);
+    const indexed={...output(payload),criteria:output(payload).criteria.map(item=>({key:item.key,score:item.score,evidenceKey:'field-2'}))};
+    const result=validateProviderEvaluation(indexed,payload);
+    expect(result.llmScore).toBe(80);
+    expect(result.criteria[0].evidence!.length).toBeLessThanOrEqual(600);
+    expect(payload.profile[1].text).toContain(result.criteria[0].evidence);
+  });
+  it('publica ritmo configurable y conserva Retry-After para cuotas temporales, sin reintentar cuotas diarias', async () => {
+    const config=await handleGeminiEvaluation(new Request('https://example.com/api/evaluate'),{env});
+    expect(await config.json()).toMatchObject({concurrency:3,requestsPerMinute:20,intervalSeconds:3.1});
+    const state=fixture(), actualPayload=prepareEvaluation(state,state.applications[0].id).payload;
+    const temporary=await handleGeminiEvaluation(request(actualPayload),{env,fetch:async()=>new Response(JSON.stringify({error:{details:[{retryDelay:'32s'}]}}),{status:429})});
+    expect(temporary.headers.get('retry-after')).toBe('32');
+    expect((await temporary.json()).code).toBe('PROVIDER_RATE_LIMIT');
+    const daily=await handleGeminiEvaluation(request(actualPayload),{env,fetch:async()=>new Response(JSON.stringify({error:{details:[{violations:[{quotaId:'RequestsPerDayPerProject'}]}]}}),{status:429})});
+    expect(daily.headers.has('retry-after')).toBe(false);
+    expect((await daily.json()).code).toBe('PROVIDER_DAILY_QUOTA');
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({error:'Espera.',code:'LOCAL_RATE_LIMIT'}),{status:429,headers:{'Retry-After':'7'}})));
+    try { await expect(evaluatePreparedProfile(prepareEvaluation(state,state.applications[0].id),new AbortController().signal)).rejects.toMatchObject({status:429,retryAfterMs:7000}); }
+    finally { vi.unstubAllGlobals(); }
   });
 });

@@ -6,6 +6,7 @@ import { Badge } from '../common/Badge.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { RequirementPill } from './RequirementPill.tsx';
 import { ScoreBadge } from './ScoreBadge.tsx';
+import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import { Tabs } from '../common/Tabs.tsx';
 import { AdvanceDecisionModal } from '../modals/AdvanceDecisionModal.tsx';
 import { ReleaseModal } from '../modals/ReleaseModal.tsx';
@@ -152,7 +153,7 @@ export function CandidateDrawer() {
 
             {/* Puntaje LLM */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.2rem' }}>
-              <ScoreBadge score={app.llmScore} method="LLM" />
+              <ScoreBadge score={app.llmScore} method="LLM" summary={evaluationSummary(app,currentJob.criteria)} />
               <RequirementPill
                 status={app.mandatoryRequirementStatus}
                 justification={app.requirementJustification}
@@ -163,6 +164,9 @@ export function CandidateDrawer() {
             <Button size="sm" variant="secondary" icon={<ShieldCheck size={15}/>} onClick={() => setIsRequirementOpen(true)}>Revisar requisito</Button>
             {isRequirementOpen && <RequirementReviewModal key={app.id} application={app} rule={currentJob.knockoutRule} onClose={() => setIsRequirementOpen(false)}/>}
             {app.llmEvaluation && <p style={{ fontSize:'.75rem',color:'var(--text-secondary)' }}>Evaluado con {app.llmEvaluation.model} · {new Date(app.llmEvaluation.evaluatedAt).toLocaleString('es-PE')} · Criterios {app.llmEvaluation.criteriaVersion}{app.llmEvaluation.missingCriteria.length ? ' · Evidencia incompleta' : ''}</p>}
+            {app.llmEvaluation && app.llmScore === null && <p style={{fontSize:'.8rem',color:'var(--text-secondary)'}}>
+              Evaluación recibida. Cobertura: {evaluationSummary(app,currentJob.criteria).coverage}%. Falta evidencia o referencia para: {evaluationSummary(app,currentJob.criteria).missingLabels.join('; ')}. El puntaje parcial considera solo los criterios evaluados; completa los restantes para obtener el total.
+            </p>}
 
             {/* Información de contacto honesta (solo si existe) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>

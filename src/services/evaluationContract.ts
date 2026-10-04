@@ -75,7 +75,9 @@ export function validateProviderEvaluation(value: unknown, payload: EvaluationPa
     if(item.score===null && item.evidenceKey===null) return {key:item.key,score:null,evidence:null};
     const index=typeof item.evidenceKey==='string' ? payload.profile.findIndex((_,index) => item.evidenceKey===`field-${index+1}`) : -1;
     if(index<0) throw new Error('La fuente de evidencia no corresponde al perfil depurado.');
-    return {key:item.key,score:item.score,evidence:payload.profile[index].text};
+    // El fragmento puede tener 6000 caracteres; la cita almacenada admite 600.
+    // Conserva una porción literal para que la validación no rechace perfiles largos.
+    return {key:item.key,score:item.score,evidence:payload.profile[index].text.slice(0,600).trim()};
   });
   return validateEvaluationOutput({explanation:result.explanation,strengths:result.strengths,evidenceSummary:result.evidenceSummary,criteria},payload);
 }

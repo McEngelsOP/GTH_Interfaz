@@ -3,21 +3,14 @@ import { Sparkles, ShieldCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 import { Button } from '../common/Button.tsx';
 import { Modal } from '../common/Modal.tsx';
-import { EVALUATION_PREVIEW_PAGE_SIZE, EVALUATION_INTERVAL_MS, validateEvaluationPayload } from '../../services/evaluationContract.ts';
+import { EVALUATION_PREVIEW_PAGE_SIZE, validateEvaluationPayload } from '../../services/evaluationContract.ts';
 import { evaluatePreparedProfile, evaluationSnapshot, prepareEvaluation, EvaluationError } from '../../services/evaluationService.ts';
 import type { PreparedEvaluation } from '../../services/evaluationService.ts';
+import { evaluationQueueOptions, LEGACY_QUEUE_OPTIONS, runEvaluationQueue } from '../../services/evaluationQueue.ts';
+import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import '../../styles/evaluation.css';
 
-let lastEvaluationStart = 0;
 type Row = { prepared:PreparedEvaluation; viewed:boolean; status:'ready'|'done'|'partial'|'error'|'review'; message:string };
-function delay(ms:number, signal:AbortSignal) {
-  return new Promise<void>((resolve,reject) => {
-    if (signal.aborted) { reject(new DOMException('Cancelado','AbortError')); return; }
-    const stop = () => { clearTimeout(timer); reject(new DOMException('Cancelado','AbortError')); };
-    const timer = window.setTimeout(() => { signal.removeEventListener('abort',stop); resolve(); }, ms);
-    signal.addEventListener('abort',stop,{ once:true });
-  });
-}
 export function EvaluationPanel() {
   const { appState, activeJob, activeJobApplications, selectedApplicationIds, handleApplyEvaluation, handleEvaluationIssue, handleUpdateEvaluationReference, openCandidateDrawer } = useApp();
   const stateRef = useRef(appState); stateRef.current = appState;
@@ -26,6 +19,7 @@ export function EvaluationPanel() {
   const controller = useRef<AbortController | null>(null);
   const [open,setOpen] = useState(false), [rows,setRows] = useState<Row[]>([]), [busy,setBusy] = useState(false);
   const [configuration,setConfiguration] = useState<boolean | null>(null), [error,setError] = useState(''), [progress,setProgress] = useState('');
+  const [queueOptions,setQueueOptions] = useState(LEGACY_QUEUE_OPTIONS);
   const [batchApproved,setBatchApproved] = useState(false), [pageIndex,setPageIndex] = useState(0);
   const [reference,setReference] = useState(activeJob?.evaluationReference || '');
   const [referenceError,setReferenceError] = useState('');
@@ -34,17 +28,18 @@ export function EvaluationPanel() {
     if (reference.trim()) validateEvaluationPayload({ requestId:crypto.randomUUID(),profile:[{label:'Puesto',text:'Perfil de prueba'}],job:{title:'Puesto',reference,criteria:[{key:'criterion-1',label:'Experiencia',weightPct:100}]} });
     handleUpdateEvaluationReference(activeJob!.id,reference);setReferenceError('');
   } catch (e) {setReferenceError(e instanceof Error ? e.message : 'Revisa la referencia.');} };
-  const [currentId,setCurrentId] = useState<string | null>(null);
-  const stop = () => { controller.current?.abort(); controller.current = null; setBusy(false); setCurrentId(null); };
+  const [currentIds,setCurrentIds] = useState<string[]>([]);
+  const stop = () => { controller.current?.abort(); controller.current = null; setBusy(false); setCurrentIds([]); };
   const close = () => { stop(); setBatchApproved(false); setOpen(false); };
   useEffect(() => { close(); return () => controller.current?.abort(); }, [activeJob?.id]);
   const pending = activeJobApplications.filter((app) => app.stage === 'postulado' && app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue);
   const specialCases = activeJobApplications.filter((app) => app.stage === 'postulado' && app.evaluationIssue);
+  const partials = activeJobApplications.filter((app) => app.stage === 'postulado' && app.llmScore === null && app.llmEvaluation);
   const selectedPending = pending.filter((app) => selectedApplicationIds.includes(app.id));
   const patch = (id:string, update:Partial<Row>) => setRows((rows) => rows.map((row) => row.prepared.applicationId === id ? { ...row,...update } : row));
-  async function preview(onlySelected = false, retryId?: string) {
+  async function preview(onlySelected = false, retryId?: string, retryPartials = false) {
     setError(''); setProgress(''); setConfiguration(null); setBatchApproved(false); setPageIndex(0);
-    const applications = retryId ? specialCases.filter((app) => app.id === retryId) : onlySelected ? selectedPending : pending;
+    const applications = retryId ? specialCases.filter((app) => app.id === retryId) : retryPartials ? partials : onlySelected ? selectedPending : pending;
     const result = applications.map((app):Row => ({ prepared:prepareEvaluation(stateRef.current,app.id), viewed:false, status:'ready', message:'' }));
     setRows(result); setOpen(true);
     const c = new AbortController(); controller.current = c;
@@ -52,7 +47,7 @@ export function EvaluationPanel() {
       const response = await fetch('/api/evaluate',{ signal:AbortSignal.any([c.signal,AbortSignal.timeout(10_000)]), cache:'no-store' });
       const body = await response.json();
       if (!response.ok || typeof body.configured !== 'boolean') throw new Error('No se pudo comprobar el evaluador. Cierra la vista previa y vuelve a abrirla.');
-      if (!c.signal.aborted) setConfiguration(body.configured);
+      if (!c.signal.aborted) { setConfiguration(body.configured);setQueueOptions(evaluationQueueOptions(body)); }
     } catch (e) { if (!c.signal.aborted) setError(e instanceof Error ? e.message : 'No se pudo comprobar el evaluador.'); }
   }
   async function run() {
@@ -60,42 +55,44 @@ export function EvaluationPanel() {
     if (!queue.length || busy || !configuration || !batchApproved) return;
     controller.current?.abort(); const c = new AbortController(); controller.current = c;
     setBusy(true); setError('');
-    let processed = 0, reviewed = 0, failed = false;
+    let processed = 0, reviewed = 0;
     try {
-      for (const row of queue) {
-        if (c.signal.aborted) break;
-        const id = row.prepared.applicationId; setCurrentId(id);
-        setProgress(`Procesando ${processed + reviewed + 1} de ${queue.length}…`);
+      await runEvaluationQueue(queue,queueOptions,c.signal,async (row) => {
+        const id = row.prepared.applicationId;
+        setCurrentIds(ids => [...ids,id]);
+        setProgress(`Procesando lote: ${processed + reviewed} de ${queue.length} finalizados…`);
         try {
-          const remaining = Math.max(0,EVALUATION_INTERVAL_MS - (Date.now() - lastEvaluationStart));
-          if (remaining) { setProgress('Esperando antes del siguiente perfil…');await delay(remaining,c.signal); }
-          setProgress(`Procesando ${processed + reviewed + 1} de ${queue.length}…`);
-          lastEvaluationStart = Date.now();
           if (evaluationSnapshot(stateRef.current,id) !== row.prepared.snapshot) throw new EvaluationError('El perfil cambió. Prepara una nueva vista previa.', 'PROFILE_CHANGED', 422);
           const result = await evaluatePreparedProfile(row.prepared,c.signal);
-          if (c.signal.aborted) break;
+          if (c.signal.aborted) return;
           try { applyRef.current(row.prepared,result.reply,result.hash); }
           catch (e) { throw new EvaluationError(e instanceof Error ? e.message : 'La respuesta requiere revisión.', 'INVALID_RESPONSE', 422); }
+          const missing = result.reply.criteria.flatMap((item,index) => item.score === null ? [row.prepared.payload!.job.criteria[index].label] : []);
           patch(id,{ status:result.reply.llmScore === null ? 'partial' : 'done',
-            message:result.reply.llmScore === null ? 'Evaluación recibida: falta evidencia para algunos criterios. Puntaje pendiente.' : `Puntaje LLM: ${result.reply.llmScore}. Falta revisar el requisito si aún no está verificado.` });
+            message:result.reply.llmScore === null ? `Evaluación recibida: falta evidencia para ${missing.join('; ')}. El puntaje parcial se muestra en la tabla; el total requiere completar estos criterios.` : `Puntaje LLM: ${result.reply.llmScore}. Falta revisar el requisito si aún no está verificado.` });
           processed++;
         } catch (e) {
-          if (c.signal.aborted) break;
+          if (c.signal.aborted) return;
           const message = e instanceof Error ? e.message : 'No se pudo evaluar el perfil.';
           if (e instanceof EvaluationError && e.isProfileIssue) {
             issueRef.current(id,e);
             patch(id,{ status:'review', message:`Caso especial: ${message}` });
             reviewed++;
-            continue;
+            return;
           }
-          failed = true; patch(id,{ status:'error', message });
-          setProgress('Lote detenido.');
-          setError(`${message} El lote se detuvo. Los resultados anteriores se conservaron; reintenta los pendientes.`); break;
+          patch(id,{ status:'error', message }); throw e;
+        } finally {
+          setCurrentIds(ids => ids.filter(current => current !== id));
         }
-      }
-      if (!c.signal.aborted && !failed) setProgress(`Lote completado: ${completed + processed} resultados recibidos · ${rows.filter((row) => row.status === 'review').length + reviewed} casos especiales. Revisa las evidencias y los requisitos antes de elegir Top-N.`);
-    } catch { /* Pausa durante el intervalo. */ }
-    finally { if (controller.current === c) { setBusy(false); setCurrentId(null); if (c.signal.aborted) setProgress(`Lote pausado. ${processed} resultados recibidos en esta ejecución.`); } }
+      },(row,waitMs) => {
+        patch(row.prepared.applicationId,{status:'ready',message:'Espera por cuota; reintento automático.'});
+        setProgress(`Esperando ${Math.ceil(waitMs / 1000)} segundos por cuota. El lote continuará automáticamente…`);
+      });
+      if (!c.signal.aborted) setProgress(`Lote completado: ${completed + processed} resultados recibidos · ${rows.filter((row) => row.status === 'review').length + reviewed} casos especiales. Revisa las evidencias y los requisitos antes de elegir Top-N.`);
+    } catch (e) {
+      if (!c.signal.aborted) { setProgress('Lote detenido.');setError(`${e instanceof Error ? e.message : 'No se pudo evaluar el lote.'} El lote se detuvo. Los resultados anteriores se conservaron; reintenta los pendientes.`); }
+    }
+    finally { if (controller.current === c) { setBusy(false); setCurrentIds([]); if (c.signal.aborted) setProgress(`Lote pausado. ${processed} resultados recibidos en esta ejecución.`); } }
   }
   function omit(id:string,index:number) {
     setBatchApproved(false);
@@ -121,6 +118,16 @@ export function EvaluationPanel() {
       <div className="evaluation-actions"><Button icon={<Sparkles size={16}/>} disabled={!pending.length} onClick={() => void preview()}>Evaluar todos los pendientes</Button>
         {selectedApplicationIds.length > 0 && <Button size="sm" disabled={!selectedPending.length} onClick={() => void preview(true)}>Evaluar seleccionados</Button>}</div>
     </div>
+    {partials.length > 0 && <details className="evaluation-special-cases">
+      <summary>Evaluaciones recibidas · evidencia incompleta ({partials.length})</summary>
+      <p className="evaluation-muted">Gemini respondió y sus puntajes por criterio están guardados. El total queda sin calcular si falta un criterio con peso. Completa la referencia del puesto o la información profesional para obtener el total.</p>
+      {partials.map(app => { const summary = evaluationSummary(app,activeJob!.criteria); return <article className="evaluation-row" key={app.id}>
+        <strong>{appState.candidates.find(candidate => candidate.id === app.candidateId)?.name}</strong>
+        <p className="evaluation-muted">{summary.partialScore === null ? 'Sin evidencia puntuable' : `Puntaje parcial: ${summary.partialScore}/100 · Cobertura: ${summary.coverage}%`}. Sin puntaje en: {summary.missingLabels.join('; ')}.</p>
+        <Button size="sm" onClick={() => openCandidateDrawer(app)} disabled={open}>Ver criterios y evidencias</Button>
+      </article>; })}
+      <Button size="sm" onClick={() => void preview(false,undefined,true)} disabled={open}>Reevaluar perfiles incompletos</Button>
+    </details>}
     {specialCases.length > 0 && <details className="evaluation-special-cases">
       <summary>Casos especiales · revisión de información ({specialCases.length})</summary>
       <p className="evaluation-muted">Estos perfiles se apartaron de la cola automática. Revisa el motivo y reintenta cada caso cuando corresponda. El fallo no implica que el candidato incumpla los requisitos.</p>
@@ -144,7 +151,7 @@ export function EvaluationPanel() {
       footer={<><Button onClick={close} size="sm">Cerrar</Button>{busy ? <Button onClick={() => { controller.current?.abort(); }} size="sm">Pausar lote</Button>
         : <Button variant="primary" size="sm" onClick={run} disabled={!ready || !configuration || !batchApproved}>Evaluar {ready} {ready === 1 ? 'perfil' : 'perfiles'}</Button>}</>}>
       <div className="evaluation-notice">Modo de pruebas con perfiles creados por ti. Solo se envían a Google los campos profesionales depurados y los criterios. Puedes consultar la vista previa u omitir campos; no necesitas abrir cada perfil. La depuración reduce la exposición, pero no garantiza anonimato. El requisito obligatorio sigue siendo una revisión del equipo.</div>
-      <p className="evaluation-muted">{configuration === null ? 'Comprobando conexión del evaluador…' : configuration ? 'Clave Gemini configurada. Cada perfil se envía por separado, con al menos 12 segundos entre inicios.' : 'Falta GEMINI_API_KEY. Configúrala en Vercel y vuelve a desplegar.'}</p>
+      <p className="evaluation-muted">{configuration === null ? 'Comprobando conexión del evaluador…' : configuration ? `Clave Gemini configurada. Hasta ${queueOptions.concurrency} perfiles simultáneos, con ${queueOptions.intervalMs / 1000} segundos entre inicios. Las esperas por cuota se reintentan automáticamente.` : 'Falta GEMINI_API_KEY. Configúrala en Vercel y vuelve a desplegar.'}</p>
       <div className="evaluation-batch-summary" aria-label="Resumen del lote"><strong>{rows.length} perfiles preparados</strong><span>{ready} pendientes listos · {blocked} requieren revisión · {completed} resultados recibidos · {reviewed} casos especiales</span></div>
       <label className="evaluation-consent evaluation-batch-consent"><input type="checkbox" checked={batchApproved} disabled={busy || !ready || !configuration}
         onChange={(e) => setBatchApproved(e.target.checked)}/> Ya revisé estos perfiles: son datos de prueba creados por mí y autorizo enviar todo el lote depurado a Google Gemini.</label>
@@ -165,7 +172,7 @@ export function EvaluationPanel() {
           {row.viewed && row.prepared.privacy.fields.map((field,i) => <div className="evaluation-field" key={i}><strong>{field.label}</strong><pre>{field.text}</pre>
             <Button size="sm" variant="ghost" onClick={() => omit(row.prepared.applicationId,i)} disabled={busy || !['ready','error'].includes(row.status)}>Omitir campo {i + 1}</Button></div>)}
         </details>
-        {currentId === row.prepared.applicationId && busy && <p className="evaluation-muted">En evaluación…</p>}
+        {currentIds.includes(row.prepared.applicationId) && busy && <p className="evaluation-muted">En evaluación…</p>}
         {row.message && <p className={row.status === 'error' ? 'evaluation-error' : row.status === 'review' ? 'evaluation-review' : 'evaluation-progress'}>{row.message}</p>}
       </article>)}
     </Modal>

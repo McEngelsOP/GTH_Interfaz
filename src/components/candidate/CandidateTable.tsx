@@ -5,6 +5,7 @@ import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { RequirementPill } from './RequirementPill.tsx';
 import { ScoreBadge } from './ScoreBadge.tsx';
+import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import {
@@ -482,7 +483,7 @@ export function CandidateTable({
 
                     {/* Puntaje LLM */}
                     <td style={{ padding: cellPadding }}>
-                      <ScoreBadge score={app.llmScore} method="LLM" size="sm" />
+                      <ScoreBadge score={app.llmScore} method="LLM" size="sm" summary={evaluationSummary(app,appState.jobPostings.find(job => job.id === app.jobPostingId)?.criteria || [])} />
                     </td>
 
                     {/* Fuente */}
