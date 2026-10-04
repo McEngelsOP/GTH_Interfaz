@@ -153,7 +153,7 @@ describe('Gemini y adaptador seguro', () => {
     try {
       let body=''; const res={ statusCode:0,setHeader:vi.fn(),end:(text:string)=>{body=text;} };
       await endpoint({ method:'GET',url:'/api/evaluate',headers:{host:'example.com'} } as IncomingMessage,res as unknown as ServerResponse);
-      expect(res.statusCode).toBe(200); expect(JSON.parse(body)).toMatchObject({configured:false,batchLimit:25});
+      expect(res.statusCode).toBe(200); expect(JSON.parse(body)).toMatchObject({configured:false,profilesPerRequest:1});
       expect(body).not.toContain('apiKey');
     } finally { vi.unstubAllEnvs(); }
   });

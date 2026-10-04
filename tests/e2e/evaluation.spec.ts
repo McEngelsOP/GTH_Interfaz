@@ -11,13 +11,13 @@ const jsonReply = (body:any,partial=false) => ({ requestId:body.requestId,model:
   explanation:'Evaluación sustentada en los campos profesionales.',strengths:['Experiencia tecnológica declarada'],evidenceSummary:'Tecnología y formación declaradas.',
   criteria:body.job.criteria.map((c:any,i:number) => ({ key:c.key,score:partial && i===0?null:80,evidence:partial && i===0?null:'Desarrolló soluciones con Python y AWS.' })) });
 const preview = async (page:Page) => {
-  await page.getByRole('button',{name:'Evaluar pendientes',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Revisar perfiles antes de evaluar'});
+  await page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles de prueba'});
   await expect(dialog.getByText(/Clave Gemini configurada/)).toBeVisible();
   return dialog;
 };
 
-test('revisión explícita, envío depurado, persistencia y verificación humana habilitan Top-N', async ({page}) => {
+test('autorización única, envío depurado, persistencia y verificación humana habilitan Top-N', async ({page}) => {
   const sent:any[]=[];
   await page.route('**/api/evaluate',async route => {
     if(route.request().method()==='GET') return route.fulfill({json:{configured:true}});
@@ -27,11 +27,12 @@ test('revisión explícita, envío depurado, persistencia y verificación humana
   await setup(page);
   const dialog=await preview(page);
   expect(sent).toHaveLength(0);
-  const consent=dialog.getByRole('checkbox');await expect(consent).toBeDisabled();
+  const consent=dialog.getByRole('checkbox');await expect(consent).toBeEnabled();
+  await expect(dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true})).toBeDisabled();
   await dialog.getByText('Ver contenido depurado de Ana Segura',{exact:true}).click();
   await expect(dialog.locator('pre').filter({hasText:'Python'})).toBeVisible();
   await consent.check();
-  await dialog.getByRole('button',{name:'Evaluar 1 revisados',exact:true}).click();
+  await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
   await expect(dialog.getByText(/Lote completado/)).toBeVisible();
   expect(sent).toHaveLength(1);
   expect(Object.keys(sent[0]).sort()).toEqual(['job','profile','requestId']);
@@ -72,7 +73,7 @@ test('vista previa móvil permite omitir campos y obliga a autorizar otra vez', 
   expect(await page.evaluate(() => document.documentElement.scrollWidth>innerWidth)).toBe(false);
   expect(await dialog.evaluate((el) => el.contains(document.elementFromPoint(innerWidth/2,55)))).toBe(true);
   await page.screenshot({path:'../evaluation-preview-mobile.png',fullPage:true});
-  await dialog.getByRole('button',{name:'Evaluar 1 revisados',exact:true}).click();
+  await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
   await expect(dialog.getByText(/Evaluación recibida: falta evidencia/)).toBeVisible();
   expect(sent[0].profile.some((field:any) => field.label==='Puesto')).toBe(false);
   const app=await page.evaluate(() => JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications[0]);
@@ -90,15 +91,15 @@ test('cuota conserva resultados previos y cerrar cancela la evaluación en curso
   });
   await setup(page);const dialog=await preview(page);
   await dialog.getByText('Ver contenido depurado de Ana Segura',{exact:true}).click();await dialog.getByRole('checkbox').check();
-  await dialog.getByRole('button',{name:'Evaluar 1 revisados',exact:true}).click();
+  await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
   await expect(dialog.getByText('Cuota de prueba agotada.',{exact:true})).toBeVisible();
   await expect(dialog.getByRole('alert')).toContainText('lote se detuvo');
-  await dialog.getByRole('button',{name:'Evaluar 1 revisados',exact:true}).click();
+  await dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true}).click();
   await expect.poll(()=>Boolean(resolve),{timeout:20000}).toBe(true);
   await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();resolve!();
   const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!));
   expect(state.applications[0].llmScore).toBeNull();expect(state.applications[0].llmEvaluation).toBeUndefined();
-  await expect(page.getByRole('button',{name:'Evaluar pendientes',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true})).toBeEnabled();
 });
 
 test('perfiles sin campos profesionales y claves ausentes no generan envíos', async ({page}) => {
@@ -106,11 +107,11 @@ test('perfiles sin campos profesionales y claves ausentes no generan envíos', a
   await page.addInitScript(s=>localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s)),state);
   let posts=0;
   await page.route('**/api/evaluate',route=>{if(route.request().method()==='POST')posts++;return route.fulfill({json:{configured:false}});});
-  await page.goto('/#view=mejores_candidatos');await page.getByRole('button',{name:'Evaluar pendientes',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Revisar perfiles antes de evaluar'});
+  await page.goto('/#view=mejores_candidatos');await page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles de prueba'});
   await expect(dialog.getByText(/No hay información profesional suficiente/)).toBeVisible();
   await expect(dialog.getByText(/Falta GEMINI_API_KEY/)).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'Evaluar 0 revisados',exact:true})).toBeDisabled();
+  await expect(dialog.getByRole('button',{name:'Evaluar 0 perfiles',exact:true})).toBeDisabled();
   expect(posts).toBe(0);
 });
 
@@ -122,4 +123,90 @@ test('referencia del puesto se guarda localmente, cambia versión e invalida pun
   const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!));
   const job=stored.jobPostings.find((job:any)=>job.id===stored.activeJobPostingId);
   expect(job.evaluationReference).toContain('Python');expect(job.criteriaVersion).toContain('ref');
+});
+
+
+for (const total of [120,400]) test(`prepara ${total} perfiles con una sola confirmación y sin abrir vistas previas`,async({page})=>{
+  const state=structuredClone(fixture);
+  state.candidates=Array.from({length:total},(_,i)=>({...structuredClone(fixture.candidates[0]),id:`test-person-${i}`,name:`Persona de prueba ${i}`}));
+  state.applications=Array.from({length:total},(_,i)=>({...structuredClone(fixture.applications[0]),id:`test-app-${i}`,candidateId:`test-person-${i}`}));
+  state.candidates[total-1].importedProfile!.records=[{'Nombre':'Persona de prueba'}];
+  await page.addInitScript(s=>localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s)),state);
+  let posts=0;
+  await page.route('**/api/evaluate',route=>{if(route.request().method()==='POST')posts++;return route.fulfill({json:{configured:true}});});
+  await page.goto('/#view=mejores_candidatos');const dialog=await preview(page);
+  await expect(dialog.getByRole('checkbox')).toHaveCount(1);
+  await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+  await expect(dialog.getByRole('checkbox')).toBeEnabled();
+  await expect(dialog.getByLabel('Resumen del lote')).toContainText(`${total} perfiles preparados`);
+  await expect(dialog.getByLabel('Resumen del lote')).toContainText(`${total-1} pendientes listos · 1 requieren revisión`);
+  await expect(dialog.locator('.evaluation-row')).toHaveCount(25);
+  await expect(dialog.locator('.evaluation-field')).toHaveCount(0);
+  await dialog.getByRole('checkbox').check();
+  await expect(dialog.getByRole('button',{name:`Evaluar ${total-1} perfiles`,exact:true})).toBeEnabled();
+  expect(posts).toBe(0);
+  await dialog.getByRole('button',{name:'Siguiente',exact:true}).click();
+  await expect(dialog.getByRole('checkbox')).toBeChecked();
+  await expect(dialog.locator('.evaluation-row').first()).toContainText('26. Persona de prueba 25');
+  if(total===120){
+    await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('row').filter({has:page.getByRole('button',{name:'Persona de prueba 0',exact:true})}).getByRole('checkbox').check();
+    await page.getByRole('button',{name:'Evaluar seleccionados',exact:true}).click();
+    await expect(dialog.getByLabel('Resumen del lote')).toContainText('1 perfiles preparados');
+    await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+    await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true}).click();
+    await expect(dialog.getByLabel('Resumen del lote')).toContainText('120 perfiles preparados');
+    await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+  }
+  if(total===400){await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await page.screenshot({path:'../evaluation-batch-400-mobile.png',fullPage:true});}
+});
+
+test('una confirmación procesa más de 25, omite bloqueados y reanuda sin repetir resultados',async({page})=>{
+  test.setTimeout(90000);
+  const state=structuredClone(fixture);
+  const total=28;
+  state.candidates=Array.from({length:total},(_,i)=>({...structuredClone(fixture.candidates[0]),id:`queue-person-${i}`,name:`Persona de prueba ${i}`}));
+  state.applications=Array.from({length:total},(_,i)=>({...structuredClone(fixture.applications[0]),id:`queue-app-${i}`,candidateId:`queue-person-${i}`}));
+  state.candidates[total-1].importedProfile!.records=[{'Nombre':'Persona de prueba'}];
+  await page.addInitScript(s=>localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(s)),state);
+  await page.clock.install();
+  const sent:any[]=[];let fail=true;
+  await page.route('**/api/evaluate',async route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{configured:true}});
+    const body=route.request().postDataJSON();sent.push(body);
+    if(sent.length===26 && fail){fail=false;return route.fulfill({status:429,json:{error:'Cuota temporal de prueba.'}});}
+    return route.fulfill({json:jsonReply(body)});
+  });
+  await page.goto('/#view=mejores_candidatos');const dialog=await preview(page);
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button',{name:'Evaluar 27 perfiles',exact:true}).click();
+  for(let i=1;i<=25;i++){
+    await expect.poll(()=>sent.length).toBe(i);
+    await expect(dialog.getByLabel('Resumen del lote')).toContainText(`${i} resultados recibidos`);
+    if(i===1){
+      await dialog.getByRole('button',{name:'Pausar lote',exact:true}).click();
+      await expect(dialog.getByRole('button',{name:'Evaluar 26 perfiles',exact:true})).toBeEnabled();
+      await expect(dialog.getByRole('checkbox')).toBeChecked();
+      await page.clock.runFor(12001);
+      expect(sent).toHaveLength(1);
+      await dialog.getByRole('button',{name:'Evaluar 26 perfiles',exact:true}).click();
+    }else await page.clock.runFor(12001);
+  }
+  await expect.poll(()=>sent.length).toBe(26);
+  await expect(dialog.getByRole('alert')).toContainText('lote se detuvo');
+  await expect(dialog.getByRole('alert')).toContainText('Cuota temporal de prueba.');
+  await expect(dialog.getByRole('checkbox')).toBeChecked();
+  await expect(dialog.getByRole('button',{name:'Evaluar 2 perfiles',exact:true})).toBeEnabled();
+  await dialog.getByRole('button',{name:'Evaluar 2 perfiles',exact:true}).click();
+  await page.clock.runFor(12001);
+  await expect.poll(()=>sent.length).toBe(27);
+  await expect(dialog.getByLabel('Resumen del lote')).toContainText('26 resultados recibidos');
+  await page.clock.runFor(12001);
+  await expect(dialog.getByText(/Lote completado/)).toBeVisible();
+  expect(sent).toHaveLength(28); // 27 listos más el reintento del único fallo.
+  expect(new Set(sent.map(body=>body.requestId)).size).toBe(27);
+  const apps=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications);
+  expect(apps.filter((app:any)=>app.llmScore===80)).toHaveLength(27);
+  expect(apps[27].llmScore).toBeNull();
 });

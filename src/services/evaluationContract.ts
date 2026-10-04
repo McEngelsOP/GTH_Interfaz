@@ -1,7 +1,8 @@
 import { PROFESSIONAL_LABELS, hasSensitivePatterns, containsInstruction } from './profilePrivacy.js';
 import type { ProfessionalField } from './profilePrivacy.js';
 
-export const MAX_EVALUATION_BATCH = 25;
+// Solo limita la cantidad de vistas previas renderizadas, nunca la cola de evaluación.
+export const EVALUATION_PREVIEW_PAGE_SIZE = 25;
 export const EVALUATION_INTERVAL_MS = 12_000;
 export interface EvaluationPayload {
   requestId: string;

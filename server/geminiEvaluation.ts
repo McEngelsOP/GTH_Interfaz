@@ -25,7 +25,7 @@ export async function handleGeminiEvaluation(request: Request, dependencies: Gem
   const env = dependencies.env || process.env;
   const apiKey = env.GEMINI_API_KEY?.trim();
   const model = env.GEMINI_EVALUATION_MODEL?.trim() || env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite';
-  if (request.method === 'GET') return reply(200, { configured:Boolean(apiKey), provider:'Google Gemini', model, batchLimit:25, intervalSeconds:12 });
+  if (request.method === 'GET') return reply(200, { configured:Boolean(apiKey), provider:'Google Gemini', model, profilesPerRequest:1, intervalSeconds:12 });
   if (request.method !== 'POST') return reply(405, { error:'Usa GET o POST.' }, { Allow:'GET, POST' });
   const origin = request.headers.get('origin');
   if ((origin && origin !== new URL(request.url).origin) || request.headers.get('sec-fetch-site') === 'cross-site') return reply(403, { error:'Evalúa desde esta aplicación.' });
