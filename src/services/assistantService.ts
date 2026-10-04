@@ -6,6 +6,10 @@ export interface AssistantMessage { role: 'user' | 'assistant'; text: string }
 export interface AssistantConfiguration { configured: boolean; model: string; provider: 'Google Gemini' }
 export interface AssistantReply { text: string; model: string }
 
+export class AssistantRequestError extends Error {
+  constructor(message: string, public status: number, public code?: string) { super(message); this.name = 'AssistantRequestError'; }
+}
+
 /** Solo la convocatoria activa y campos explícitos; nunca se serializa AppState completo. */
 export function buildAssistantContext(state: AppStateData, job: JobPosting, includeCandidates = false) {
   const applications = state.applications.filter((app) => app.jobPostingId === job.id);
@@ -36,7 +40,7 @@ async function requestAssistant<T>(options: RequestInit, signal?: AbortSignal): 
   const timeout = AbortSignal.timeout(45_000);
   const response = await fetch('/api/chat', { ...options, signal: signal ? AbortSignal.any([signal, timeout]) : timeout, cache: 'no-store', credentials: 'same-origin' });
   const body = await response.json().catch(() => null);
-  if (!response.ok || !body) throw new Error(body?.error || 'No se pudo contactar al asistente. Prueba de nuevo.');
+  if (!response.ok || !body) throw new AssistantRequestError(body?.error || 'No se pudo contactar al asistente. Prueba de nuevo.', response.status, body?.code);
   return body as T;
 }
 

@@ -44,12 +44,16 @@ test('conexión, conversación e inclusión opcional envían solo el contexto pe
   });
   await open(page);
   const dialog = page.getByRole('dialog', { name: 'Asistente GTH · Gemini' });
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Opciones del asistente', exact: true }).click();
   await dialog.getByRole('button', { name: 'Probar conexión', exact: true }).click();
   await expect(dialog.getByText('Conexión verificada', { exact: true })).toBeVisible();
   expect(requests[0]).toEqual({ action: 'check' });
   await dialog.getByLabel('Pregunta al asistente', { exact: true }).fill('¿Cuántos candidatos hay?');
   await dialog.getByRole('button', { name: 'Enviar consulta', exact: true }).click();
   await expect(dialog.getByRole('log')).toContainText('Hay dos perfiles pendientes');
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
+  await expect(dialog.getByText('GEMINI_API_KEY', { exact: true })).toHaveCount(0);
   expect(requests[1].context.metrics.totalProcessed).toBe(2);
   expect(requests[1].context.candidateSummaries).toEqual([]);
   await dialog.getByLabel('Pregunta al asistente', { exact: true }).fill('¿Qué hace falta?');
@@ -69,6 +73,7 @@ test('conexión, conversación e inclusión opcional envían solo el contexto pe
   await page.getByRole('combobox', { name: 'Convocatoria activa' }).selectOption('REQ-2026-ADM-032');
   await page.getByRole('button', { name: 'Asistente GTH', exact: true }).click();
   await expect(dialog.locator('.assistant-message')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Opciones del asistente', exact: true }).click();
   await expect(dialog.getByRole('checkbox')).not.toBeChecked();
 });
 
@@ -85,6 +90,7 @@ test('errores de Gemini conservan la pregunta y permiten reintentar sin inventar
   await question.fill('¿Qué falta para elegir Top-N?');
   await dialog.getByRole('button', { name: 'Enviar consulta', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('cuota');
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
   await expect(question).toHaveValue('¿Qué falta para elegir Top-N?');
   await expect(dialog.locator('.assistant-message')).toHaveCount(0);
   fail = false;
@@ -112,4 +118,55 @@ test('cerrar una consulta en curso cancela su respuesta y deja el asistente list
   await expect(dialog.getByText('Clave configurada', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('status')).toHaveCount(0);
   await expect(dialog.getByRole('log')).not.toContainText('Respuesta de una consulta cancelada.');
+});
+
+
+test('la guía aparece al perder conexión y desaparece tras un reintento correcto', async ({ page }) => {
+  let fail = true;
+  await page.route('**/api/chat', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: configuration });
+    return fail ? route.fulfill({ status: 502, json: { error: 'No se pudo conectar con Gemini.' } })
+      : route.fulfill({ json: { text: 'La conexión se recuperó.', model: configuration.model } });
+  });
+  await open(page);
+  const dialog = page.getByRole('dialog', { name: 'Asistente GTH · Gemini' });
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Avance de candidatos', exact: true }).click();
+  await expect(dialog.getByText('Sin conexión', { exact: true })).toBeVisible();
+  await dialog.getByText('Revisar conexión con Gemini', { exact: true }).click();
+  await expect(dialog.getByText('GEMINI_API_KEY', { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('Pregunta al asistente', { exact: true })).toHaveValue('¿Cuántos candidatos hay y en qué etapas están?');
+  fail = false;
+  await dialog.getByRole('button', { name: 'Enviar consulta', exact: true }).click();
+  await expect(dialog.getByRole('log')).toContainText('La conexión se recuperó.');
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
+  await expect(dialog.getByText('GEMINI_API_KEY', { exact: true })).toHaveCount(0);
+});
+
+test('guía desaparece al configurar la clave y el chat conserva espacio en móvil', async ({ page }) => {
+  let configured = false;
+  await page.route('**/api/chat', (route) => route.request().method() === 'GET'
+    ? route.fulfill({ json: { ...configuration, configured } })
+    : route.fulfill({ json: { text: 'Resultado registrado. '.repeat(200), model: configuration.model } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page);
+  const dialog = page.getByRole('dialog', { name: 'Asistente GTH · Gemini' });
+  await expect(dialog.getByText('GEMINI_API_KEY', { exact: true })).toBeVisible();
+  configured = true;
+  await dialog.getByRole('button', { name: 'Volver a revisar', exact: true }).click();
+  await expect(dialog.getByText('Clave configurada', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('region', { name: 'Ayuda de conexión' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Probar conexión', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('log')).toBeVisible();
+  await page.screenshot({ path: '../chatbot-design-mobile.png', fullPage: true });
+  await dialog.getByRole('button', { name: 'Criterios de evaluación', exact: true }).click();
+  await expect(dialog.getByRole('log')).toContainText('Resultado registrado.');
+  const composer = dialog.getByLabel('Pregunta al asistente', { exact: true });
+  const box = await composer.boundingBox();
+  expect(box!.y + box!.height).toBeLessThan(844);
+  const log = dialog.getByRole('log');
+  expect(await log.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(await dialog.evaluate((el) => el.contains(document.elementFromPoint(innerWidth - 40, 30)))).toBe(true);
+  await page.screenshot({ path: '../chatbot-design-mobile-conversation.png', fullPage: true });
 });
