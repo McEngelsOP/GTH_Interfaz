@@ -18,7 +18,8 @@ test('ranking, ficha, comparador y CSV muestran únicamente evaluación LLM', as
   const header = csv.split(/\r?\n/)[0];
   expect(header).toContain('Puntaje según LLM');
   expect(header).not.toMatch(/Machine Learning|Puntaje ML|Score ML/);
-  expect(header.split(';')).toHaveLength(12);
+  expect(header.split(';')).toHaveLength(15);
+  expect(header).toContain('Puntaje parcial LLM;Cobertura LLM (%);Criterios sin evidencia');
   await page.goto('/#view=comparador');
   await page.getByRole('button', { name: 'Comparar los 3 mejores perfiles', exact: true }).click();
   await expect(page.getByText('Puntaje según LLM', { exact: true })).toBeVisible();

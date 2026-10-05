@@ -36,7 +36,7 @@ test('perfiles pendientes deshabilitan Top-N y aparecen de A a Z en el selector'
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/#view=mejores_candidatos');
   await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeDisabled();
-  await expect(page.locator('#top-n-availability')).toHaveText('Selección pendiente: faltan puntajes LLM y requisitos verificados.');
+  await expect(page.locator('#top-n-availability')).toHaveText('Evalúa al menos un perfil con evidencia puntuable y sin requisitos descartados.');
   await expect(page.locator('tbody tr td:nth-child(3) button')).toHaveText(alphabeticalNames);
   await page.screenshot({ path: '../candidate-selection.png', fullPage: true });
   await page.goto('/#view=comparador');
@@ -61,12 +61,12 @@ test('perfiles pendientes deshabilitan Top-N y aparecen de A a Z en el selector'
   expect(errors).toEqual([]);
 });
 
-test('Top-N se habilita solo con puntaje y requisitos; el ranking mantiene prioridad por puntaje', async ({ page }) => {
+test('Top-N para revisión usa puntajes disponibles y mantiene prioridad por puntaje', async ({ page }) => {
   await page.goto('/#view=mejores_candidatos');
   const evaluated = await readState(page);
   evaluated.applications[0].llmScore = 95;
   await writeState(page, evaluated);
-  await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeEnabled();
   evaluated.applications[0].mandatoryRequirementStatus = 'verificado';
   await writeState(page, evaluated);
   await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeEnabled();
@@ -75,7 +75,7 @@ test('Top-N se habilita solo con puntaje y requisitos; el ranking mantiene prior
   await expect(page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Zoe Prueba', exact: true }) }).getByRole('checkbox')).toBeChecked();
   await page.goto('/#view=comparador');
   await expect(page.getByRole('button', { name: 'Comparar los 3 mejores perfiles', exact: true })).toBeDisabled();
-  await expect(page.locator('#comparison-availability')).toContainText('al menos dos perfiles elegibles');
+  await expect(page.locator('#comparison-availability')).toContainText('al menos dos perfiles con puntaje disponible');
   evaluated.applications[2].llmScore = 80;
   evaluated.applications[2].mandatoryRequirementStatus = 'verificado';
   await writeState(page, evaluated);

@@ -5,6 +5,19 @@
 
 import { Application, Candidate, JobPosting, EvaluationMethod, ProfileTemplate, EmailDraft } from '../types/index.ts';
 import { getScoreByMethod, isEligibleForTopN } from './recruitmentRules.ts';
+import { evaluationSummary } from './evaluationSummary.ts';
+import { compareReviewScores } from './reviewRanking.ts';
+
+function evaluationCells(app: Application, job: JobPosting) {
+  const summary = evaluationSummary(app, job.criteria);
+  return {
+    total: app.llmScore !== null ? String(app.llmScore) : summary.evaluated
+      ? summary.partialScore !== null ? 'Parcial' : 'Sin evidencia' : app.evaluationIssue ? 'Caso especial' : 'Pendiente',
+    partial: app.llmScore === null && summary.evaluated && summary.partialScore !== null ? String(summary.partialScore) : '',
+    coverage: app.llmScore !== null ? '100' : summary.evaluated ? String(summary.coverage) : '',
+    missing: summary.evaluated ? summary.missingLabels.join(' | ') : '',
+  };
+}
 
 /**
  * Sanitiza texto para evitar inyecciones de fórmulas en hojas de cálculo
@@ -73,10 +86,14 @@ export function exportCandidatesCSV(params: {
     'Fuente',
     'Explicación',
     'Estado del mensaje',
+    'Puntaje parcial LLM',
+    'Cobertura LLM (%)',
+    'Criterios sin evidencia',
   ];
 
   const rows = applications.map((app) => {
     const cand = candidateMap.get(app.candidateId);
+    const evaluation = evaluationCells(app, job);
     return [
       app.id,
       cand?.name || 'Desconocido',
@@ -84,12 +101,15 @@ export function exportCandidatesCSV(params: {
       job.category,
       app.mandatoryRequirementStatus,
       job.code,
-      app.llmScore !== null ? String(app.llmScore) : 'Pendiente',
+      evaluation.total,
       method,
       app.stage,
       cand?.source || 'No registrada',
       app.whyScoreNotes?.explanation || '',
       emailDrafts.some((draft) => draft.applicationId === app.id) ? 'Borrador guardado' : 'Sin mensaje',
+      evaluation.partial,
+      evaluation.coverage,
+      evaluation.missing,
     ].map(sanitizeCell).join(';');
   });
 
@@ -112,11 +132,7 @@ export function exportComparisonCSV(params: {
   candidates.forEach((c) => candidateMap.set(c.id, c));
 
   // Ordenar por el método seleccionado
-  const sorted = [...applications].sort((a, b) => {
-    const sA = getScoreByMethod(a, method) ?? -1;
-    const sB = getScoreByMethod(b, method) ?? -1;
-    return sB - sA;
-  });
+  const sorted = [...applications].sort((a, b) => compareReviewScores(a, b, job.criteria));
 
   const baseHeaders = [
     'Puesto',
@@ -133,17 +149,18 @@ export function exportComparisonCSV(params: {
 
   // Agregar columnas por cada criterio del puesto
   const criteriaHeaders = job.criteria.map((c) => `Criterio: ${c.label} (${c.type} ${c.weightPct}%)`);
-  const headers = [...baseHeaders, ...criteriaHeaders];
+  const headers = [...baseHeaders, ...criteriaHeaders, 'Puntaje parcial LLM', 'Cobertura LLM (%)', 'Criterios sin evidencia'];
 
   const rows = sorted.map((app, index) => {
     const cand = candidateMap.get(app.candidateId);
+    const evaluation = evaluationCells(app, job);
     const row = [
       job.title,
       job.code,
       String(index + 1),
       cand?.name || 'Candidato',
       app.stage,
-      app.llmScore !== null ? String(app.llmScore) : 'Pendiente',
+      evaluation.total,
       method,
       app.mandatoryRequirementStatus,
       app.whyScoreNotes?.strengths?.join(' | ') || '',
@@ -156,6 +173,7 @@ export function exportComparisonCSV(params: {
       row.push(breakdown ? `${breakdown.score}/100 - ${breakdown.evidence}` : 'Sin datos');
     });
 
+    row.push(evaluation.partial, evaluation.coverage, evaluation.missing);
     return row.map(sanitizeCell).join(';');
   });
 
@@ -271,4 +289,3 @@ export function exportHiresCsv(
   const filename = `Contrataciones_ESAN_${new Date().toISOString().slice(0, 10)}.csv`;
   triggerDownload(csv, filename);
 }
-

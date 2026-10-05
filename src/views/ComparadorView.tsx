@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Info,
 } from 'lucide-react';
-import { isEligibleForTopN, getTopCandidates, getTopNAvailability } from '../services/recruitmentRules.ts';
+import { isEligibleForTopN } from '../services/recruitmentRules.ts';
+import { getReviewCandidates, reviewAvailability, reviewEvaluation } from '../services/reviewRanking.ts';
+import { evaluationSummary } from '../services/evaluationSummary.ts';
 import { compareCandidateNames } from '../services/candidateOrdering.ts';
 import { Application, Candidate } from '../types/index.ts';
 
@@ -59,11 +61,11 @@ export function ComparadorView() {
       || a.id.localeCompare(b.id)
     );
   }, [activeJobApplications, selectedApplicationIds, candidateMap]);
-  const topNAvailability = useMemo(() => getTopNAvailability(activeJobApplications, appState.selectedMethod),
-    [activeJobApplications, appState.selectedMethod]);
-  const canQuickAdd = topNAvailability.eligibleCount >= 2;
-  const quickAddHint = canQuickAdd ? 'Comparar hasta 3 perfiles con puntaje LLM y requisitos verificados.'
-    : topNAvailability.eligibleCount === 1 ? 'Se necesitan al menos dos perfiles elegibles para la comparación automática.'
+  const topNAvailability = useMemo(() => reviewAvailability(activeJobApplications, activeJob?.criteria || []),
+    [activeJobApplications, activeJob?.criteria]);
+  const canQuickAdd = topNAvailability.count >= 2;
+  const quickAddHint = canQuickAdd ? 'Comparar hasta 3 perfiles con puntajes disponibles, incluidos parciales. Revisa su cobertura.'
+    : topNAvailability.count === 1 ? 'Se necesitan al menos dos perfiles con puntaje disponible para la comparación automática.'
     : topNAvailability.hint;
 
   const handleAddCandidate = () => {
@@ -73,7 +75,7 @@ export function ComparadorView() {
   };
 
   const handleQuickAddTop3 = () => {
-    const eligibleApps = getTopCandidates(activeJobApplications, appState.selectedMethod, 3).map((a) => a.id);
+    const eligibleApps = getReviewCandidates(activeJobApplications, activeJob?.criteria || [], 3, appState.candidates).map((a) => a.id);
     if (eligibleApps.length < 2) return;
     selectAllApplications(eligibleApps);
     showToast(`Se agregaron ${eligibleApps.length} perfiles a la comparación.`, 'info');
@@ -191,9 +193,12 @@ export function ComparadorView() {
           <option value="">-- Seleccionar candidato --</option>
           {availableToAdd.map((app) => {
             const cand = candidateMap.get(app.candidateId);
+            const evaluation = reviewEvaluation(app, activeJob.criteria);
+            const label = evaluation ? evaluation.partial ? `Parcial ${evaluation.score} · ${evaluation.coverage}%` : String(evaluation.score)
+              : app.llmEvaluation ? 'Sin evidencia' : app.evaluationIssue ? 'Caso especial' : 'Pendiente';
             return (
               <option key={app.id} value={app.id}>
-                {cand?.name} (LLM: {app.llmScore ?? 'Pendiente'})
+                {cand?.name} (LLM: {label})
               </option>
             );
           })}
@@ -363,7 +368,8 @@ export function ComparadorView() {
                 </td>
                 {comparedApplications.map((app) => (
                   <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)' }}>
-                    <ScoreBadge score={app.llmScore} method="LLM" />
+                    <ScoreBadge score={app.llmScore} method="LLM" summary={evaluationSummary(app, activeJob.criteria)} />
+                    {app.llmScore === null && app.llmEvaluation && <p style={{ fontSize:'.75rem', color:'var(--text-secondary)', marginTop:'.35rem' }}>Cobertura {evaluationSummary(app, activeJob.criteria).coverage}%</p>}
                   </td>
                 ))}
               </tr>

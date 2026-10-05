@@ -49,7 +49,7 @@ test('119 evaluaciones parciales muestran promedio y cobertura al recargar y lib
   await expect(average).toContainText('118 evaluaciones parciales · cobertura media 40%');
   const apps=await page.evaluate(()=>JSON.parse(localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')!).applications);
   expect(apps.every((app:any)=>app.llmScore===null)).toBe(true);
-  await expect(page.getByRole('button',{name:'Elegir los mejores',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Elegir los mejores',exact:true})).toBeEnabled();
   await average.scrollIntoViewIfNeeded();
   await page.screenshot({path:'/tmp/gth-average-desktop.png',fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
@@ -159,7 +159,7 @@ test('Retry-After permite continuar automáticamente sin repetir los resultados 
   expect(app.llmScore).toBe(80);expect(app.evaluationIssue).toBeUndefined();
 });
 
-test('autorización única, envío depurado, persistencia y verificación humana habilitan Top-N', async ({page}) => {
+test('autorización única, envío depurado, persistencia y verificación humana habilitan el avance', async ({page}) => {
   const sent:any[]=[];
   await page.route('**/api/evaluate',async route => {
     if(route.request().method()==='GET') return route.fulfill({json:{configured:true}});
@@ -180,7 +180,7 @@ test('autorización única, envío depurado, persistencia y verificación humana
   expect(Object.keys(sent[0]).sort()).toEqual(['job','profile','requestId']);
   expect(JSON.stringify({profile:sent[0].profile,job:sent[0].job})).not.toMatch(/Ana|Segura|canary_private|example.com|987|01234567|Privada|CANARY|cand-import|app-import|rawCvText|snapshot/);
   await dialog.getByRole('button',{name:'Cerrar',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Elegir los mejores',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Elegir los mejores',exact:true})).toBeEnabled();
   await page.getByText('Ana Segura',{exact:true}).click();
   const drawer=page.getByRole('dialog',{name:'Ficha del candidato'});
   await drawer.getByRole('button',{name:'Revisar requisito',exact:true}).click();

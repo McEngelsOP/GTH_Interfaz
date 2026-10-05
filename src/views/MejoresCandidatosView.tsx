@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { CandidateTable } from '../components/candidate/CandidateTable.tsx';
@@ -8,12 +8,12 @@ import { Badge } from '../components/common/Badge.tsx';
 import { AdvanceDecisionModal } from '../components/modals/AdvanceDecisionModal.tsx';
 import { EvaluationPanel } from '../components/assistant/EvaluationPanel.tsx';
 import { ReleaseModal } from '../components/modals/ReleaseModal.tsx';
+import { BulkReleaseModal } from '../components/modals/BulkReleaseModal.tsx';
 import {
   calculateJobMetrics,
-  getTopCandidates,
   isEligibleForTopN,
-  getTopNAvailability,
 } from '../services/recruitmentRules.ts';
+import { getReviewCandidates, reviewAvailability } from '../services/reviewRanking.ts';
 import { exportCandidatesCSV } from '../services/exportService.ts';
 import {
   Users,
@@ -30,6 +30,7 @@ import {
   Download,
   Star,
   FileSpreadsheet,
+  UserX,
 } from 'lucide-react';
 import { Application, Candidate } from '../types/index.ts';
 
@@ -46,12 +47,15 @@ export function MejoresCandidatosView() {
     setCurrentView,
     handleAdvanceSelected,
     handleReleaseApplication,
+    handleReleaseApplications,
     showToast,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'no_continuan' | 'todos'>('en_proceso');
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [releaseTarget, setReleaseTarget] = useState<{ app: Application; cand: Candidate } | null>(null);
+  const [bulkReleaseIds, setBulkReleaseIds] = useState<string[] | null>(null);
+  useEffect(() => { setBulkReleaseIds(null); setReleaseTarget(null); setIsAdvanceModalOpen(false); }, [activeJob?.id]);
 
   // Métricas vivas calculadas del puesto activo
   const metrics = useMemo(() => {
@@ -59,8 +63,8 @@ export function MejoresCandidatosView() {
   }, [activeJobApplications, appState.selectedMethod, activeJob?.criteria]);
   const showingPartialAverage = metrics.avgScore === null && metrics.avgPartialScore !== null;
   const displayedAverage = metrics.avgScore ?? metrics.avgPartialScore;
-  const topNAvailability = useMemo(() => getTopNAvailability(activeJobApplications, appState.selectedMethod),
-    [activeJobApplications, appState.selectedMethod]);
+  const topNAvailability = useMemo(() => reviewAvailability(activeJobApplications, activeJob?.criteria || []),
+    [activeJobApplications, activeJob?.criteria]);
 
   // Candidatos que ya fueron designados y movidos a Los Mejores (Preseleccionados)
   const preselectedCandidates = useMemo(() => {
@@ -68,12 +72,12 @@ export function MejoresCandidatosView() {
   }, [activeJobApplications]);
 
   // Mejores perfiles calculados dinámicamente según método y cantidad (pendientes)
-  const topEligiblePending = useMemo(() => {
-    return getTopCandidates(activeJobApplications, appState.selectedMethod, appState.topN);
-  }, [activeJobApplications, appState.selectedMethod, appState.topN]);
+  const topReviewPending = useMemo(() => {
+    return getReviewCandidates(activeJobApplications, activeJob?.criteria || [], appState.topN, appState.candidates);
+  }, [activeJobApplications, activeJob?.criteria, appState.topN, appState.candidates]);
 
   // El Top-N contiene únicamente expedientes pendientes de primera decisión.
-  const allBestApplications = topEligiblePending;
+  const allBestApplications = topReviewPending;
   const evaluationApplications = activeJobApplications.filter(app => app.stage === 'postulado');
 
   // Selección de conjunto según pestaña activa
@@ -104,7 +108,7 @@ export function MejoresCandidatosView() {
     },
     {
       id: 'mejores',
-      label: 'Top-N pendientes',
+      label: 'Top-N para revisión',
       count: allBestApplications.length,
     },
     { id: 'preseleccionados', label: 'Preseleccionados', count: preselectedCandidates.length },
@@ -126,22 +130,16 @@ export function MejoresCandidatosView() {
     },
   ];
 
-  // Acción "Elegir los mejores": marca Top-N elegibles
+  // Marca un conjunto orientativo para revisar; no cambia etapas ni requisitos.
   const handleSelectTopN = () => {
-    const topIds = topEligiblePending.map((a) => a.id);
+    const topIds = topReviewPending.map((a) => a.id);
     if (topIds.length === 0) {
       showToast(topNAvailability.hint, 'info');
       return;
     }
     selectAllApplications(topIds);
-    if (topIds.length < appState.topN) {
-      showToast(
-        `Se marcaron ${topIds.length} perfiles elegibles (menos de los ${appState.topN} solicitados debido a requisitos o puntajes pendientes).`,
-        'info'
-      );
-    } else {
-      showToast(`Se marcaron los ${topIds.length} mejores perfiles según ${appState.selectedMethod}.`, 'success');
-    }
+    setActiveTab('mejores');
+    showToast(`Se marcaron ${topIds.length} perfiles para revisión con los puntajes LLM disponibles. Revisa cobertura y requisitos antes de decidir el avance.`, 'info');
   };
 
   // Comparar seleccionados
@@ -166,6 +164,9 @@ export function MejoresCandidatosView() {
   const markedApps = useMemo(() => {
     return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
   }, [activeJobApplications, selectedApplicationIds]);
+  const releasableMarkedApps = markedApps.filter(app => app.stage !== 'no_continua' && app.stage !== 'contratado');
+  const canAdvanceMarked = markedApps.length > 0 && markedApps.every(app => isEligibleForTopN(app, appState.selectedMethod).eligible);
+  const bulkReleaseApplications = activeJobApplications.filter(app => bulkReleaseIds?.includes(app.id));
 
   // Exportación CSV de todos los candidatos del puesto
   const handleExportAll = () => {
@@ -198,7 +199,7 @@ export function MejoresCandidatosView() {
       candidates: appState.candidates,
       job: activeJob,
       method: appState.selectedMethod,
-      scopeName: 'Mejores_perfiles',
+      scopeName: 'Top_N_revision',
     });
     showToast(`Descargando CSV de los mejores perfiles (${allBestApplications.length}) de ${activeJob.code}.`, 'success');
   };
@@ -468,7 +469,7 @@ export function MejoresCandidatosView() {
               size="sm"
               icon={<Sparkles size={14} />}
               onClick={handleSelectTopN}
-              disabled={topNAvailability.eligibleCount === 0 || activeJob.status !== 'activa'}
+              disabled={topNAvailability.count === 0 || activeJob.status !== 'activa'}
               aria-describedby="top-n-availability"
               title={activeJob.status !== 'activa' ? 'La convocatoria debe estar activa para seleccionar perfiles.' : topNAvailability.hint}
               style={{ flex: 1 }}
@@ -522,7 +523,7 @@ export function MejoresCandidatosView() {
             onClick={handleExportBest}
             title="Descargar el Top-N de expedientes pendientes en CSV"
           >
-            Exportar Mejores ({allBestApplications.length})
+            Exportar Top-N ({allBestApplications.length})
           </Button>
 
           {selectedApplicationIds.length > 0 && (
@@ -601,9 +602,9 @@ export function MejoresCandidatosView() {
               size="sm"
               icon={<Star size={14} fill="currentColor" />}
               onClick={handleMoveMarkedToBest}
-              title="Designar y mover directamente a Los Mejores (Preseleccionados)"
+              title={canAdvanceMarked ? 'Revisar y confirmar el avance a Preselección' : 'Revisar el puntaje completo y los requisitos necesarios para avanzar'}
             >
-              Avanzar a Preselección ({selectedApplicationIds.length})
+              {canAdvanceMarked ? 'Avanzar a Preselección' : 'Revisar avance'} ({selectedApplicationIds.length})
             </Button>
             <Button
               variant="secondary"
@@ -624,6 +625,12 @@ export function MejoresCandidatosView() {
             >
               Decidir con borrador...
             </Button>
+            <Button variant="danger" size="sm" icon={<UserX size={16} />}
+              disabled={!releasableMarkedApps.length || activeJob.status !== 'activa'}
+              onClick={() => setBulkReleaseIds(releasableMarkedApps.map(app => app.id))}
+              title="Descartar las postulaciones activas marcadas y conservar sus perfiles">
+              Descartar marcados ({releasableMarkedApps.length})
+            </Button>
           </div>
         </div>
       )}
@@ -636,7 +643,7 @@ export function MejoresCandidatosView() {
         <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Cargar perfiles</Button>
       </div>}
       {evaluationApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
-        {evaluationApplications.filter((app) => app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue).length} sin evaluar · {evaluationApplications.filter((app) => app.llmScore === null && app.llmEvaluation).length} con evidencia incompleta · {evaluationApplications.filter((app) => app.evaluationIssue).length} casos especiales. El Top-N se habilita con puntajes completos y requisitos verificados.
+        {evaluationApplications.filter((app) => app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue).length} sin evaluar · {evaluationApplications.filter((app) => app.llmScore === null && app.llmEvaluation).length} con evidencia incompleta · {evaluationApplications.filter((app) => app.evaluationIssue).length} casos especiales. El Top-N para revisión usa los puntajes disponibles. Avanzar requiere puntaje completo y requisitos verificados.
       </p>}
       <CandidateTable
         applications={displayedApplications}
@@ -660,6 +667,9 @@ export function MejoresCandidatosView() {
       />
 
       {/* Modal de liberación */}
+      <BulkReleaseModal isOpen={bulkReleaseIds !== null} onClose={() => setBulkReleaseIds(null)}
+        applications={bulkReleaseApplications} expectedCount={bulkReleaseIds?.length || 0} candidates={appState.candidates} job={activeJob}
+        onConfirm={handleReleaseApplications} />
       <ReleaseModal
         isOpen={Boolean(releaseTarget)}
         onClose={() => setReleaseTarget(null)}

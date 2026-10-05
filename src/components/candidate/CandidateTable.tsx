@@ -22,7 +22,8 @@ import {
   Download,
   Star,
 } from 'lucide-react';
-import { isEligibleForTopN, getScoreByMethod } from '../../services/recruitmentRules.ts';
+import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { compareReviewScores } from '../../services/reviewRanking.ts';
 import { exportCandidatesCSV } from '../../services/exportService.ts';
 import { compareCandidateNames } from '../../services/candidateOrdering.ts';
 
@@ -111,13 +112,11 @@ export function CandidateTable({
   // El puntaje ordena el ranking; los empates y pendientes se ordenan por nombre.
   const sortedApplications = useMemo(() => {
     return [...filteredApplications].sort((a, b) => {
-      const scoreA = getScoreByMethod(a, selectedMethod) ?? -1;
-      const scoreB = getScoreByMethod(b, selectedMethod) ?? -1;
-      return scoreB - scoreA || compareCandidateNames(
+      return compareReviewScores(a, b, activeJob?.criteria || []) || compareCandidateNames(
         candidateMap.get(a.candidateId)?.name || '', candidateMap.get(b.candidateId)?.name || ''
       ) || a.id.localeCompare(b.id);
     });
-  }, [filteredApplications, selectedMethod, candidateMap]);
+  }, [filteredApplications, activeJob?.criteria, candidateMap]);
 
   // Paginación
   const totalItems = sortedApplications.length;
@@ -484,6 +483,9 @@ export function CandidateTable({
                     {/* Puntaje LLM */}
                     <td style={{ padding: cellPadding }}>
                       <ScoreBadge score={app.llmScore} method="LLM" size="sm" summary={evaluationSummary(app,appState.jobPostings.find(job => job.id === app.jobPostingId)?.criteria || [])} />
+                      {app.llmScore === null && app.llmEvaluation && <span style={{ display:'block', fontSize:'.6875rem', color:'var(--text-secondary)', marginTop:'.25rem' }}>
+                        Cobertura {evaluationSummary(app, activeJob?.criteria || []).coverage}%
+                      </span>}
                     </td>
 
                     {/* Fuente */}

@@ -120,7 +120,7 @@ export function EvaluationPanel() {
     </div>
     {partials.length > 0 && <details className="evaluation-special-cases">
       <summary>Evaluaciones recibidas · evidencia incompleta ({partials.length})</summary>
-      <p className="evaluation-muted">Gemini respondió y sus puntajes por criterio están guardados. El total queda sin calcular si falta un criterio con peso. Completa la referencia del puesto o la información profesional para obtener el total.</p>
+      <p className="evaluation-muted">Los puntajes por criterio están guardados y pueden usarse para marcar perfiles en Top-N para revisión y compararlos. El parcial considera solo la evidencia disponible; revisa su cobertura. Completa la referencia del puesto o la información profesional para obtener el total antes de avanzar.</p>
       {partials.map(app => { const summary = evaluationSummary(app,activeJob!.criteria); return <article className="evaluation-row" key={app.id}>
         <strong>{appState.candidates.find(candidate => candidate.id === app.candidateId)?.name}</strong>
         <p className="evaluation-muted">{summary.partialScore === null ? 'Sin evidencia puntuable' : `Puntaje parcial: ${summary.partialScore}/100 · Cobertura: ${summary.coverage}%`}. Sin puntaje en: {summary.missingLabels.join('; ')}.</p>

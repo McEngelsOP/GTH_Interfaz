@@ -20,12 +20,26 @@ de correo, descargas CSV, avances de etapa, persistencia y los temas de GEM.
 La edición comienza sin candidatos de demostración ni generadores ficticios.
 Las convocatorias y criterios de referencia se mantienen en el selector.
 
-La selección Top-N se habilita cuando hay postulaciones pendientes con puntaje
-LLM y requisitos verificados; si falta algo, se explica junto al botón.
-La comparación automática requiere al menos dos perfiles elegibles. Los
+El **Top-N para revisión** marca postulaciones pendientes con puntajes LLM
+disponibles, completos o parciales, aunque la verificación del requisito siga
+pendiente. No incluye requisitos revisados como `no_cumple`, casos especiales,
+perfiles sin evidencia puntuable ni expedientes ya decididos. Ordena por puntaje
+y desempata por cobertura y nombre. La cobertura se muestra junto al parcial;
+evaluaciones con criterios distintos requieren revisión humana antes de decidir.
+La comparación automática requiere al menos dos perfiles con puntaje disponible. Los
 perfiles pendientes se pueden comparar manualmente. El selector del comparador
 se ordena de A a Z según el alfabeto español, ignorando mayúsculas y tildes.
-La tabla prioriza el puntaje LLM y ordena por nombre los empates y pendientes.
+La tabla ordena con el mismo puntaje disponible y mantiene A a Z para pendientes.
+La preselección confirmada conserva su requisito de puntaje completo y requisito
+obligatorio verificado. Marcar un Top-N no cambia etapas ni acredita requisitos.
+Los CSV distinguen el total completo, el parcial, la cobertura y criterios faltantes.
+
+**Descartar marcados** permite cerrar en conjunto las postulaciones activas
+seleccionadas, incluidas marcas de distintas páginas. El diálogo muestra el lote,
+exige un motivo y permite cancelar. Confirma una única actualización del estado;
+se registra el motivo por expediente y los perfiles pasan a **No continúan** con
+sus evaluaciones, evidencias e historial conservados. No se generan ni envían
+correos. Los expedientes cerrados o contratados no se incluyen en el descarte.
 
 ## Importación de perfiles
 
@@ -147,13 +161,13 @@ Los casos especiales se guardan por postulación en el estado local existente, c
 
 El endpoint `api/evaluate.ts` usa la misma **GEMINI_API_KEY** del chatbot. Opcional: **GEMINI_EVALUATION_MODEL** para un modelo específico de evaluación; si falta, usa GEMINI_MODEL y luego gemini-3.5-flash-lite. La clave permanece en el servidor. GET muestra únicamente configuración/modelo/limites, nunca la clave. El cliente y el servidor validan una carga con solo identificador temporal, campos profesionales y criterios/referencia. Ni el identificador temporal se incorpora al prompt de Google. No se envían nombres, IDs reales, estado completo, snapshot ni hash del original al endpoint.
 
-Se solicita JSON conciso con puntajes por criterio y referencias a fragmentos depurados. El servidor recupera una cita literal de hasta 600 caracteres de cada fragmento indicado, aunque el original sea más largo; no acepta citas reformuladas por el modelo. Se exige cobertura de todos los criterios, score 0–100 o null, evidencia válida y ausencia de patrones personales. El servidor calcula el total ponderado; no acepta un total generado por el modelo. Un criterio con peso positivo sin evidencia deja el total en null. En ese caso la tabla muestra **Parcial · puntaje**, o **Sin evidencia** si ningún criterio con peso tiene puntaje. El parcial es el promedio ponderado normalizado sobre los criterios evaluados; se muestra su cobertura y los criterios faltantes en la ficha y en **Evaluaciones recibidas · evidencia incompleta**. Se conserva el total nulo y no se habilita Top-N. **Reevaluar perfiles incompletos** requiere una nueva autorización y reemplaza el resultado después de validar la respuesta. Un criterio que depende de syllabus/referencia ausente debe quedar sin puntaje. Es evaluación generativa orientativa, no una escala calibrada de selección ni prueba documental.
+Se solicita JSON conciso con puntajes por criterio y referencias a fragmentos depurados. El servidor recupera una cita literal de hasta 600 caracteres de cada fragmento indicado, aunque el original sea más largo; no acepta citas reformuladas por el modelo. Se exige cobertura de todos los criterios, score 0–100 o null, evidencia válida y ausencia de patrones personales. El servidor calcula el total ponderado; no acepta un total generado por el modelo. Un criterio con peso positivo sin evidencia deja el total en null. En ese caso la tabla muestra **Parcial · puntaje**, o **Sin evidencia** si ningún criterio con peso tiene puntaje. El parcial es el promedio ponderado normalizado sobre los criterios evaluados; se muestra su cobertura y los criterios faltantes en la ficha y en **Evaluaciones recibidas · evidencia incompleta**. Se conserva el total nulo. El parcial permite marcar Top-N para revisión y comparar evidencia; el avance requiere completar la evaluación y verificar el requisito. **Reevaluar perfiles incompletos** requiere una nueva autorización y reemplaza el resultado después de validar la respuesta. Un criterio que depende de syllabus/referencia ausente debe quedar sin puntaje. Es evaluación generativa orientativa, no una escala calibrada de selección ni prueba documental.
 
 El navegador valida que la respuesta corresponda a la solicitud y al perfil, etapa, versión, referencia y criterios vigentes antes de aplicarla. Se conserva localmente modelo, fecha, versión, hash y criterios sin evidencia, junto con puntajes y explicación. Cambios posteriores del perfil o definiciones invalidan la evaluación vigente. Solo ajustes de pesos sobre las mismas definiciones recalculan las evidencias existentes.
 
-El indicador **Promedio (LLM)** usa únicamente los puntajes completos de candidatos activos. Si solo hay puntajes parciales, muestra **Promedio parcial (LLM)** con el promedio de esos puntajes, cantidad de evaluaciones y cobertura media de los criterios. Cuando existen ambos tipos, el promedio completo sigue siendo el principal y el parcial se informa aparte. Los perfiles sin evaluar, sin evidencia puntuable, liberados o contratados no aportan ceros al promedio. Los resultados ya guardados se incluyen al recargar, sin volver a enviarlos a Gemini. Este indicador no modifica los puntajes totales ni la elegibilidad para Top-N.
+El indicador **Promedio (LLM)** usa únicamente los puntajes completos de candidatos activos. Si solo hay puntajes parciales, muestra **Promedio parcial (LLM)** con el promedio de esos puntajes, cantidad de evaluaciones y cobertura media de los criterios. Cuando existen ambos tipos, el promedio completo sigue siendo el principal y el parcial se informa aparte. Los perfiles sin evaluar, sin evidencia puntuable, liberados o contratados no aportan ceros al promedio. Los resultados ya guardados se incluyen al recargar, sin volver a enviarlos a Gemini. Este indicador no modifica los puntajes totales ni las condiciones de avance.
 
-**Requisito obligatorio:** en la ficha, `Revisar requisito` registra estado y evidencia/fuente revisada por GTHC, con actividad local. Gemini no marca ese requisito verificado ni avanza/rechaza personas. Top-N conserva su condición de puntaje válido, etapa postulada y requisito verificado. Resultados y perfiles permanecen en almacenamiento local del navegador; no hay base de datos compartida.
+**Requisito obligatorio:** en la ficha, `Revisar requisito` registra estado y evidencia/fuente revisada por GTHC, con actividad local. Gemini no marca ese requisito verificado ni avanza/rechaza personas. La decisión de avance conserva su condición de puntaje completo, etapa postulada y requisito verificado. Resultados y perfiles permanecen en almacenamiento local del navegador; no hay base de datos compartida.
 
 **Capacidad y acceso:** `GEMINI_EVALUATION_RPM` configura el límite local de solicitudes/minuto/IP (1–120, predeterminado 20) y `GEMINI_EVALUATION_CONCURRENCY` la concurrencia (1–5, predeterminado 3). Ajustarlos según la cuota visible del proyecto en AI Studio; el cliente también reduce el ritmo ante cuotas temporales. El limitador sigue siendo memoria por instancia caliente, no distribuido ni autenticación. Máximo 100 campos/24.000 caracteres por perfil y 20 criterios con pesos al 100 %. La cuota real de Google puede ser menor; el intervalo de la cola no garantiza capacidad ni tiempo de respuesta. El endpoint público no tiene autenticación institucional; aplicar control de acceso/Deployment Protection antes de abrir un piloto con datos reales a otros usuarios. El servicio no registra CVs ni errores crudos de Google; revisar también las políticas/configuración de registros del hosting y del proveedor.
 

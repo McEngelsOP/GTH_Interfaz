@@ -1,10 +1,47 @@
 import { describe, it, expect } from 'vitest';
 import { INITIAL_APP_STATE } from '../../../tests/fixtures/recruitmentData.ts';
 import { advanceApplications, isEligibleForTopN, releaseApplication, simulateScoreRecalculation } from '../recruitmentRules.ts';
-import { createPendingApplication, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../workflow.ts';
+import { createPendingApplication, moveApplicationStage, releaseSelectedApplications, updateJobCriteria, validateStageTransition } from '../workflow.ts';
 import { parseCSV, validateProfileCatalogCSV } from '../csvService.ts';
 
 const fresh = () => structuredClone(INITIAL_APP_STATE);
+
+describe('descarte por lote', () => {
+  it('descarta solo los marcados, conserva evidencias y registra el motivo por expediente sin duplicar IDs', () => {
+    const state=fresh(), job=state.jobPostings.find(item=>item.id===state.activeJobPostingId)!;
+    const targets=state.applications.filter(app=>app.jobPostingId===job.id && app.stage!=='no_continua' && app.stage!=='contratado').slice(0,2);
+    targets[0].llmScore=null;targets[0].mandatoryRequirementStatus='sin_verificar';
+    const before=structuredClone(state),ids=targets.map(app=>app.id);
+    const next=releaseSelectedApplications(state,job.id,[...ids,ids[0]],'  Revisión manual del lote.  ');
+    expect(state).toEqual(before);
+    expect(next.decisionLogs.length-state.decisionLogs.length).toBe(2);
+    expect(next.activities.length-state.activities.length).toBe(2);
+    expect(next.emailDrafts).toEqual(state.emailDrafts);
+    for(const original of state.applications) {
+      const current=next.applications.find(app=>app.id===original.id)!;
+      if(ids.includes(original.id)) {
+        expect(current.stage).toBe('no_continua');
+        expect(current.criteriaBreakdown).toEqual(original.criteriaBreakdown);
+        expect(current.llmScore).toBe(original.llmScore);
+        expect(next.candidates.find(candidate=>candidate.id===original.candidateId)?.savedInTalentPool).toBe(true);
+        expect(next.decisionLogs.find(log=>log.applicationId===original.id)?.notes).toBe('Revisión manual del lote.');
+      } else expect(current).toEqual(original);
+    }
+    expect(releaseSelectedApplications(next,job.id,ids,'Otra vez')).toBe(next);
+  });
+  it('rechaza todo el lote ante IDs ajenos, cerrados, inexistentes, convocatoria inactiva o motivo vacío', () => {
+    const state=fresh(),jobId=state.activeJobPostingId;
+    const active=state.applications.find(app=>app.jobPostingId===jobId&&app.stage==='postulado')!;
+    const foreign=state.applications.find(app=>app.jobPostingId!==jobId)!;
+    const closed={...active,id:'closed',stage:'contratado' as const};state.applications.push(closed);
+    for(const ids of [[active.id,foreign.id],[active.id,closed.id],[active.id,'missing'],[]]) expect(releaseSelectedApplications(state,jobId,ids,'Motivo')).toBe(state);
+    expect(releaseSelectedApplications(state,jobId,[active.id],'  ')).toBe(state);
+    const inactive=structuredClone(state);inactive.jobPostings.find(job=>job.id===jobId)!.status='borrador';
+    expect(releaseSelectedApplications(inactive,jobId,[active.id],'Motivo')).toBe(inactive);
+    const switched={...state,activeJobPostingId:foreign.jobPostingId};
+    expect(releaseSelectedApplications(switched,jobId,[active.id],'Motivo')).toBe(switched);
+  });
+});
 
 describe('decisiones aisladas por expediente y convocatoria', () => {
   it('cierra solamente pendientes elegibles del mismo puesto, conservando perfiles y borradores de cierre', () => {

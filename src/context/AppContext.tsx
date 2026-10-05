@@ -17,7 +17,7 @@ import {
 import { loadAppState, saveAppState, resetAppState } from '../services/storage.ts';
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
 import { readRoute, routeHash } from '../services/navigation.ts';
-import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
+import { createPendingApplication, hasValidCriteria, moveApplicationStage, releaseSelectedApplications, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 import { useTheme } from './useTheme.ts';
 import { applyCandidateImport, ImportRow, ImportSummary } from '../services/candidateImport.ts';
 import { applyPreparedEvaluation, recordEvaluationIssue, EvaluationError } from '../services/evaluationService.ts';
@@ -99,6 +99,7 @@ interface AppContextValue {
   handleSaveToTalentPool: (candidateId: string) => void;
   handleAdvanceSelected: (rejectOthers?: boolean, customMessage?: string) => void;
   handleReleaseApplication: (appId: string, reason?: string) => void;
+  handleReleaseApplications: (ids: string[], reason: string) => boolean;
   handleAddNote: (appId: string, noteText: string) => void;
   handleScheduleInterview: (
     appId: string,
@@ -302,6 +303,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Liberar postulación
+  const handleReleaseApplications = (ids: string[], reason: string) => {
+    const jobId = activeJob?.id;
+    if (!jobId || releaseSelectedApplications(appState, jobId, ids, reason) === appState) {
+      showToast('Revisa el lote: selecciona expedientes activos de esta convocatoria y registra un motivo.', 'warning');
+      return false;
+    }
+    setAppState(prev => releaseSelectedApplications(prev, jobId, ids, reason));
+    const released = new Set(ids);
+    setSelectedApplicationIds(prev => prev.filter(id => !released.has(id)));
+    if (selectedCandidateForDrawer && released.has(selectedCandidateForDrawer.id)) setSelectedCandidateForDrawer(null);
+    showToast(`${released.size} postulaciones descartadas. Los perfiles y evaluaciones se conservan en No continúan y Banco de Talento.`, 'info');
+    return true;
+  };
+
   const handleReleaseApplication = (appId: string, reason = 'Liberación manual por el evaluador') => {
     const target = appState.applications.find((a) => a.id === appId);
     const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
@@ -587,6 +602,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleSaveToTalentPool,
     handleAdvanceSelected,
     handleReleaseApplication,
+    handleReleaseApplications,
     handleAddNote,
     handleScheduleInterview,
     handleSaveEmailDraft,

@@ -1,7 +1,30 @@
-import { AppStateData, Application, Criterion, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
-import { advanceApplications, isEligibleForTopN, simulateScoreRecalculation } from './recruitmentRules.ts';
+import { ActivityLog, AppStateData, Application, Criterion, DecisionLog, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
+import { advanceApplications, isEligibleForTopN, releaseApplication, simulateScoreRecalculation } from './recruitmentRules.ts';
 
 export const STAGE_ORDER: Stage[] = ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'];
+
+/** Descarte por lote: valida todos los expedientes antes de cambiar el estado. */
+export function releaseSelectedApplications(state: AppStateData, jobId: string, ids: string[], reason: string): AppStateData {
+  const job = state.jobPostings.find(item => item.id === jobId);
+  const selected = new Set(ids);
+  const targets = state.applications.filter(app => selected.has(app.id));
+  const candidates = new Map(state.candidates.map(candidate => [candidate.id, candidate]));
+  if (!job || job.status !== 'activa' || state.activeJobPostingId !== jobId || !reason.trim() || !selected.size || targets.length !== selected.size || targets.some(app =>
+    app.jobPostingId !== jobId || app.stage === 'no_continua' || app.stage === 'contratado' || !candidates.has(app.candidateId)
+  )) return state;
+  const updates = new Map<string, Application>();
+  const activities: ActivityLog[] = [], decisions: DecisionLog[] = [];
+  for (const target of targets) {
+    const result = releaseApplication({ applicationId: target.id, applications: [target], candidates: [candidates.get(target.candidateId)!],
+      jobPostingTitle: job.title, criteriaVersion: job.criteriaVersion, method: state.selectedMethod, reason: reason.trim() });
+    if (!result) return state;
+    updates.set(target.id, result.updatedApplications[0]); candidates.set(target.candidateId, result.updatedCandidates[0]);
+    activities.push(result.newActivity); decisions.push(result.newDecision);
+  }
+  return { ...state, applications: state.applications.map(app => updates.get(app.id) || app),
+    candidates: state.candidates.map(candidate => candidates.get(candidate.id)!),
+    activities: [...activities, ...state.activities], decisionLogs: [...decisions, ...state.decisionLogs] };
+}
 
 export function validateStageTransition(app: Application, target: Stage, method: EvaluationMethod): string | null {
   const currentIndex = STAGE_ORDER.indexOf(app.stage);

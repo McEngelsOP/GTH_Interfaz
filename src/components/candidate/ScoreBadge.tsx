@@ -16,7 +16,7 @@ export function ScoreBadge({ score, method, size = 'md', summary }: ScoreBadgePr
   const isPending = score === null || score === undefined;
   const label = !isPending ? String(score) : summary?.specialCase ? 'Caso especial' : summary?.evaluated
     ? summary.partialScore === null ? 'Sin evidencia' : `Parcial · ${summary.partialScore}` : 'Pendiente';
-  const detail = isPending && summary?.evaluated ? `Evaluación recibida. Cobertura: ${summary.coverage}%. Falta: ${summary.missingLabels.join('; ')}. El parcial no habilita Top-N.`
+  const detail = isPending && summary?.evaluated ? `Evaluación recibida. Cobertura: ${summary.coverage}%. Falta: ${summary.missingLabels.join('; ')}. El parcial sirve para revisión; el avance requiere un puntaje completo.`
     : summary?.specialCase ? 'La evaluación requiere revisión de información.' : `Puntaje según LLM: ${isPending ? 'Pendiente' : `${score} / 100`}`;
 
   return (
