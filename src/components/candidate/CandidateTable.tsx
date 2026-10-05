@@ -24,6 +24,12 @@ import {
 import { isEligibleForTopN, getScoreByMethod } from '../../services/recruitmentRules.ts';
 import { exportCandidatesCSV } from '../../services/exportService.ts';
 
+const iconActionStyle: React.CSSProperties = {
+  width: '34px',
+  minWidth: '34px',
+  padding: 0,
+};
+
 interface CandidateTableProps {
   applications: Application[];
   selectedMethod: EvaluationMethod;
@@ -385,7 +391,7 @@ export function CandidateTable({
               <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Requisitos</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }}>LLM Score</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '120px' }}>Fuente</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '220px', textAlign: 'right' }}>Acciones</th>
+              <th style={{ padding: '0.75rem 1rem', width: '340px', minWidth: '340px', textAlign: 'right' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -488,8 +494,8 @@ export function CandidateTable({
                     </td>
 
                     {/* Acciones por fila */}
-                    <td style={{ padding: cellPadding, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'nowrap' }}>
+                    <td style={{ padding: cellPadding, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '96px 84px repeat(3, 34px)', alignItems: 'center', gap: '0.35rem', width: 'max-content', marginLeft: 'auto' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -500,37 +506,41 @@ export function CandidateTable({
                           Revisar
                         </Button>
 
-                        {/* Mover / Indicar como los mejores */}
-                        {app.stage === 'postulado' && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={<Star size={13} fill="#D97706" style={{ color: '#D97706' }} />}
-                            onClick={() => onQuickAdvance(app)}
-                            disabled={!isEligibleForTopN(app, selectedMethod).eligible || activeJob?.status !== 'activa'}
-                            title="Designar y mover directamente a Los Mejores (Preseleccionado)"
-                          >
-                            Mejor
-                          </Button>
-                        )}
-
-                        {app.stage === 'preseleccionado' && (
-                          <span
-                            title="Candidato ya designado en Los Mejores (Preseleccionado). Clic para revertir a Postulado si lo requiere."
-                            onClick={() => setRevertTarget(app)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <Badge variant="success" size="sm" icon={<Star size={11} fill="currentColor" />}>
+                        {/* Mantener la misma posición de las acciones en todas las etapas. */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+                          {app.stage === 'postulado' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              icon={<Star size={13} fill="#D97706" style={{ color: '#D97706' }} />}
+                              onClick={() => onQuickAdvance(app)}
+                              disabled={!isEligibleForTopN(app, selectedMethod).eligible || activeJob?.status !== 'activa'}
+                              title="Designar y mover directamente a Los Mejores (Preseleccionado)"
+                              style={{ width: '100%', padding: '0.35rem 0.5rem' }}
+                            >
                               Mejor
-                            </Badge>
-                          </span>
-                        )}
+                            </Button>
+                          )}
+
+                          {app.stage === 'preseleccionado' && (
+                            <span
+                              title="Candidato ya designado en Los Mejores (Preseleccionado). Clic para revertir a Postulado si lo requiere."
+                              onClick={() => setRevertTarget(app)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <Badge variant="success" size="sm" icon={<Star size={11} fill="currentColor" />}>
+                                Mejor
+                              </Badge>
+                            </span>
+                          )}
+                        </div>
 
                         {/* Exportar este candidato individual a CSV */}
                         <Button
                           variant="ghost"
                           size="sm"
                           icon={<Download size={14} />}
+                          style={iconActionStyle}
                           onClick={() => handleExportSingle(app, cand)}
                           title={`Descargar expediente de ${cand?.name || 'candidato'} en CSV`}
                         />
@@ -539,6 +549,7 @@ export function CandidateTable({
                           variant="ghost"
                           size="sm"
                           icon={<Bookmark size={14} />}
+                          style={iconActionStyle}
                           onClick={() => cand && saveCandidateToPool(cand)}
                           title="Conservar en Banco de Talento"
                         />
@@ -548,7 +559,7 @@ export function CandidateTable({
                             variant="ghost"
                             size="sm"
                             icon={<UserX size={14} />}
-                            style={{ color: '#DC2626' }}
+                            style={{ ...iconActionStyle, color: '#DC2626' }}
                             onClick={() => cand && onOpenReleaseModal(app, cand)}
                             title="Liberar postulación (No continúa)"
                           />
