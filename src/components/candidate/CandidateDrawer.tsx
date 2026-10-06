@@ -30,6 +30,7 @@ import {
   Building,
 } from 'lucide-react';
 import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 
 export function CandidateDrawer() {
   const {
@@ -366,6 +367,8 @@ export function CandidateDrawer() {
               </p>
               {currentJob.criteria.map((crit) => {
                 const breakdown = app.criteriaBreakdown[crit.id];
+                const embedding = app.embeddingMatch?.criteriaVersion === currentJob.criteriaVersion ? app.embeddingMatch : null;
+                const similarity = embedding?.requirementSims[crit.id];
                 return (
                   <div
                     key={crit.id}
@@ -395,6 +398,12 @@ export function CandidateDrawer() {
                     <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                       <strong>Evidencia:</strong> {breakdown?.evidence || 'Pendiente de acreditación documental'}
                     </div>
+                    {embedding && similarity != null && (
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }} title={`Backend ${embedding.backend}`}>
+                        <strong>Similitud embeddings:</strong> <span className="tabular-nums">{formatEmbeddingScore(similarity)}</span>
+                        {embedding.requirementEvidence[crit.id] && ` · ${embedding.requirementEvidence[crit.id]}`}
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -26,6 +26,7 @@ import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
 import { compareReviewScores } from '../../services/reviewRanking.ts';
 import { exportCandidatesCSV } from '../../services/exportService.ts';
 import { compareCandidateNames } from '../../services/candidateOrdering.ts';
+import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 
 interface CandidateTableProps {
   applications: Application[];
@@ -62,6 +63,7 @@ export function CandidateTable({
   const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortKey, setSortKey] = useState<'llm' | 'embeddings'>('llm');
 
   // Mapear candidatos por ID para acceso rápido
   const candidateMap = useMemo(() => {
@@ -109,14 +111,34 @@ export function CandidateTable({
     });
   }, [applications, candidateMap, searchQuery, sourceFilter, requirementFilter]);
 
-  // El puntaje ordena el ranking; los empates y pendientes se ordenan por nombre.
+  // Score de embeddings vigente para los criterios actuales de la convocatoria.
+  const embeddingOf = (app: Application) =>
+    app.embeddingMatch && app.embeddingMatch.criteriaVersion === activeJob?.criteriaVersion ? app.embeddingMatch : null;
+
+  // El puntaje elegido (LLM o embeddings) ordena el ranking; los empates y pendientes se ordenan por nombre.
   const sortedApplications = useMemo(() => {
     return [...filteredApplications].sort((a, b) => {
-      return compareReviewScores(a, b, activeJob?.criteria || []) || compareCandidateNames(
+      const byScore = sortKey === 'embeddings'
+        ? (embeddingOf(b)?.score ?? -1) - (embeddingOf(a)?.score ?? -1)
+        : compareReviewScores(a, b, activeJob?.criteria || []);
+      return byScore || compareCandidateNames(
         candidateMap.get(a.candidateId)?.name || '', candidateMap.get(b.candidateId)?.name || ''
       ) || a.id.localeCompare(b.id);
     });
-  }, [filteredApplications, activeJob?.criteria, candidateMap]);
+  }, [filteredApplications, activeJob?.criteria, activeJob?.criteriaVersion, candidateMap, sortKey]);
+
+  const sortHeader = (key: 'llm' | 'embeddings', label: string) => (
+    <button
+      type="button"
+      onClick={() => { setSortKey(key); setCurrentPage(1); }}
+      className="focus-ring"
+      title={`Ordenar por ${label}`}
+      style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit',
+        color: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit' }}
+    >
+      {label}{sortKey === key ? ' ↓' : ''}
+    </button>
+  );
 
   // Paginación
   const totalItems = sortedApplications.length;
@@ -386,7 +408,9 @@ export function CandidateTable({
               <th style={{ padding: '0.75rem 1rem', minWidth: '220px' }}>Candidato</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Etapa</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Requisitos</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }}>LLM Score</th>
+              <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }} aria-sort={sortKey === 'llm' ? 'descending' : 'none'}>{sortHeader('llm', 'LLM Score')}</th>
+              <th style={{ padding: '0.75rem 1rem', minWidth: '100px' }} aria-sort={sortKey === 'embeddings' ? 'descending' : 'none'}>{sortHeader('embeddings', 'Score Embeddings')}</th>
+              <th style={{ padding: '0.75rem 1rem', minWidth: '220px' }}>Explicación</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '120px' }}>Fuente</th>
               <th style={{ padding: '0.75rem 1rem', minWidth: '220px', textAlign: 'right' }}>Acciones</th>
             </tr>
@@ -394,7 +418,7 @@ export function CandidateTable({
           <tbody>
             {paginatedApplications.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
+                <td colSpan={10} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <FileText size={32} style={{ color: 'var(--text-muted)' }} />
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
@@ -486,6 +510,22 @@ export function CandidateTable({
                       {app.llmScore === null && app.llmEvaluation && <span style={{ display:'block', fontSize:'.6875rem', color:'var(--text-secondary)', marginTop:'.25rem' }}>
                         Cobertura {evaluationSummary(app, activeJob?.criteria || []).coverage}%
                       </span>}
+                    </td>
+
+                    {/* Score de embeddings (separado del LLM) y su explicación */}
+                    <td style={{ padding: cellPadding, color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
+                      {embeddingOf(app) ? (
+                        <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--text-primary)' }}
+                          title={`Similitud ponderada con los criterios · posición ${embeddingOf(app)!.ranking} · backend ${embeddingOf(app)!.backend}`}>
+                          {formatEmbeddingScore(embeddingOf(app)!.score)}
+                        </span>
+                      ) : 'Pendiente'}
+                    </td>
+                    <td style={{ padding: cellPadding, color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
+                      <span title={embeddingOf(app)?.explanation}
+                        style={{ display: 'block', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {embeddingOf(app)?.explanation || '—'}
+                      </span>
                     </td>
 
                     {/* Fuente */}
