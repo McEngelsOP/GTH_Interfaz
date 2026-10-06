@@ -15,6 +15,7 @@ import {
 } from '../services/recruitmentRules.ts';
 import { getReviewCandidates, reviewAvailability } from '../services/reviewRanking.ts';
 import { exportCandidatesCSV } from '../services/exportService.ts';
+import { useEmbeddingRanking } from '../services/useEmbeddingRanking.ts';
 import {
   Users,
   Award,
@@ -50,6 +51,7 @@ export function MejoresCandidatosView() {
     handleReleaseApplications,
     showToast,
   } = useApp();
+  useEmbeddingRanking();
 
   const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'no_continuan' | 'todos'>('en_proceso');
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);

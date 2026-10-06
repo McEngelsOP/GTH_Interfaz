@@ -81,6 +81,18 @@ export interface EvaluationIssue {
   lastAttemptAt: string;
 }
 
+/** Matching por embeddings (matching/embeddings). Independiente de llmScore: nunca se promedian. */
+export interface EmbeddingMatch {
+  score: number; // score_embeddings, similitud ponderada 0-1
+  ranking: number;
+  requirementSims: Record<string, number | null>; // por criterion.id (req{k}_sim)
+  requirementEvidence: Record<string, string>; // fragmento del CV que respalda cada criterio
+  explanation: string;
+  backend: 'e5' | 'tfidf';
+  criteriaVersion: string;
+  evaluatedAt: string;
+}
+
 export interface Application {
   id: string; // stable applicationId e.g. "app-001"
   jobPostingId: string;
@@ -98,6 +110,7 @@ export interface Application {
     evidenceSummary: string;
   };
   criteriaBreakdown: Record<string, CriteriaScore>;
+  embeddingMatch?: EmbeddingMatch;
   suggestedRoles?: string[];
   createdAt: string;
   updatedAt: string;

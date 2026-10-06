@@ -24,7 +24,7 @@ import { applyPreparedEvaluation, recordEvaluationIssue, EvaluationError } from 
 import type { PreparedEvaluation } from '../services/evaluationService.ts';
 import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
-import type { RequirementStatus } from '../types/index.ts';
+import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -122,6 +122,7 @@ interface AppContextValue {
   handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
   handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
+  handleApplyEmbeddingRanking: (results: Record<string, EmbeddingMatch>) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
   handleRevertToPostulado: (applicationId: string) => void;
@@ -508,6 +509,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return result.plan.summary;
   };
 
+  // Score de embeddings: se guarda aparte de llmScore y no altera etapas ni el historial.
+  const handleApplyEmbeddingRanking = (results: Record<string, EmbeddingMatch>) => {
+    setAppState((prev) => ({ ...prev, applications: prev.applications.map((app) =>
+      results[app.id] ? { ...app, embeddingMatch: results[app.id] } : app) }));
+  };
+
   // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.
   const handleLinkCandidateToJob = (candidateId: string, targetJobId: string) => {
     const cand = appState.candidates.find((c) => c.id === candidateId);
@@ -610,6 +617,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleCreateJobPosting,
     handleActivateJobPosting,
     handleImportCandidates,
+    handleApplyEmbeddingRanking,
     handleApplyEvaluation,
     handleEvaluationIssue,
     handleReviewRequirement,
