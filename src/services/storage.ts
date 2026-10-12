@@ -3,7 +3,7 @@
    ========================================================================== */
 
 import { AppStateData, Application } from '../types/index.ts';
-import { INITIAL_APP_STATE } from '../data/initialData.ts';
+import { INITIAL_APP_STATE, INITIAL_JOB_POSTINGS } from '../data/initialData.ts';
 
 export const STORAGE_KEY = 'GTH_ESAN_STAGE_I_STATE_V2';
 
@@ -17,7 +17,7 @@ export function parseStoredState(raw: string): AppStateData | null {
     const value: unknown = JSON.parse(raw);
     if (!object(value) || !Array.isArray(value.jobPostings) || !Array.isArray(value.candidates) || !Array.isArray(value.applications)) return null;
     const data = { ...initialState(), ...value };
-    if (!Array.isArray(data.jobPostings) || !data.jobPostings.length || !data.jobPostings.every((j: unknown) =>
+    if (!Array.isArray(data.jobPostings) || !data.jobPostings.every((j: unknown) =>
       object(j) && strings(j, ['id', 'code', 'title', 'department', 'period', 'phase', 'knockoutRule', 'criteriaVersion', 'createdAt']) &&
       ['docente', 'administrativo', 'operativo', 'directivo'].includes(j.category) && ['activa', 'borrador'].includes(j.status) &&
       Number.isInteger(j.defaultTopN) && j.defaultTopN >= 1 && (j.vacancies === null || (Number.isInteger(j.vacancies) && j.vacancies >= 1)) &&
@@ -52,7 +52,7 @@ export function parseStoredState(raw: string): AppStateData | null {
       !data.decisionLogs.every((d) => strings(d, ['jobPostingId', 'applicationId', 'candidateId', 'action', 'author', 'timestamp', 'criteriaVersion']) && object(d.evaluationContext)) ||
       !data.emailDrafts.every((d) => strings(d, ['applicationId', 'to', 'subject', 'body', 'templateType', 'lang', 'status', 'updatedAt'])) ||
       !data.interviewRecords.every((r) => strings(r, ['applicationId', 'title', 'scheduledAt', 'locationOrLink', 'status', 'createdAt']))) return null;
-    data.activeJobPostingId = jobs.has(data.activeJobPostingId) ? data.activeJobPostingId : data.jobPostings[0].id;
+    data.activeJobPostingId = jobs.has(data.activeJobPostingId) ? data.activeJobPostingId : (data.jobPostings[0]?.id || '');
     data.topN = Number.isFinite(data.topN) && data.topN >= 1 ? Math.floor(data.topN) : 5;
     data.jobPostings = data.jobPostings.map((job) => ({ ...job,
       criteria: job.criteria.map((criterion) => ({ ...criterion, type: 'LLM' as const })),
@@ -70,6 +70,13 @@ export function parseStoredState(raw: string): AppStateData | null {
     data.selectedMethod = 'LLM';
     data.theme = ['light', 'dark', 'system'].includes(data.theme) ? data.theme : 'light';
     data.reducedMotion = data.reducedMotion === true;
+    // Retirar únicamente ejemplos intactos y sin expedientes; conservar trabajo real.
+    const usedJobs = new Set([...data.applications.map((app) => app.jobPostingId), ...data.decisionLogs.map((log) => log.jobPostingId)]);
+    data.jobPostings = data.jobPostings.filter((job) => usedJobs.has(job.id) || !INITIAL_JOB_POSTINGS.some((example) =>
+      JSON.stringify(example) === JSON.stringify(job)));
+    if (!data.jobPostings.some((job) => job.id === data.activeJobPostingId)) {
+      data.activeJobPostingId = data.jobPostings[0]?.id || '';
+    }
     return data;
   } catch { return null; }
 }
@@ -120,3 +127,4 @@ export function resetAppState(): AppStateData {
   }
   return initialState();
 }
+

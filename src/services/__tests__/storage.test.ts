@@ -1,14 +1,35 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { INITIAL_APP_STATE } from '../../../tests/fixtures/recruitmentData.ts';
 import { loadAppState, parseStoredState, resetAppState, saveAppState } from '../storage.ts';
+import { INITIAL_APP_STATE as EMPTY_STATE, INITIAL_JOB_POSTINGS } from '../../data/initialData.ts';
 import { readRoute, routeHash } from '../navigation.ts';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { sanitizeCell } from '../exportService.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 describe('persistencia y navegación', () => {
+  it('acepta y conserva un inicio sin convocatorias', () => {
+    expect(EMPTY_STATE.jobPostings).toEqual([]);
+    expect(parseStoredState(JSON.stringify(EMPTY_STATE))).toEqual(EMPTY_STATE);
+    expect(readRoute('#view=nueva_convocatoria').view).toBe('nueva_convocatoria');
+  });
+  it('retira ejemplos intactos sin borrar convocatorias modificadas ni postulaciones reales', () => {
+    const state = structuredClone(EMPTY_STATE);
+    state.jobPostings = structuredClone(INITIAL_JOB_POSTINGS);
+    state.activeJobPostingId = state.jobPostings[0].id;
+    expect(parseStoredState(JSON.stringify(state))?.jobPostings).toEqual([]);
+    state.jobPostings[0].title = 'Convocatoria real editada';
+    const migrated = parseStoredState(JSON.stringify(state))!;
+    expect(migrated.jobPostings).toHaveLength(1);
+    expect(migrated.activeJobPostingId).toBe(state.jobPostings[0].id);
+    const withPeople = structuredClone(INITIAL_APP_STATE);
+    const result = parseStoredState(JSON.stringify(withPeople))!;
+    expect(result.candidates).toEqual(withPeople.candidates);
+    expect(result.applications).toEqual(withPeople.applications);
+  });
   it('recupera snapshots completos y normaliza preferencias corruptas', () => {
     const data = structuredClone(INITIAL_APP_STATE);
+    data.jobPostings.forEach((job) => { job.title += ' — editada'; });
     expect(parseStoredState(JSON.stringify(data))).toEqual(data);
     Object.assign(data, { theme: 'other', topN: -3, selectedMethod: 'other', activeJobPostingId: 'missing' });
     const result = parseStoredState(JSON.stringify(data));
@@ -63,3 +84,4 @@ describe('CSV para Excel', () => {
     expect(sanitizeCell('uno\ndos')).toBe('"uno\ndos"');
   });
 });
+

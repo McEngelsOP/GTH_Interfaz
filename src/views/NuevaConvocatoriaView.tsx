@@ -158,7 +158,7 @@ export function NuevaConvocatoriaView() {
               Crear Nueva Convocatoria
             </h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Asistente guiado en 4 pasos para configurar el puesto, requisitos y criterios de selección.
+              Configura el puesto, requisitos y criterios. La convocatoria se guarda en este navegador.
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setCurrentView('convocatorias')}>
@@ -259,7 +259,7 @@ export function NuevaConvocatoriaView() {
               1. Elija cómo desea comenzar la convocatoria
             </h2>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Puede utilizar una plantilla oficial de perfil de puesto con requisitos y ponderaciones al 100%, o
+              Puede utilizar una plantilla de referencia de perfil de puesto con requisitos y ponderaciones al 100%, o
               iniciar desde cero.
             </p>
 
@@ -295,7 +295,7 @@ export function NuevaConvocatoriaView() {
               <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '0.5rem 0' }} />
 
               <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                O elija una plantilla oficial de ESAN:
+                O elija una plantilla de referencia:
               </span>
 
               {INITIAL_PROFILE_TEMPLATES.map((tpl) => {
@@ -675,4 +675,5 @@ export function NuevaConvocatoriaView() {
     </div>
   );
 }
+
 

@@ -1,4 +1,3 @@
-import { IS_STAGE_ONE } from '../config/edition.ts';
 import { timeAgo } from '../services/bumeranSync.ts';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
@@ -121,7 +120,7 @@ export function ConvocatoriasView() {
           </div>
         </div>
 
-        {!IS_STAGE_ONE && <Button
+        {<Button
           variant="primary"
           icon={<PlusCircle size={16} />}
           onClick={() => setCurrentView('nueva_convocatoria')}
@@ -224,7 +223,7 @@ export function ConvocatoriasView() {
         </span>
       </div>
 
-      {!filteredJobs.length && <p role="status" className="import-card">No hay convocatorias que coincidan con los filtros.</p>}
+      {!filteredJobs.length && <p role="status" className="import-card">{appState.jobPostings.length ? 'No hay convocatorias que coincidan con los filtros.' : 'Aún no hay convocatorias. Crea una con Nueva convocatoria o sincroniza los avisos de Bumeran.'}</p>}
       {/* Convocatorias disponibles */}
       <div
         style={{
@@ -365,7 +364,7 @@ export function ConvocatoriasView() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {!IS_STAGE_ONE && job.status === 'borrador' && <Button size="sm" variant="outline" onClick={() => handleActivateJobPosting(job.id)}>Activar convocatoria</Button>}
+                {job.status === 'borrador' && <Button size="sm" variant="outline" onClick={() => handleActivateJobPosting(job.id)}>Activar convocatoria</Button>}
                 <Button
                   variant={isCurrentActive ? 'primary' : 'secondary'}
                   size="sm"
@@ -384,4 +383,5 @@ export function ConvocatoriasView() {
     </div>
   );
 }
+
 

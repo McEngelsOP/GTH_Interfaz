@@ -89,12 +89,14 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
         {IS_STAGE_ONE ? (
           <select
             aria-label="Convocatoria activa"
+            disabled={!appState.jobPostings.length}
             value={appState.activeJobPostingId}
             onChange={(event) => setActiveJobPostingId(event.target.value)}
             style={{ maxWidth: '520px', width: '100%', minWidth: 0, padding: '0.6rem',
               color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)',
               border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}
           >
+            {!appState.jobPostings.length && <option value="">Sin convocatorias</option>}
             {appState.jobPostings.map((job) => (
               <option key={job.id} value={job.id}>{job.title} · {job.code}</option>
             ))}
@@ -254,3 +256,4 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     </header>
   );
 }
+

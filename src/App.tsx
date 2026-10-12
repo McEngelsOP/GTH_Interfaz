@@ -9,6 +9,7 @@ import { supabase } from './services/supabase.ts';
 import { useBumeranSync } from './services/useBumeranSync.ts';
 import { BumeranSyncBar } from './components/layout/BumeranSyncBar.tsx';
 import { ConvocatoriasView } from './views/ConvocatoriasView.tsx';
+import { NuevaConvocatoriaView } from './views/NuevaConvocatoriaView.tsx';
 import { LoginView } from './views/LoginView.tsx';
 
 // Vistas del sistema GTH ESAN
@@ -18,11 +19,14 @@ import { ComparadorView } from './views/ComparadorView.tsx';
 import { AvanceCandidatosView } from './views/AvanceCandidatosView.tsx';
 
 function MainContent() {
-  const { currentView } = useApp();
+  const { currentView, activeJob } = useApp();
 
   const renderView = () => {
+    if (!activeJob && currentView !== 'nueva_convocatoria' && currentView !== 'nueva-convocatoria') return <ConvocatoriasView />;
     switch (currentView) {
       case 'convocatorias': return <ConvocatoriasView />;
+      case 'nueva_convocatoria':
+      case 'nueva-convocatoria': return <NuevaConvocatoriaView />;
       case 'agregar_archivos':
       case 'agregar-archivos':
         return <AgregarArchivosView />;
@@ -93,3 +97,4 @@ export default function App() {
     </AuthGate>
   );
 }
+

@@ -518,9 +518,10 @@ export const INITIAL_JOB_POSTINGS: JobPosting[] = [
 // Candidatos Iniciales (Sección 29 + Casos de prueba estructurados)
 // --------------------------------------------------------------------------
 export const INITIAL_APP_STATE: AppStateData = {
-  jobPostings: INITIAL_JOB_POSTINGS,
+  jobPostings: [],
   candidates: [], applications: [], activities: [], decisionLogs: [],
   emailDrafts: [], interviewRecords: [],
-  activeJobPostingId: 'REQ-2026-DOC-088', selectedMethod: 'LLM', topN: 5,
+  activeJobPostingId: '', selectedMethod: 'LLM', topN: 5,
   theme: 'light', reducedMotion: false,
 };
+

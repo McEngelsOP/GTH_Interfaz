@@ -110,7 +110,8 @@ export function mergeBumeranJobs(state: AppStateData, jobs: JobPosting[]): AppSt
     return merged;
   });
   if (incoming.size) changed = true;
-  return changed ? { ...state, jobPostings: [...kept, ...incoming.values()] } : state;
+  const jobPostings = [...kept, ...incoming.values()];
+  return changed ? { ...state, jobPostings, activeJobPostingId: jobPostings.some((job) => job.id === state.activeJobPostingId) ? state.activeJobPostingId : (jobPostings[0]?.id || '') } : state;
 }
 
 /** Filas de v_postulaciones como una tabla del importador (mismas columnas del CSV de Bumeran). */
@@ -185,3 +186,4 @@ export function timeAgo(iso: string | null | undefined, now = Date.now()): strin
   const days = Math.round(hours / 24);
   return `hace ${days} ${days === 1 ? 'día' : 'días'}`;
 }
+
