@@ -506,7 +506,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleImportCandidates = (jobId: string, rows: ImportRow[]) => {
     const result = applyCandidateImport(appState, jobId, rows);
-    setAppState((prev) => applyCandidateImport(prev, jobId, rows).state);
+    setAppState((prev) => prev.jobPostings.some((job) => job.id === jobId) ? applyCandidateImport(prev, jobId, rows).state : prev);
     const { newApplications, updatedCandidates } = result.plan.summary;
     showToast(`${newApplications} postulaciones nuevas; ${updatedCandidates} fichas actualizadas. Evaluación LLM pendiente.`, 'success');
     return result.plan.summary;
@@ -525,12 +525,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Postulantes de un aviso de Bumeran: mismo importador que "Cargar CV" (sin duplicar fichas).
   const handleSyncBumeranCandidates = (jobId: string, rows: ImportRow[]) => {
-    let summary: ImportSummary | null = null;
-    try { summary = applyCandidateImport(appState, jobId, rows).plan.summary; } catch { return; }
-    if (!summary.newApplications && !summary.updatedCandidates) return;
-    setAppState((prev) => { try { return applyCandidateImport(prev, jobId, rows).state; } catch { return prev; } });
-    const job = appState.jobPostings.find((j) => j.id === jobId);
-    if (summary.newApplications) showToast(`${summary.newApplications} postulantes de Bumeran incorporados a ${job?.code || jobId}. Evaluación LLM pendiente.`, 'success');
+    setAppState((prev) => prev.jobPostings.some((job) => job.id === jobId) ? applyCandidateImport(prev, jobId, rows).state : prev);
   };
 
   // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.

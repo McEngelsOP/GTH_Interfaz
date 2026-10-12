@@ -7,6 +7,8 @@ import { CandidateDrawer } from './components/candidate/CandidateDrawer.tsx';
 import { GTHAssistantDrawer } from './components/assistant/GTHAssistantDrawer.tsx';
 import { supabase } from './services/supabase.ts';
 import { useBumeranSync } from './services/useBumeranSync.ts';
+import { BumeranSyncBar } from './components/layout/BumeranSyncBar.tsx';
+import { ConvocatoriasView } from './views/ConvocatoriasView.tsx';
 import { LoginView } from './views/LoginView.tsx';
 
 // Vistas del sistema GTH ESAN
@@ -20,6 +22,7 @@ function MainContent() {
 
   const renderView = () => {
     switch (currentView) {
+      case 'convocatorias': return <ConvocatoriasView />;
       case 'agregar_archivos':
       case 'agregar-archivos':
         return <AgregarArchivosView />;
@@ -50,7 +53,7 @@ function MainContent() {
 
 function AppLayout() {
   const { selectedCandidateForDrawer } = useApp();
-  useBumeranSync();
+  const sync = useBumeranSync();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -58,6 +61,7 @@ function AppLayout() {
       <Sidebar isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
+        <BumeranSyncBar sync={sync} />
         <MainContent />
       </div>
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
@@ -72,11 +76,11 @@ function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<'cargando' | 'sin_sesion' | 'activa'>(supabase ? 'cargando' : 'activa');
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ? 'activa' : 'sin_sesion'));
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ? 'activa' : 'sin_sesion')).catch(() => setSession('sin_sesion'));
     const { data } = supabase.auth.onAuthStateChange((_event, current) => setSession(current ? 'activa' : 'sin_sesion'));
     return () => data.subscription.unsubscribe();
   }, []);
-  if (session === 'cargando') return null;
+  if (session === 'cargando') return <div role="status" className="session-loading">Verificando sesión…</div>;
   return session === 'activa' ? <>{children}</> : <LoginView />;
 }
 

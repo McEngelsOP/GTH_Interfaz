@@ -114,7 +114,7 @@ export function EvaluationPanel() {
   return <>
     <div className="evaluation-panel">
       <div><strong><ShieldCheck size={18} /> Evaluación automática · perfiles de prueba</strong><p>Una sola autorización para todos los pendientes. Se depuran los datos y Gemini evalúa cada criterio automáticamente.</p>
-        <p>Los puntajes son apoyo a la revisión humana. Los originales y resultados permanecen en este navegador.</p></div>
+        <p>{activeJob?.bumeran ? 'Este modo admite perfiles de prueba. Los candidatos de Bumeran no se envían automáticamente a Gemini; el ranking de embeddings es independiente.' : 'Los puntajes son apoyo a la revisión humana. Los originales y resultados permanecen en este navegador.'}</p></div>
       <div className="evaluation-actions"><Button icon={<Sparkles size={16}/>} disabled={!pending.length} onClick={() => void preview()}>Evaluar todos los pendientes</Button>
         {selectedApplicationIds.length > 0 && <Button size="sm" disabled={!selectedPending.length} onClick={() => void preview(true)}>Evaluar seleccionados</Button>}</div>
     </div>

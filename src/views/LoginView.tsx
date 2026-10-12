@@ -16,9 +16,11 @@ export function LoginView() {
     event.preventDefault();
     if (!supabase) return;
     setSending(true); setError('');
-    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setSending(false);
-    if (authError) setError(/invalid/i.test(authError.message) ? 'Correo o contraseña incorrectos.' : 'No se pudo iniciar sesión. Intenta nuevamente.');
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (authError) setError(/invalid/i.test(authError.message) ? 'Correo o contraseña incorrectos.' : 'No se pudo iniciar sesión. Intenta nuevamente.');
+    } catch { setError('No se pudo conectar. Revisa tu conexión e intenta nuevamente.'); }
+    finally { setSending(false); }
   };
 
   return (

@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../../services/supabase.ts';
+import { Button } from '../common/Button.tsx';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import {
@@ -9,6 +11,7 @@ import {
   Laptop,
   Sparkles,
   Menu,
+  LogOut,
 } from 'lucide-react';
 import { Badge } from '../common/Badge.tsx';
 
@@ -24,7 +27,19 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     setCurrentView,
     setTheme,
     toggleAssistant,
+    showToast,
   } = useApp();
+
+  const [signingOut, setSigningOut] = useState(false);
+  const signOut = async () => {
+    if (!supabase) return;
+    setSigningOut(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) showToast('No se pudo cerrar la sesión. Intenta nuevamente.', 'warning');
+    } catch { showToast('No se pudo cerrar la sesión. Intenta nuevamente.', 'warning'); }
+    finally { setSigningOut(false); }
+  };
 
   const handleNextTheme = () => {
     if (appState.theme === 'light') setTheme('dark');
@@ -197,6 +212,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
           )}
         </button>
 
+        {supabase && <Button variant="ghost" size="sm" aria-label="Cerrar sesión" title="Cerrar sesión" disabled={signingOut} onClick={signOut} icon={<LogOut size={17} />} />}
         {/* Perfil Único GTHC (mandatario Sección 2: Equipo de GTHC) */}
         <div
           style={{

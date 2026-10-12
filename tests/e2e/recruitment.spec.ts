@@ -90,7 +90,7 @@ test('vistas, criterios, tema y navegación móvil conservan contexto', async ({
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.setViewportSize({ width: 390, height: 844 }); await expect(page.locator('aside')).toBeHidden();
   await page.getByRole('button', { name: 'Abrir menú de navegación', exact: true }).click(); await expect(page.locator('aside')).toBeVisible();
-  await page.locator('aside').getByRole('button', { name: /Mejores candidatos/ }).click(); await expect(page.locator('aside')).toBeHidden();
+  await page.locator('aside').getByRole('button', { name: /Candidatos y ranking/ }).click(); await expect(page.locator('aside')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   expect(errors).toEqual([]);
 });

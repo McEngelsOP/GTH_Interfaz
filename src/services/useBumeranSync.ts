@@ -1,69 +1,80 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeCandidateTables } from './candidateImport.ts';
 import { avisoToJob, fetchAvisos, fetchPostulantes, fetchRanking, postulantesToTable, rankingToMatches } from './bumeranSync.ts';
-import { embeddingTargets } from './embeddingMatching.ts';
 import { supabase } from './supabase.ts';
 
+type LoadState = { loading: boolean; error: string; checkedAt: string | null };
+const initial: LoadState = { loading: false, error: '', checkedAt: null };
 const REFRESCO_MS = 5 * 60 * 1000;
 
-/** Trae de Supabase los avisos publicados (al iniciar y cada 5 min) y, al abrir un aviso, sus postulantes
- *  y el ranking por embeddings que calculó el scraper (tabla ranking_embeddings).
- *  Sin elementos visibles propios: si Supabase no responde, la interfaz sigue igual y se registra en consola. */
+/** Relee datos ya guardados por el scraper; no inicia Selenium ni recalcula embeddings. */
 export function useBumeranSync() {
-  const { activeJob, appState, handleSyncBumeranJobs, handleSyncBumeranCandidates, handleApplyEmbeddingRanking } = useApp();
-  const synced = useRef(new Set<string>());
+  const app = useApp();
+  const latest = useRef(app);
+  latest.current = app;
+  const [revision, setRevision] = useState(0);
+  const [postings, setPostings] = useState(initial);
+  const [applicants, setApplicants] = useState(initial);
+  const [ranking, setRanking] = useState(initial);
+  const refresh = () => setRevision((value) => value + 1);
 
   useEffect(() => {
     if (!supabase) return;
-    const client = supabase;
-    let alive = true;
-    const load = () => fetchAvisos(client)
-      .then((rows) => { if (alive) handleSyncBumeranJobs(rows.map(avisoToJob)); })
-      .catch((error) => console.info(`[bumeran] No se pudieron leer los avisos. ${error instanceof Error ? error.message : ''}`));
-    void load();
-    const timer = window.setInterval(load, REFRESCO_MS);
-    return () => { alive = false; window.clearInterval(timer); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const timer = window.setInterval(refresh, REFRESCO_MS);
+    return () => window.clearInterval(timer);
   }, []);
 
-  const aviso = activeJob?.bumeran;
-  const key = aviso ? `${activeJob!.id}|${aviso.updatedAt || ''}` : '';
   useEffect(() => {
-    if (!supabase || !aviso || synced.current.has(key)) return;
-    synced.current.add(key);
-    const jobId = activeJob!.id;
-    fetchPostulantes(supabase, aviso.avisoId)
-      .then((rows) => {
-        const analysis = analyzeCandidateTables([postulantesToTable(aviso.avisoId, rows)]);
-        console.info(`[bumeran] Aviso ${aviso.avisoId}: ${rows.length} postulantes en la base de datos`);
-        handleSyncBumeranCandidates(jobId, analysis.rows);
-      })
-      .catch((error) => {
-        synced.current.delete(key);
-        console.info(`[bumeran] No se pudieron leer los postulantes. ${error instanceof Error ? error.message : ''}`);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+    if (!supabase) return;
+    let alive = true;
+    setPostings((prev) => ({ ...prev, loading: true, error: '' }));
+    fetchAvisos(supabase).then((rows) => {
+      if (!alive) return;
+      latest.current.handleSyncBumeranJobs(rows.map(avisoToJob));
+      setPostings({ loading: false, error: '', checkedAt: new Date().toISOString() });
+    }).catch(() => {
+      if (alive) setPostings((prev) => ({ ...prev, loading: false, error: 'No se pudieron leer las convocatorias. Reintenta; si persiste, revisa los permisos de acceso.' }));
+    });
+    return () => { alive = false; };
+  }, [revision]);
 
-  // El ranking se lee cuando el scraper lo recalcula (ranking_at) o cuando llegan postulaciones nuevas al aviso.
-  const rankedJob = aviso ? activeJob! : null;
-  const targets = rankedJob ? embeddingTargets(rankedJob, appState.applications, appState.candidates).length : 0;
-  const rankingKey = rankedJob && targets ? `${rankedJob.id}|${rankedJob.criteriaVersion}|${aviso!.rankingAt || ''}|${targets}` : '';
-  const ranked = useRef(new Set<string>());
+  const job = app.activeJob;
+  const avisoId = job?.bumeran?.avisoId;
+  const updatedAt = job?.bumeran?.updatedAt;
   useEffect(() => {
-    if (!supabase || !rankedJob || !rankingKey || ranked.current.has(rankingKey)) return;
-    ranked.current.add(rankingKey);
-    fetchRanking(supabase, rankedJob.bumeran!.avisoId, rankedJob.criteriaVersion)
-      .then((rows) => {
-        const results = rankingToMatches(rankedJob, appState.applications, appState.candidates, rows);
-        console.info(`[bumeran] Ranking de embeddings: ${Object.keys(results).length} de ${targets} postulaciones`);
-        if (Object.keys(results).length) handleApplyEmbeddingRanking(results);
-      })
-      .catch((error) => {
-        ranked.current.delete(rankingKey);
-        console.info(`[bumeran] No se pudo leer el ranking de embeddings. ${error instanceof Error ? error.message : ''}`);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankingKey]);
+    setApplicants(initial);
+    if (!supabase || !avisoId || !job) return;
+    let alive = true;
+    setApplicants({ ...initial, loading: true });
+    fetchPostulantes(supabase, avisoId).then((rows) => {
+      if (!alive) return;
+      const analysis = analyzeCandidateTables([postulantesToTable(avisoId, rows)]);
+      latest.current.handleSyncBumeranCandidates(job.id, analysis.rows);
+      setApplicants({ loading: false, error: '', checkedAt: new Date().toISOString() });
+    }).catch(() => {
+      if (alive) setApplicants({ ...initial, error: 'No se pudieron incorporar los candidatos. Vuelve a cargar los datos.' });
+    });
+    return () => { alive = false; };
+  }, [avisoId, updatedAt, revision]);
+
+  const applicationIds = app.appState.applications.filter((a) => a.jobPostingId === job?.id).map((a) => a.id).sort().join('|');
+  useEffect(() => {
+    setRanking(initial);
+    if (!supabase || !avisoId || !job || !applicationIds) return;
+    let alive = true;
+    setRanking({ ...initial, loading: true });
+    fetchRanking(supabase, avisoId, job.criteriaVersion).then((rows) => {
+      if (!alive) return;
+      const current = latest.current;
+      const results = rankingToMatches(job, current.appState.applications, current.appState.candidates, rows);
+      if (Object.keys(results).length) current.handleApplyEmbeddingRanking(results);
+      setRanking({ loading: false, error: '', checkedAt: new Date().toISOString() });
+    }).catch(() => {
+      if (alive) setRanking({ ...initial, error: 'No se pudo consultar el ranking. Vuelve a cargar los datos.' });
+    });
+    return () => { alive = false; };
+  }, [avisoId, job?.criteriaVersion, job?.bumeran?.rankingAt, applicationIds, revision]);
+
+  return { configured: !!supabase, postings, applicants, ranking, refresh };
 }

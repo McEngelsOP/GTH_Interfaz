@@ -4,7 +4,7 @@ import { IS_STAGE_ONE } from '../../src/config/edition.ts';
 
 test('ranking, ficha, comparador y CSV muestran únicamente evaluación LLM', async ({ page }) => {
   await page.goto('/#view=mejores_candidatos');
-  await expect(page.getByRole('columnheader', { name: 'LLM Score', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /^LLM Score/ })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'ML Score', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'ML', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Marcia Samin', exact: true }).click();
@@ -31,12 +31,13 @@ test('ETAPA-I limita menú y rutas y mantiene el cambio de convocatoria', async 
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/#view=convocatorias');
-  await expect(page).toHaveURL(/view=mejores_candidatos/);
-  await expect(page.locator('aside').getByRole('button', { name: /Cargar CV/ })).toBeVisible();
-  for (const name of ['Mejores candidatos', 'Comparador', 'Avance de candidatos']) {
+  await expect(page).toHaveURL(/view=convocatorias/);
+  await expect(page.getByRole('heading', { name: 'Convocatorias', exact: true })).toBeVisible();
+  await expect(page.locator('aside').getByRole('button', { name: /Importación manual/ })).toBeVisible();
+  for (const name of ['Candidatos y ranking', 'Comparador', 'Avance de candidatos']) {
     await expect(page.locator('aside').getByRole('button', { name: new RegExp(name) })).toBeVisible();
   }
-  for (const name of ['Convocatorias', 'Perfiles de puestos', 'Nueva convocatoria', 'Banco de Talento', 'Criterios de evaluación', 'Historial de decisiones', 'Resultados del proceso', 'Ajustes generales', 'Resumen general']) {
+  for (const name of ['Perfiles de puestos', 'Nueva convocatoria', 'Banco de Talento', 'Criterios de evaluación', 'Historial de decisiones', 'Resultados del proceso', 'Ajustes generales', 'Resumen general']) {
     await expect(page.locator('aside').getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
   }
   await expect(page.getByRole('button', { name: 'Asistente GTH', exact: true })).toBeVisible();

@@ -11,9 +11,9 @@ const csv = 'Aviso de prueba\nProceso de prueba\nFecha de prueba\n\n' + headers.
 test('inicio sin demo, carga CSV real, duplicados, persistencia y otra convocatoria', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/#view=mejores_candidatos');
-  await expect(page.getByRole('button', { name: 'Cargar perfiles', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Importar perfiles', exact: true })).toBeVisible();
   expect((await state(page)).candidates).toEqual([]);
-  await page.getByRole('button', { name: 'Cargar perfiles', exact: true }).click();
+  await page.getByRole('button', { name: 'Importar perfiles', exact: true }).click();
   await expect(page.getByRole('button', { name: /Simulación|Generar lote/ })).toHaveCount(0);
   await upload(page, csv);
   await expect(page.getByText(/Encabezado en fila 5/)).toBeVisible();

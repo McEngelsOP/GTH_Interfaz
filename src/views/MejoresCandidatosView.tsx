@@ -401,7 +401,7 @@ export function MejoresCandidatosView() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Método que ordena:
+              Top-N de revisión:
             </span>
             <div style={{ display: 'flex', gap: '0.25rem' }}>
               <Badge variant="purple" size="sm">LLM</Badge>
@@ -637,12 +637,13 @@ export function MejoresCandidatosView() {
         </div>
       )}
 
+      {activeJob.bumeran && <p className="ranking-help">El ranking de embeddings ordena por similitud con los requisitos del aviso. La evaluación LLM se ejecuta por separado; revisa la evidencia antes de decidir.</p>}
       <EvaluationPanel />
 
       {/* Tabla central de candidatos */}
       {!activeJobApplications.length && <div className="import-card" role="status">
-        <p style={{ marginBottom: '.75rem' }}>Esta convocatoria todavía no tiene candidatos. Carga un CSV o Excel para empezar.</p>
-        <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Cargar perfiles</Button>
+        <p style={{ marginBottom: '.75rem' }}>{activeJob.bumeran ? 'Los candidatos se incorporan desde Bumeran. Si aún no aparecen, consulta el estado de sincronización y vuelve a cargar los datos.' : 'Esta convocatoria todavía no tiene candidatos. Importa un CSV o Excel para empezar.'}</p>
+        {!activeJob.bumeran && <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Importar perfiles</Button>}
       </div>}
       {evaluationApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
         {evaluationApplications.filter((app) => app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue).length} sin evaluar · {evaluationApplications.filter((app) => app.llmScore === null && app.llmEvaluation).length} con evidencia incompleta · {evaluationApplications.filter((app) => app.evaluationIssue).length} casos especiales. El Top-N para revisión usa los puntajes disponibles. Avanzar requiere puntaje completo y requisitos verificados.
