@@ -124,7 +124,7 @@ class Embedder:
 # ---------------------------------------------------------------------------
 # 4. MATCHING POR REQUISITO + SCORE PONDERADO + EXPLICACIÓN
 # ---------------------------------------------------------------------------
-def matching(df, oferta, emb):
+def matching(df, oferta, emb, reescalar=True):
     reqs = [r for r, _ in oferta["requisitos"]]
     pesos = np.array([w for _, w in oferta["requisitos"]])
     pesos = pesos / pesos.sum()
@@ -153,15 +153,53 @@ def matching(df, oferta, emb):
 
     res = pd.DataFrame(filas).sort_values("score_embeddings", ascending=False)
     res.insert(1, "ranking", range(1, len(res) + 1))
+    if emb.backend == "e5" and reescalar:
+        res = reescalar_por_aviso(res, len(reqs))
     return res
 
 
-def ranking_embeddings(df, oferta, backend="e5", embedder=None):
+def _min_max(serie, validos):
+    """Lleva los valores de los candidatos con información al rango 0-1 (el mejor del aviso = 1)."""
+    v = serie[validos]
+    lo, hi = v.min(), v.max()
+    if len(v) < 2 or not np.isfinite(lo) or hi - lo < 1e-9:
+        return serie
+    return serie.where(~validos, ((serie - lo) / (hi - lo)).round(4))
+
+
+def reescalar_por_aviso(res, n_reqs):
+    """e5 da similitudes muy juntas (p. ej. 0.81-0.83 entre todos los postulantes) y en la tabla no se distinguen.
+    Se reescalan dentro del aviso a 0-1, el score y cada req{k}_sim por separado. Es lineal, así que el ranking
+    no cambia. El score original queda en score_bruto; los CV sin información se quedan en 0."""
+    res = res.copy()
+    validos = res["explicacion"] != "CV sin información"
+    res.insert(res.columns.get_loc("score_embeddings") + 1, "score_bruto", res["score_embeddings"])
+    res["score_embeddings"] = _min_max(res["score_embeddings"], validos)
+    for k in range(n_reqs):
+        col = f"req{k + 1}_sim"
+        if col in res:
+            res[col] = _min_max(res[col], validos & res[col].notna()).round(3)
+
+    def explicar(fila):  # la explicación muestra la misma escala que req{k}_sim
+        partes = fila["explicacion"].split(" | ")
+        for k in range(min(n_reqs, len(partes))):
+            valor = fila.get(f"req{k + 1}_sim")
+            if valor is not None and np.isfinite(valor):
+                partes[k] = re.sub(r"\((-?\d+\.\d+)\)$", f"({valor:.2f})", partes[k])
+        return " | ".join(partes)
+
+    res.loc[validos, "explicacion"] = res[validos].apply(explicar, axis=1)
+    res.attrs["escala"] = "min-max por aviso"
+    return res
+
+
+def ranking_embeddings(df, oferta, backend="e5", embedder=None, reescalar=True):
     """Punto de entrada del módulo: df con columna candidato_id y campos Exp/Est/Idiomas.
-    Los campos personales se descartan antes de construir cualquier texto."""
+    Los campos personales se descartan antes de construir cualquier texto.
+    reescalar=False devuelve las similitudes originales de e5 (para reescalar después todo el aviso junto)."""
     df = df.drop(columns=[c for c in CAMPOS_EXCLUIDOS if c in df.columns]).fillna("")
     emb = embedder or Embedder(backend)
-    res = matching(df, oferta, emb)
+    res = matching(df, oferta, emb, reescalar)
     res.attrs["backend"] = emb.backend
     log.info("Ranking de embeddings: %d candidatos, backend=%s", len(res), emb.backend)
     return res

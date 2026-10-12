@@ -10,7 +10,7 @@ import unittest
 
 import pandas as pd
 
-from .matching_llm import CAMPOS_EXCLUIDOS, OFERTA, Embedder, leer_bumeran, ranking_embeddings
+from .matching_llm import CAMPOS_EXCLUIDOS, OFERTA, Embedder, leer_bumeran, ranking_embeddings, reescalar_por_aviso
 from .server import puntuar
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -43,6 +43,34 @@ class RankingEmbeddingsTest(unittest.TestCase):
         self.assertEqual(len(fila["req_sims"]), 2)
         self.assertEqual(fila["req_fragmentos"], ["Exp[1] Cobranzas SAP"] * 2)
         self.assertNotIn("Zoraida", str(out))
+
+    def test_reescala_e5_por_aviso(self):
+        res = pd.DataFrame([
+            {"candidato_id": "a", "ranking": 1, "score_embeddings": 0.834, "req1_sim": 0.85, "explicacion": "[r1…] -> Exp[1] x (0.85)"},
+            {"candidato_id": "b", "ranking": 2, "score_embeddings": 0.820, "req1_sim": 0.80, "explicacion": "[r1…] -> Exp[1] y (0.80)"},
+            {"candidato_id": "c", "ranking": 3, "score_embeddings": 0.809, "req1_sim": 0.82, "explicacion": "[r1…] -> Exp[1] z (0.82)"},
+            {"candidato_id": "d", "ranking": 4, "score_embeddings": 0.0, "explicacion": "CV sin información"},
+        ])
+        out = reescalar_por_aviso(res, 1)
+        self.assertEqual(list(out["score_embeddings"]), [1.0, 0.44, 0.0, 0.0])   # mismo orden, rango 0-1
+        self.assertEqual(list(out["score_bruto"]), [0.834, 0.820, 0.809, 0.0])
+        self.assertEqual(list(out["req1_sim"])[:3], [1.0, 0.0, 0.4])
+        self.assertTrue(out["explicacion"][0].endswith("(1.00)"))
+        self.assertEqual(out["explicacion"][3], "CV sin información")
+
+    @unittest.skipUnless(Embedder("e5").backend == "e5", "modelo e5 no instalado en esta PC")
+    def test_e5_reescalado_y_mismo_orden(self):
+        df = pd.DataFrame([
+            {"candidato_id": "a", "Exp[1] Puesto": "Analista de cobranzas", "Exp[1] Descripción": "Gestión de cartera morosa"},
+            {"candidato_id": "b", "Exp[1] Puesto": "Cocinero", "Exp[1] Descripción": "Preparación de alimentos"},
+            {"candidato_id": "c", "Exp[1] Puesto": "Asistente contable", "Exp[1] Descripción": "Cuentas por cobrar en Excel"},
+        ])
+        res = ranking_embeddings(df, OFERTA, backend="e5")
+        self.assertEqual(res.attrs["backend"], "e5")
+        self.assertEqual(res["score_embeddings"].max(), 1.0)
+        self.assertEqual(res["score_embeddings"].min(), 0.0)
+        self.assertEqual(list(res.sort_values("score_bruto", ascending=False)["candidato_id"]), list(res["candidato_id"]))
+        self.assertEqual(res.iloc[-1]["candidato_id"], "b")
 
     def test_oferta_sin_pesos(self):
         with self.assertRaises(ValueError):

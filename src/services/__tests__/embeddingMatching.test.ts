@@ -26,7 +26,10 @@ describe('matching por embeddings', () => {
       requirementSims:{ a:0.5, b:null }, requirementEvidence:{ a:'Exp[1] Analista de cobranzas', b:'' } });
     const scored = { ...app, embeddingMatch: results['app-1'] };
     expect(scored.llmScore).toBe(72);
-    expect(needsEmbeddingRanking(job, [scored], [candidate])).toBe(false);
-    expect(needsEmbeddingRanking({ ...job, criteriaVersion:'v2' }, [scored], [candidate])).toBe(true);
+    // tfidf es el respaldo sin modelo: se vuelve a pedir por si el servicio ya tiene e5
+    expect(needsEmbeddingRanking(job, [scored], [candidate])).toBe(true);
+    const e5 = { ...scored, embeddingMatch: { ...results['app-1'], backend: 'e5' as const } };
+    expect(needsEmbeddingRanking(job, [e5], [candidate])).toBe(false);
+    expect(needsEmbeddingRanking({ ...job, criteriaVersion:'v2' }, [e5], [candidate])).toBe(true);
   });
 });

@@ -61,6 +61,7 @@ def puntuar(payload, embedder):
             "candidato_id": r["candidato_id"],
             "ranking": int(r["ranking"]),
             "score_embeddings": float(r["score_embeddings"]),
+            "score_bruto": float(r.get("score_bruto", r["score_embeddings"])),  # e5: score antes de reescalar
             "req_sims": [None if s is None or (isinstance(s, float) and math.isnan(s)) else float(s) for s in sims],
             "req_fragmentos": _fragmentos(r["explicacion"], n),
             "explicacion": r["explicacion"],

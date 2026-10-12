@@ -34,9 +34,10 @@ export function embeddingTargets(job: JobPosting, applications: Application[], c
     .map((app) => ({ app, candidate: byId.get(app.candidateId)! }));
 }
 
+// Los resultados de tfidf (respaldo sin modelo) se vuelven a pedir: si el servicio ya tiene e5, se reemplazan.
 export function needsEmbeddingRanking(job: JobPosting, applications: Application[], candidates: Candidate[]) {
   return embeddingTargets(job, applications, candidates)
-    .some(({ app }) => app.embeddingMatch?.criteriaVersion !== job.criteriaVersion);
+    .some(({ app }) => app.embeddingMatch?.criteriaVersion !== job.criteriaVersion || app.embeddingMatch?.backend === 'tfidf');
 }
 
 export function buildEmbeddingRequest(job: JobPosting, applications: Application[], candidates: Candidate[]): EmbeddingRequest {
