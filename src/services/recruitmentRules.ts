@@ -13,6 +13,7 @@ import {
   Criterion,
   CriteriaScore,
 } from '../types/index.ts';
+import { evaluationSummary } from './evaluationSummary.ts';
 
 /**
  * Regla de Elegibilidad para Top-N y Primera Decisión de Avance:
@@ -70,6 +71,30 @@ export function isValidScore(score: unknown): score is number {
   return typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
 }
 
+/** Explica por qué la selección automática está disponible o pendiente. */
+export function getTopNAvailability(applications: Application[], method: EvaluationMethod) {
+  const pending = applications.filter((app) => app.stage === 'postulado');
+  const eligibleCount = pending.filter((app) => isEligibleForTopN(app, method).eligible).length;
+  const pendingScoreCount = pending.filter((app) => getScoreByMethod(app, method) === null).length;
+  const pendingRequirementCount = pending.filter((app) =>
+    app.mandatoryRequirementStatus === 'sin_verificar' || app.mandatoryRequirementStatus === 'parcial'
+  ).length;
+  const hint = eligibleCount > 0
+    ? 'Ordenado por LLM. Solo se seleccionan perfiles con puntaje y requisitos verificados.'
+    : !applications.length
+    ? 'Carga perfiles para comenzar la revisión y evaluación.'
+    : !pending.length
+    ? 'No hay postulaciones pendientes de una primera decisión.'
+    : pendingScoreCount && pendingRequirementCount
+    ? 'Selección pendiente: faltan puntajes LLM y requisitos verificados.'
+    : pendingScoreCount
+    ? 'Selección pendiente: faltan puntajes LLM.'
+    : pendingRequirementCount
+    ? 'Selección pendiente: falta verificar los requisitos obligatorios.'
+    : 'Ningún perfil pendiente cumple los requisitos de selección.';
+  return { eligibleCount, pendingScoreCount, pendingRequirementCount, hint };
+}
+
 /**
  * Selecciona los mejores candidatos pendientes según método y cantidad
  */
@@ -98,7 +123,8 @@ export function getTopCandidates(
  */
 export function calculateJobMetrics(
   applications: Application[],
-  method: EvaluationMethod
+  method: EvaluationMethod,
+  criteria: Criterion[] = []
 ) {
   const totalProcessed = applications.length;
   const activeApplications = applications.filter((app) => app.stage !== 'no_continua' && app.stage !== 'contratado');
@@ -119,6 +145,21 @@ export function calculateJobMetrics(
           (scoresWithData.reduce((acc, curr) => acc + curr, 0) / scoresWithData.length) * 10
         ) / 10
       : null;
+
+  // Los parciales tienen evidencia puntuable, pero conservan el total nulo.
+  // Se informan aparte para evitar mezclarlos con evaluaciones completas.
+  const incompleteEvaluations = activeApplications
+    .filter((app) => app.llmScore === null && app.llmEvaluation)
+    .map((app) => evaluationSummary(app, criteria));
+  const partials = incompleteEvaluations
+    .filter((summary): summary is typeof summary & { partialScore: number } => summary.partialScore !== null);
+  const avgPartialScore = partials.length > 0
+    ? Math.round(partials.reduce((sum, summary) => sum + summary.partialScore, 0) / partials.length * 10) / 10
+    : null;
+  const avgPartialCoverage = partials.length > 0
+    ? Math.round(partials.reduce((sum, summary) => sum + summary.coverage, 0) / partials.length * 10) / 10
+    : null;
+  const evaluatedWithoutScoreCount = incompleteEvaluations.filter((summary) => summary.partialScore === null).length;
 
   const stageCounts: Record<Stage, number> = {
     postulado: 0,
@@ -141,6 +182,11 @@ export function calculateJobMetrics(
     totalActive,
     verifiedCount,
     avgScore,
+    scoredCount: scoresWithData.length,
+    avgPartialScore,
+    avgPartialCoverage,
+    partialScoreCount: partials.length,
+    evaluatedWithoutScoreCount,
     stageCounts,
   };
 }
@@ -483,4 +529,3 @@ export function formatDateTime(isoString?: string): string {
     return isoString;
   }
 }
-

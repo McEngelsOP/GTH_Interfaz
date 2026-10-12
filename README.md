@@ -1,114 +1,174 @@
-# TalentAI · Gestión del Talento Humano y Colaboradores (GTHC) · ESAN
-### Demo Funcional — Rama principal `main`
+# TalentAI · GTHC ESAN — ETAPA I
 
-> **Nota de rama:** Esta versión se encuentra construida en la rama principal **`main`** como un proyecto moderno e independiente en **React 19 + TypeScript + Vite**, siguiendo estrictamente la especificación de 30 secciones para el rediseño de la plataforma GTH de **ESAN Graduate School of Business**.
-> La versión original en vanilla HTML/JS ha sido preservada intacta en la carpeta `legacy-vanilla/`.
+Rama `ETAPA-I`, derivada de `main` después de consolidar el desarrollo de GEM.
+La evaluación activa es únicamente LLM; no hay selector ni puntaje de ML.
 
-`main` conserva el desarrollo completo de GEM y utiliza únicamente evaluación LLM.
-`ETAPA-I` deriva de esta versión y muestra solo Cargar CV, Mejores candidatos,
-Comparador y Avance de candidatos. Las rutas de otras secciones regresan a
-Mejores candidatos y la convocatoria se elige desde el encabezado.
+## Alcance
 
----
+| Grupo | Secciones |
+|---|---|
+| Candidatos | Cargar CV, Mejores candidatos, Comparador |
+| Seguimiento | Avance de candidatos |
 
-## 🏛️ Propósito y Filosofía del Sistema
+La convocatoria se selecciona en el encabezado. Las otras rutas regresan a
+Mejores candidatos. Las pantallas de configuración, puestos, banco, auditoría
+y resultados no forman parte de esta edición. El Asistente GTH está disponible
+en el encabezado, conectado a Google Gemini cuando se configura su clave.
 
-TalentAI es una plataforma de soporte para la toma de decisiones del comité evaluador de reclutamiento institucional de ESAN. Se rige por los siguientes principios rectores:
+Se conservan fichas, Top-N, comparaciones, decisiones confirmadas, borradores
+de correo, descargas CSV, avances de etapa, persistencia y los temas de GEM.
+La edición comienza sin candidatos de demostración ni generadores ficticios.
+Las convocatorias y criterios de referencia se mantienen en el selector.
 
-1. **Separación Estricta de Identidades:** Se diferencian inequívocamente `jobPostingId` (convocatoria), `candidateId` (persona física) y `applicationId` (expediente de postulación).
-2. **Evaluación LLM:** El ranking, las fichas, el comparador y los CSV usan únicamente el puntaje LLM (0–100). Los puntajes de demostración no representan una conexión real con un proveedor LLM.
-3. **Supervisión Humana Activa (Human-in-the-Loop):** Toda preselección o liberación requiere confirmación consciente con justificación registrada en un historial local de decisiones.
-4. **Honestidad Técnica Total:** No se simula telemetría falsa de ERP ni preguntas STAR inventadas. Las capacidades futuras se marcan explícitamente como pendientes de integración institucional.
-5. **Compatibilidad Excel Nativa:** Todas las descargas CSV utilizan codificación **UTF-8 con BOM (`\uFEFF`)** y delimitador de punto y coma (`;`), con sanitización activa para prevenir inyección de fórmulas (`'`, `=`, `+`, `-`, `@`).
+El **Top-N para revisión** marca postulaciones pendientes con puntajes LLM
+disponibles, completos o parciales, aunque la verificación del requisito siga
+pendiente. No incluye requisitos revisados como `no_cumple`, casos especiales,
+perfiles sin evidencia puntuable ni expedientes ya decididos. Ordena por puntaje
+y desempata por cobertura y nombre. La cobertura se muestra junto al parcial;
+evaluaciones con criterios distintos requieren revisión humana antes de decidir.
+La comparación automática requiere al menos dos perfiles con puntaje disponible. Los
+perfiles pendientes se pueden comparar manualmente. El selector del comparador
+se ordena de A a Z según el alfabeto español, ignorando mayúsculas y tildes.
+La tabla ordena con el mismo puntaje disponible y mantiene A a Z para pendientes.
+La preselección confirmada conserva su requisito de puntaje completo y requisito
+obligatorio verificado. Marcar un Top-N no cambia etapas ni acredita requisitos.
+Los CSV distinguen el total completo, el parcial, la cobertura y criterios faltantes.
 
----
+**Descartar marcados** permite cerrar en conjunto las postulaciones activas
+seleccionadas, incluidas marcas de distintas páginas. El diálogo muestra el lote,
+exige un motivo y permite cancelar. Confirma una única actualización del estado;
+se registra el motivo por expediente y los perfiles pasan a **No continúan** con
+sus evaluaciones, evidencias e historial conservados. No se generan ni envían
+correos. Los expedientes cerrados o contratados no se incluyen en el descarte.
 
-## 🚀 Arquitectura y Tecnologías
+## Importación de perfiles
 
-- **Framework:** React 19 + Vite 6 + TypeScript 5.7
-- **Iconografía:** Lucide React
-- **Estilos:** Vanilla CSS con Design Tokens en `src/index.css` (Variables HSL, superficies cálidas ESAN `#F6F3EF`, carmesí institucional `#B71936` y `#C8102E`, modo oscuro carbón `#14171C` y `#1E232B`, soporte de `prefers-reduced-motion`).
-- **Pruebas Automatizadas:** Vitest (ejecuta pruebas unitarias de reglas de negocio en `src/services/__tests__/`).
-- **Persistencia Local:** `src/services/storage.ts` con esquema versionado `GTH_ESAN_STATE_V1` en `localStorage` y respaldo de estado en memoria.
+En Cargar CV seleccione uno o varios CSV o Excel `.xlsx`, revise la vista previa
+y confirme **Incorporar perfiles válidos**. Los encabezados se reconocen entre
+las primeras 50 filas. Se admiten CSV con coma, punto y coma, tabulación o `|`,
+UTF-8 o Windows-1252, celdas entrecomilladas y texto multilínea.
+Los Excel pueden incluir varias hojas; cada hoja debe tener encabezados de candidatos.
+Máximo: 10 MB por archivo, 5.000 registros por lote y 200 columnas.
 
----
+Se requiere nombre y al menos un documento, correo válido o ID de candidato.
+Se reconocen nombre/apellido, E-Mail, teléfono, tipo/número de documento,
+puesto/empresa, fuente y resumen, incluyendo `Exp[n]` y `Est[n]`. Todos los
+campos poblados se conservan en el texto del perfil y en los registros de origen.
+No se importan puntajes o requisitos verificados desde columnas del archivo.
 
-## 📂 Vistas Implementadas (Navegación Completa)
+Las coincidencias por documento tipificado, correo normalizado o ID externo
+dentro de la misma fuente se consolidan en una ficha. Nunca se compara solo
+el nombre. Los identificadores contradictorios o vinculados a varias fichas se
+omiten con una advertencia. Una persona conserva una postulación por puesto;
+repetir la carga no crea nuevas fichas ni reinicia etapas o decisiones.
+La consolidación mantiene información distinta de experiencias/estudios y los
+identificadores existentes. Si llega nueva evidencia, una postulación todavía
+en Postulado vuelve a evaluación y verificación pendientes. Las decisiones ya
+tomadas mantienen sus puntajes e historial.
 
-| Vista | Identificador | Descripción |
-|---|---|---|
-| **Resumen General** | `resumen_general` | KPIs globales consolidados de 18 convocatorias, accesos rápidos y actividad reciente. |
-| **Convocatorias** | `convocatorias` | Catálogo de las 18 convocatorias institucionales con filtros por área y contadores en vivo. |
-| **Perfiles de Puesto** | `perfiles_puestos` | Biblioteca de 7 plantillas base de ESAN con matriz de criterios y reglas knockout. |
-| **Nueva Convocatoria** | `nueva_convocatoria` | Asistente guiado de 4 pasos con validación estricta de suma al 100% de ponderaciones. |
-| **Mejores Candidatos** | `mejores_candidatos` | Grilla con evaluación LLM, Top-N pendientes, preseleccionados, contratados y decisiones confirmadas. |
-| **Comparador** | `comparador` | Matriz horizontal comparativa de candidatos sin límite artificial de 5 perfiles. |
-| **Tablero de Avance** | `avance_candidatos` | Tablero Kanban de 6 etapas institucionales con soporte Drag & Drop y botones accesibles. |
-| **Carga y Lotes** | `agregar_archivos` | Validador de archivos CSV y generador determinista de lotes de prueba (25, 100 y 500 registros). |
-| **Banco de Talento** | `banco_talento` | Repositorio institucional de perfiles para futuras oportunidades y centro de descargas CSV. |
-| **Criterios de Evaluación** | `criterios_evaluacion` | Sliders de ponderación con validación al 100% y simulación previa de recálculo en vivo. |
-| **Historial y Auditoría** | `historial_decisiones` | Historial cronológico local de decisiones tomadas con filtros por acción y convocatoria. |
-| **Resultados del Proceso** | `resultados_proceso` | Embudo de efectividad de postulaciones y seguimiento de contrataciones formalizadas. |
-| **Configuración** | `ajustes_generales` | Selector de tema (Claro / Oscuro / Sistema), modo de movimiento reducido y diagnóstico de integraciones. |
+La importación procesa los perfiles en el navegador y los guarda localmente.
+ETAPA-I usa `GTH_ESAN_STAGE_I_STATE_V2`: las personas de
+la demo anterior no se cargan; se conserva su preferencia de apariencia.
+OCR, conexión Bumeran, base compartida, envío de correo y calendarios requieren
+integración del equipo. PDF, Word e imágenes se incorporarán con el extractor.
+Las pruebas utilizan únicamente datos inventados.
 
----
+## Chatbot con Google Gemini
 
-## 🛠️ Instalación y Ejecución Local
+1. Cree o copie una clave en [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. En Vercel abra el proyecto **etapa_1 → Settings → Environment Variables**.
+3. Cree **GEMINI_API_KEY**, pegue su clave en Value, seleccione **Production** y guarde.
+4. Opcionalmente cree **GEMINI_MODEL** con el ID de un modelo de texto disponible
+   en su proyecto. Por defecto se usa `gemini-3.5-flash-lite`.
+5. En **Deployments**, haga **Redeploy** de la versión de la rama **ETAPA-I**.
+   Los cambios de variables se aplican a nuevos despliegues.
+6. En la web abra **Asistente GTH → Actualizar estado → Probar conexión**.
 
-### Prerrequisitos
-- Node.js 18+ (recomendado Node 20 o superior)
-- npm 9+
+La clave se lee solo en `api/chat.ts`/`server/geminiChat.ts`, nunca en el
+navegador, localStorage o el bundle. No use un nombre con prefijo `VITE_`
+para la clave. La función `/api/chat` de Vercel usa `generateContent` vía REST;
+no requiere un SDK adicional. GET informa si existe configuración; POST
+prueba la conexión o responde consultas. Configurar una clave no implica que
+Google la acepte: **Probar conexión** realiza una solicitud real mínima.
 
-### Pasos
+Al enviar una pregunta se comparten con Google la conversación y el contexto
+de la convocatoria: criterios, métricas, requisitos y etapas agregadas. Los
+nombres, etapas y puntajes se incluyen únicamente al marcar la opción del
+chatbot (máximo 50 perfiles, ordenados por puntaje y nombre). No se incluyen
+CV completos, documentos, correos, teléfonos ni registros originales. Cambiar
+la opción de compartir o la convocatoria limpia el historial. El historial
+del chat permanece solo durante la sesión y no se guarda en el estado local.
+El chatbot consulta registros existentes; no cambia estados ni calcula el
+scoring oficial. El motor de evaluación sigue siendo una integración separada.
+
+La función valida tamaño y campos permitidos, limita la longitud de consultas
+y respuestas, corta llamadas a los 40 segundos y aplica un límite de 8
+consultas/minuto por IP **en cada instancia**. Este límite es de mejor esfuerzo
+y se reinicia en instancias nuevas; no reemplaza autenticación ni una cuota
+centralizada. Para el piloto privado puede usarse Deployment Protection de
+Vercel; las cuotas de Gemini se administran en el proyecto de Google.
+Errores de clave, permisos, modelo, cuota y tiempo de espera se muestran en el chat
+sin devolver respuestas crudas del proveedor ni secretos.
+
+`npm run dev` sirve la interfaz; para probar la función localmente use
+`vercel dev` con variables de Development, o la versión desplegada. Las pruebas
+de navegador sustituyen únicamente `/api/chat` por respuestas inventadas; las
+pruebas del servidor interceptan las llamadas al proveedor.
+
+## Contrato de evaluación LLM
+
+`src/services/llmIntegration.ts` prepara una solicitud por expediente con
+`applicationId`, `candidateId`, `jobPostingId`, `criteriaVersion`, `profileText`,
+puesto, requisitos y criterios. El motor debe devolver las mismas identidades
+y versión, `llmScore` (0–100), `explanation`, `strengths`, `evidenceSummary` y
+`criteriaBreakdown` con puntaje y evidencia de cada criterio. El adaptador
+rechaza resultados incompletos, ajenos, de versiones anteriores o de una etapa
+ya decidida. La validación del requisito obligatorio permanece a cargo de GTH.
+El chatbot sí dispone de conexión configurable a Gemini. El contrato de
+evaluación aún no tiene un motor conectado ni genera puntajes ficticios.
+
+## Desarrollo y validación
+
 ```bash
-# 1. Asegúrate de estar en la rama main
-git checkout main
-
-# 2. Instalar dependencias
-npm install
-
-# 3. Ejecutar servidor de desarrollo local
+git checkout ETAPA-I
+npm ci
 npm run dev
-
-# 4. Ejecutar pruebas unitarias
-npm run test
-
-# 5. Compilar para producción (validación de tipos y bundle Vite)
+npm test
 npm run build
-```
-
-El servidor local se abrirá típicamente en `http://localhost:5173/`.
-
----
-
-## 🧪 Verificación de Escenarios de Aceptación (Sección 27)
-
-Esta demo incluye datos iniciales precargados específicamente diseñados para validar cada uno de los escenarios de aceptación:
-
-1. **Avanzar candidatos marcados:** Seleccionar candidatos en `Mejores Candidatos` y hacer clic en *"Avanzar seleccionados"*. Pasan a etapa `preseleccionado`, se genera un borrador de correo en su expediente y permanecen visibles con el filtro *"En proceso"*.
-2. **Liberar candidato individual:** En la tabla de candidatos o expediente, presionar *"Liberar"*, ingresar el motivo y confirmar. La postulación pasa a `no_continua`, el ranking se recalcula inmediatamente y el perfil queda disponible en *"No continúan"* y *"Banco de Talento"*.
-3. **Candidato multipostulación (Caso Javier Morales):** Javier Morales postula tanto a `REQ-2026-DOC-088` como a `REQ-2026-ADM-042`. Sus expedientes, notas y puntajes son totalmente independientes entre ambas convocatorias.
-4. **Candidato con requisito no cumplido (Knockout):** Candidatos con requisito obligatorio en estado `no_cumple` o `sin_verificar` no son elegibles para el Top-N automático y muestran la advertencia correspondiente.
-5. **Simulación de Criterios (Suma 100%):** Al mover los controles deslizantes en *Criterios de Evaluación*, el botón de guardar se bloquea si la suma es distinta de 100% y la tabla de simulación muestra la variación del puntaje LLM antes de aplicar el cambio.
-6. **Descarga de archivos CSV:** Las descargas de *Candidatos*, *Comparativa*, *Catálogo de Perfiles* y *Banco de Talento* abren de forma nativa en Microsoft Excel respetando tildes y caracteres especiales en español.
-7. **Generador de Lotes (25 / 100 / 500):** En *Agregar Archivos*, seleccionar 25, 100 o 500 y presionar *"Generar lote de prueba"*. Los expedientes se vinculan al puesto activo y se reflejan de inmediato en los contadores y vistas.
-
----
-
-## 🏛️ Créditos y Licencia
-
-Desarrollado para **ESAN Graduate School of Business** — Dirección de Gestión del Talento Humano y Colaboradores (GTHC). Todos los derechos reservados.
-
-
-## Revisión funcional y prevención de regresiones
-
-La revisión de GEM y sus correcciones se documentan en [docs/GEM_DEBUG_REPORT.md](docs/GEM_DEBUG_REPORT.md). El perfil del Banco permanece guardado al vincularlo a otro puesto; esa nueva postulación empieza sin puntajes y con requisitos pendientes. El Top-N solo reúne pendientes de primera decisión; los preseleccionados y contratados tienen sus propias pestañas.
-
-Para ejecutar las pruebas de navegador:
-
-```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-GitHub Actions ejecuta pruebas unitarias, compilación y estos escenarios al actualizar main o ETAPA-I. OCR, motor LLM, portales, Gmail y calendarios continúan pendientes de integración. El CSV de catálogo se valida y previsualiza sin importar candidatos.
+`src/config/edition.ts` limita navegación y accesos a esta etapa. `src/App.tsx`
+importa y renderiza únicamente las cuatro vistas. Los datos guardados de GEM
+se normalizan a LLM conservando personas, postulaciones, evidencias y etapas.
+Las decisiones históricas conservan el método previo en sus metadatos.
+
+
+## Evaluador Gemini con depuración local (ETAPA-I)
+
+En **Mejores candidatos**, `Evaluar todos los pendientes` prepara todas las postulaciones que sigan postuladas y sin puntaje, sin el límite anterior de 25. `Evaluar seleccionados` permite preparar solo una selección. No hay envíos al importar ni al abrir la vista previa.
+
+Este flujo está preparado para **pruebas con perfiles creados por el usuario**, según la autorización recibida. No verifica por sí mismo si los datos son sintéticos ni acredita una revisión humana. Antes de usar datos reales debe revisarse la seguridad del piloto.
+
+1. Completar, si corresponde, **Referencia del puesto o syllabus** con expectativas profesionales sin datos personales. Se guarda en el navegador. Un cambio invalida los puntajes pendientes de decisión para esa convocatoria.
+2. El filtro local selecciona columnas profesionales permitidas de CSV/XLSX: puestos, experiencia, formación, habilidades, idiomas y certificaciones. No usa `rawCvText` como carga del endpoint. Identidad, contacto, domicilios, empleadores, instituciones y encabezados desconocidos quedan fuera. Elimina valores personales conocidos, detecta patrones sensibles y reduce fechas laborales/académicas a años. Perfiles sin campos estructurados, instrucciones incrustadas y tamaños excesivos quedan bloqueados y no se envían.
+3. La vista previa es opcional y muestra 25 perfiles por página para mantener la interfaz ágil; esa paginación no limita la cola. Se pueden omitir campos. Cada omisión cancela la autorización general para confirmar el contenido modificado.
+4. Marcar una sola confirmación: **«Ya revisé estos perfiles: son datos de prueba creados por mí y autorizo enviar todo el lote depurado a Google Gemini»**. No hace falta abrir ni marcar cada candidato. La confirmación solo vive en el modal actual y se reinicia al preparar o cerrar una cola. El filtro reduce exposición, sin garantizar anonimato universal.
+5. Pulsar `Evaluar X perfiles`. La cola procesa todos los perfiles listos, aunque no se hayan abierto sus páginas. Mantiene una petición por perfil, hasta tres peticiones simultáneas y 3,1 s entre inicios por defecto. El servidor anuncia la configuración; si aún usa el contrato antiguo, la interfaz mantiene un perfil cada 12 s. Un HTTP 429 con `Retry-After` espera y reintenta hasta dos veces, reduciendo el ritmo de todo el lote. Las cuotas diarias y los fallos persistentes de cuota, conexión o configuración detienen nuevos envíos, conservando las respuestas de las peticiones ya iniciadas. Mantener la pestaña abierta: no es una cola persistente en el servidor. Pausar y continuar conserva la confirmación y excluye los resultados ya recibidos. Cerrar o cambiar de convocatoria cancela la recepción en curso; una solicitud ya entregada al proveedor puede terminar allí. Los fallos individuales HTTP 422 pasan a **Casos especiales · revisión de información** y el lote continúa.
+
+Los casos especiales se guardan por postulación en el estado local existente, con motivo, código, fecha y número de intentos con incidencia. No cambian etapa, puntaje ni requisito obligatorio. Quedan fuera de `Evaluar todos los pendientes` y de su selección automática hasta recibir una evaluación válida o nueva información que invalide el estado anterior. `Revisar perfil` abre la ficha; `Reintentar evaluación` prepara únicamente ese caso y requiere una nueva autorización. Un reintento fallido actualiza la incidencia; uno válido la elimina. La reimportación de evidencia o los cambios de criterios/referencia limpian las incidencias de postulaciones aún postuladas. Las evaluaciones parciales válidas también se conservan y no vuelven a enviarse automáticamente al reabrir el modal.
+
+El endpoint `api/evaluate.ts` usa la misma **GEMINI_API_KEY** del chatbot. Opcional: **GEMINI_EVALUATION_MODEL** para un modelo específico de evaluación; si falta, usa GEMINI_MODEL y luego gemini-3.5-flash-lite. La clave permanece en el servidor. GET muestra únicamente configuración/modelo/limites, nunca la clave. El cliente y el servidor validan una carga con solo identificador temporal, campos profesionales y criterios/referencia. Ni el identificador temporal se incorpora al prompt de Google. No se envían nombres, IDs reales, estado completo, snapshot ni hash del original al endpoint.
+
+Se solicita JSON conciso con puntajes por criterio y referencias a fragmentos depurados. El servidor recupera una cita literal de hasta 600 caracteres de cada fragmento indicado, aunque el original sea más largo; no acepta citas reformuladas por el modelo. Se exige cobertura de todos los criterios, score 0–100 o null, evidencia válida y ausencia de patrones personales. El servidor calcula el total ponderado; no acepta un total generado por el modelo. Un criterio con peso positivo sin evidencia deja el total en null. En ese caso la tabla muestra **Parcial · puntaje**, o **Sin evidencia** si ningún criterio con peso tiene puntaje. El parcial es el promedio ponderado normalizado sobre los criterios evaluados; se muestra su cobertura y los criterios faltantes en la ficha y en **Evaluaciones recibidas · evidencia incompleta**. Se conserva el total nulo. El parcial permite marcar Top-N para revisión y comparar evidencia; el avance requiere completar la evaluación y verificar el requisito. **Reevaluar perfiles incompletos** requiere una nueva autorización y reemplaza el resultado después de validar la respuesta. Un criterio que depende de syllabus/referencia ausente debe quedar sin puntaje. Es evaluación generativa orientativa, no una escala calibrada de selección ni prueba documental.
+
+El navegador valida que la respuesta corresponda a la solicitud y al perfil, etapa, versión, referencia y criterios vigentes antes de aplicarla. Se conserva localmente modelo, fecha, versión, hash y criterios sin evidencia, junto con puntajes y explicación. Cambios posteriores del perfil o definiciones invalidan la evaluación vigente. Solo ajustes de pesos sobre las mismas definiciones recalculan las evidencias existentes.
+
+El indicador **Promedio (LLM)** usa únicamente los puntajes completos de candidatos activos. Si solo hay puntajes parciales, muestra **Promedio parcial (LLM)** con el promedio de esos puntajes, cantidad de evaluaciones y cobertura media de los criterios. Cuando existen ambos tipos, el promedio completo sigue siendo el principal y el parcial se informa aparte. Los perfiles sin evaluar, sin evidencia puntuable, liberados o contratados no aportan ceros al promedio. Los resultados ya guardados se incluyen al recargar, sin volver a enviarlos a Gemini. Este indicador no modifica los puntajes totales ni las condiciones de avance.
+
+**Requisito obligatorio:** en la ficha, `Revisar requisito` registra estado y evidencia/fuente revisada por GTHC, con actividad local. Gemini no marca ese requisito verificado ni avanza/rechaza personas. La decisión de avance conserva su condición de puntaje completo, etapa postulada y requisito verificado. Resultados y perfiles permanecen en almacenamiento local del navegador; no hay base de datos compartida.
+
+**Capacidad y acceso:** `GEMINI_EVALUATION_RPM` configura el límite local de solicitudes/minuto/IP (1–120, predeterminado 20) y `GEMINI_EVALUATION_CONCURRENCY` la concurrencia (1–5, predeterminado 3). Ajustarlos según la cuota visible del proyecto en AI Studio; el cliente también reduce el ritmo ante cuotas temporales. El limitador sigue siendo memoria por instancia caliente, no distribuido ni autenticación. Máximo 100 campos/24.000 caracteres por perfil y 20 criterios con pesos al 100 %. La cuota real de Google puede ser menor; el intervalo de la cola no garantiza capacidad ni tiempo de respuesta. El endpoint público no tiene autenticación institucional; aplicar control de acceso/Deployment Protection antes de abrir un piloto con datos reales a otros usuarios. El servicio no registra CVs ni errores crudos de Google; revisar también las políticas/configuración de registros del hosting y del proveedor.
+
+Verificación con datos inventados: canarios de nombre/correo/teléfono/documento/dirección/columna desconocida y entidades; inspección de la carga real del navegador y del prompt de Google mediante mocks; salida insegura, evidencia inventada, criterio faltante, respuestas antiguas, cuotas, cancelación, persistencia y verificación humana. No se evalúan los registros personales de los archivos compartidos para estas pruebas.

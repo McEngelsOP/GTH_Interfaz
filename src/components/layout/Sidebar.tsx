@@ -58,8 +58,8 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
     {
       title: 'Candidatos',
       items: [
-        { id: 'agregar_archivos', label: "Cargar CV's", icon: <UploadCloud size={18} /> },
-        { id: 'mejores_candidatos', label: 'Mejores candidatos', icon: <Award size={18} />, count: totalInJob },
+        { id: 'agregar_archivos', label: 'Importación manual', icon: <UploadCloud size={18} /> },
+        { id: 'mejores_candidatos', label: 'Candidatos y ranking', icon: <Award size={18} />, count: totalInJob },
         { id: 'comparador', label: 'Comparador', icon: <GitCompare size={18} /> },
       ],
     },
@@ -93,7 +93,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   ];
 
   const navGroups = IS_STAGE_ONE
-    ? allNavGroups.filter((group) => ['Candidatos', 'Seguimiento'].includes(group.title))
+    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento'].includes(group.title))]
     : allNavGroups;
 
   const handleSelectView = (view: ViewType) => {
@@ -127,7 +127,6 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
           position: 'sticky',
           top: 0,
           zIndex: 1030,
-          transition: 'width var(--transition-normal)',
           flexShrink: 0,
           overflow: 'hidden',
         }}
@@ -243,6 +242,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                     key={item.id}
                     onClick={() => handleSelectView(item.id)}
                     className="focus-ring"
+                    aria-current={isActive ? 'page' : undefined}
                     title={collapsed ? item.label : undefined}
                     style={{
                       display: 'flex',
@@ -288,7 +288,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                     </span>
 
                     {!collapsed && (
-                      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ flex: 1, whiteSpace: 'normal', lineHeight: 1.35 }}>
                         {item.label}
                       </span>
                     )}

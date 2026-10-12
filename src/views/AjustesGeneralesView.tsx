@@ -696,7 +696,7 @@ export function AjustesGeneralesView() {
                 </span>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                Restaura el estado al catálogo de demostración de ESAN (18 convocatorias maestras y 16 postulantes). Las postulaciones, notas y cambios manuales se borrarán.
+                Borra los datos de selección guardados en este navegador. No elimina los registros almacenados en Supabase.
               </p>
             </div>
 
@@ -706,7 +706,7 @@ export function AjustesGeneralesView() {
               icon={<RotateCcw size={15} />}
               onClick={() => setIsResetModalOpen(true)}
             >
-              Restablecer Datos Demo
+              Borrar datos locales
             </Button>
           </div>
         </div>
@@ -827,7 +827,7 @@ export function AjustesGeneralesView() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Badge variant="info" size="sm">
-                      Lote Sintético Activo
+                      Importación de postulantes
                     </Badge>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                       Capacidad: 500 CVs
@@ -835,7 +835,7 @@ export function AjustesGeneralesView() {
                   </div>
                 </div>
                 <p style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                  Admite archivos CSV estructurados con validación instantánea de campos clave (DNI, grado académico Sunedu, teléfono y perfil de LinkedIn) y generador de lotes de prueba para simulacros de comités evaluadores.
+                  Admite archivos CSV estructurados y valida los campos de postulantes antes de incorporarlos a una convocatoria.
                 </p>
               </div>
 
@@ -875,13 +875,13 @@ export function AjustesGeneralesView() {
                         <Sparkles size={13} style={{ color: 'var(--method-llm-color)' }} />
                       </div>
                       <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-                        Simulación local de puntajes; integración con un proveedor LLM pendiente
+                        Evalúa perfiles profesionales con Gemini cuando el equipo autoriza el envío de los datos depurados
                       </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Badge variant="purple" size="sm">
-                      Demostración LLM
+                      Gemini · autorización previa
                     </Badge>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                       Privacidad: 100%
@@ -889,7 +889,7 @@ export function AjustesGeneralesView() {
                   </div>
                 </div>
                 <p style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                  Los puntajes de afinidad con el syllabus, knockout criteria y ponderaciones de experiencia se computan localmente. Cero transferencia de datos sensibles a proveedores de nube comercial de terceros.
+                  Se envían a Gemini los campos profesionales depurados que el equipo revisa y autoriza. La evaluación sirve como apoyo; el equipo mantiene la revisión de requisitos y las decisiones.
                 </p>
               </div>
             </div>
@@ -1036,10 +1036,11 @@ export function AjustesGeneralesView() {
             </div>
           </div>
           <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Esta operación reiniciará el almacenamiento local del navegador al estado inicial de fábrica (18 convocatorias y 16 candidatos maestros). Se perderán los postulantes agregados manualmente, las evaluaciones registradas y las notas añadidas durante la sesión actual.
+            Esta operación borrará del navegador las convocatorias manuales, los postulantes importados, las evaluaciones y las notas locales. Los avisos y postulantes de Bumeran guardados en Supabase no se eliminarán.
           </p>
         </div>
       </Modal>
     </div>
   );
 }
+

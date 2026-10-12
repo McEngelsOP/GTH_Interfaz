@@ -6,11 +6,13 @@ import { Badge } from '../common/Badge.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { RequirementPill } from './RequirementPill.tsx';
 import { ScoreBadge } from './ScoreBadge.tsx';
+import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import { Tabs } from '../common/Tabs.tsx';
 import { AdvanceDecisionModal } from '../modals/AdvanceDecisionModal.tsx';
 import { ReleaseModal } from '../modals/ReleaseModal.tsx';
 import { EmailDraftModal } from '../modals/EmailDraftModal.tsx';
 import { ScheduleModal } from '../modals/ScheduleModal.tsx';
+import { RequirementReviewModal } from '../modals/RequirementReviewModal.tsx';
 import { NoteModal } from '../modals/NoteModal.tsx';
 import {
   Mail,
@@ -28,6 +30,7 @@ import {
   Building,
 } from 'lucide-react';
 import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 
 export function CandidateDrawer() {
   const {
@@ -50,6 +53,7 @@ export function CandidateDrawer() {
   const [activeTab, setActiveTab] = useState('puntaje');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isRequirementOpen, setIsRequirementOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
   const app = selectedCandidateForDrawer;
@@ -95,7 +99,7 @@ export function CandidateDrawer() {
     { id: 'cv', label: 'Ver CV' },
     { id: 'actividad', label: 'Actividad', count: appActivities.length },
     { id: 'historial', label: 'Historial', count: appDecisions.length },
-    { id: 'oportunidades', label: 'Otras oportunidades' },
+    ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
   return (
@@ -150,13 +154,20 @@ export function CandidateDrawer() {
 
             {/* Puntaje LLM */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.2rem' }}>
-              <ScoreBadge score={app.llmScore} method="LLM" />
+              <ScoreBadge score={app.llmScore} method="LLM" summary={evaluationSummary(app,currentJob.criteria)} />
               <RequirementPill
                 status={app.mandatoryRequirementStatus}
                 justification={app.requirementJustification}
                 criteriaBreakdown={app.criteriaBreakdown}
               />
             </div>
+
+            <Button size="sm" variant="secondary" icon={<ShieldCheck size={15}/>} onClick={() => setIsRequirementOpen(true)}>Revisar requisito</Button>
+            {isRequirementOpen && <RequirementReviewModal key={app.id} application={app} rule={currentJob.knockoutRule} onClose={() => setIsRequirementOpen(false)}/>}
+            {app.llmEvaluation && <p style={{ fontSize:'.75rem',color:'var(--text-secondary)' }}>Evaluado con {app.llmEvaluation.model} · {new Date(app.llmEvaluation.evaluatedAt).toLocaleString('es-PE')} · Criterios {app.llmEvaluation.criteriaVersion}{app.llmEvaluation.missingCriteria.length ? ' · Evidencia incompleta' : ''}</p>}
+            {app.llmEvaluation && app.llmScore === null && <p style={{fontSize:'.8rem',color:'var(--text-secondary)'}}>
+              Evaluación recibida. Cobertura: {evaluationSummary(app,currentJob.criteria).coverage}%. Falta evidencia o referencia para: {evaluationSummary(app,currentJob.criteria).missingLabels.join('; ')}. El puntaje parcial considera solo los criterios evaluados; completa los restantes para obtener el total.
+            </p>}
 
             {/* Información de contacto honesta (solo si existe) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -266,7 +277,7 @@ export function CandidateDrawer() {
             size="sm"
             icon={<Calendar size={14} />}
             onClick={() => setIsScheduleModalOpen(true)}
-            title="Agendar entrevista demostrativa"
+            title="Registrar una entrevista"
           >
             Entrevista
           </Button>
@@ -356,6 +367,8 @@ export function CandidateDrawer() {
               </p>
               {currentJob.criteria.map((crit) => {
                 const breakdown = app.criteriaBreakdown[crit.id];
+                const embedding = app.embeddingMatch?.criteriaVersion === currentJob.criteriaVersion ? app.embeddingMatch : null;
+                const similarity = embedding?.requirementSims[crit.id];
                 return (
                   <div
                     key={crit.id}
@@ -385,6 +398,12 @@ export function CandidateDrawer() {
                     <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                       <strong>Evidencia:</strong> {breakdown?.evidence || 'Pendiente de acreditación documental'}
                     </div>
+                    {embedding && similarity != null && (
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }} title={`Backend ${embedding.backend}`}>
+                        <strong>Similitud embeddings:</strong> <span className="tabular-nums">{formatEmbeddingScore(similarity)}</span>
+                        {embedding.requirementEvidence[crit.id] && ` · ${embedding.requirementEvidence[crit.id]}`}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -551,7 +570,7 @@ export function CandidateDrawer() {
           {activeTab === 'oportunidades' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                Puestos sugeridos por afinidad de perfil demostrativo (distinguidos de postulaciones efectivas):
+                Puestos sugeridos para este perfil; una sugerencia no equivale a una postulación:
               </p>
               {(candidate.potentialOpportunities && candidate.potentialOpportunities.length > 0) ? (
                 candidate.potentialOpportunities.map((op, idx) => (
@@ -574,7 +593,7 @@ export function CandidateDrawer() {
                       </span>
                     </div>
                     <Badge variant="purple" size="sm">
-                      Sugerencia demostrativa
+                      Sugerencia
                     </Badge>
                   </div>
                 ))

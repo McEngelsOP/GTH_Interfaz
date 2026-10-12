@@ -42,7 +42,10 @@ export interface JobPosting {
   criteriaVersion: string;
   defaultTopN: number;
   templateId?: string;
+  evaluationReference?: string;
   createdAt: string;
+  /** Solo en convocatorias que vienen de un aviso de Bumeran (scraping → Supabase). */
+  bumeran?: { avisoId: string; updatedAt: string | null; publicUrl: string | null; received: number | null; rankingAt?: string | null };
 }
 
 export interface Candidate {
@@ -59,11 +62,37 @@ export interface Candidate {
   talentPoolNotes?: string;
   talentPoolOriginJob?: string;
   potentialOpportunities?: string[];
+  importedProfile?: {
+    documentType: string;
+    documentNumber: string;
+    externalId: string;
+    emails?: string[];
+    records: Record<string, string>[];
+  };
 }
 
 export interface CriteriaScore {
   score: number;
   evidence: string;
+}
+
+export interface EvaluationIssue {
+  code: string;
+  message: string;
+  attempts: number;
+  lastAttemptAt: string;
+}
+
+/** Matching por embeddings (matching/embeddings). Independiente de llmScore: nunca se promedian. */
+export interface EmbeddingMatch {
+  score: number; // score_embeddings, similitud ponderada 0-1
+  ranking: number;
+  requirementSims: Record<string, number | null>; // por criterion.id (req{k}_sim)
+  requirementEvidence: Record<string, string>; // fragmento del CV que respalda cada criterio
+  explanation: string;
+  backend: 'e5' | 'tfidf';
+  criteriaVersion: string;
+  evaluatedAt: string;
 }
 
 export interface Application {
@@ -72,6 +101,9 @@ export interface Application {
   candidateId: string;
   stage: Stage;
   llmScore: number | null; // 0-100 or null if pending
+  evaluationIssue?: EvaluationIssue;
+  llmEvaluation?: { model: string; evaluatedAt: string; criteriaVersion: string; profileHash: string;
+    privacyVersion: string; missingCriteria: string[] };
   mandatoryRequirementStatus: RequirementStatus;
   requirementJustification?: string;
   whyScoreNotes: {
@@ -80,6 +112,7 @@ export interface Application {
     evidenceSummary: string;
   };
   criteriaBreakdown: Record<string, CriteriaScore>;
+  embeddingMatch?: EmbeddingMatch;
   suggestedRoles?: string[];
   createdAt: string;
   updatedAt: string;

@@ -7,7 +7,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true
+    host: true,
+    // Servicio local de matching por embeddings: python -m matching.embeddings.server
+    proxy: {
+      '/api/embeddings': 'http://127.0.0.1:8001'
+    }
   },
   test: {
     include: ['src/**/*.{test,spec}.{ts,tsx}'],

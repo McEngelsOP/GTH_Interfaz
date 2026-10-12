@@ -1,7 +1,30 @@
-import { AppStateData, Application, Criterion, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
-import { advanceApplications, isEligibleForTopN, simulateScoreRecalculation } from './recruitmentRules.ts';
+import { ActivityLog, AppStateData, Application, Criterion, DecisionLog, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
+import { advanceApplications, isEligibleForTopN, releaseApplication, simulateScoreRecalculation } from './recruitmentRules.ts';
 
 export const STAGE_ORDER: Stage[] = ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'];
+
+/** Descarte por lote: valida todos los expedientes antes de cambiar el estado. */
+export function releaseSelectedApplications(state: AppStateData, jobId: string, ids: string[], reason: string): AppStateData {
+  const job = state.jobPostings.find(item => item.id === jobId);
+  const selected = new Set(ids);
+  const targets = state.applications.filter(app => selected.has(app.id));
+  const candidates = new Map(state.candidates.map(candidate => [candidate.id, candidate]));
+  if (!job || job.status !== 'activa' || state.activeJobPostingId !== jobId || !reason.trim() || !selected.size || targets.length !== selected.size || targets.some(app =>
+    app.jobPostingId !== jobId || app.stage === 'no_continua' || app.stage === 'contratado' || !candidates.has(app.candidateId)
+  )) return state;
+  const updates = new Map<string, Application>();
+  const activities: ActivityLog[] = [], decisions: DecisionLog[] = [];
+  for (const target of targets) {
+    const result = releaseApplication({ applicationId: target.id, applications: [target], candidates: [candidates.get(target.candidateId)!],
+      jobPostingTitle: job.title, criteriaVersion: job.criteriaVersion, method: state.selectedMethod, reason: reason.trim() });
+    if (!result) return state;
+    updates.set(target.id, result.updatedApplications[0]); candidates.set(target.candidateId, result.updatedCandidates[0]);
+    activities.push(result.newActivity); decisions.push(result.newDecision);
+  }
+  return { ...state, applications: state.applications.map(app => updates.get(app.id) || app),
+    candidates: state.candidates.map(candidate => candidates.get(candidate.id)!),
+    activities: [...activities, ...state.activities], decisionLogs: [...decisions, ...state.decisionLogs] };
+}
 
 export function validateStageTransition(app: Application, target: Stage, method: EvaluationMethod): string | null {
   const currentIndex = STAGE_ORDER.indexOf(app.stage);
@@ -62,16 +85,18 @@ export function updateJobCriteria(state: AppStateData, jobId: string, criteria: 
   const job = state.jobPostings.find((j) => j.id === jobId);
   if (!job || !hasValidCriteria(criteria)) return state;
   const now = new Date().toISOString();
+  const sameDefinitions = criteria.length === job.criteria.length && criteria.every((criterion) => job.criteria.some((old) => old.id === criterion.id && old.label === criterion.label && old.description === criterion.description));
   const criteriaVersion = `v${((parseFloat(job.criteriaVersion.replace(/[^0-9.]/g, '')) || 1) + 0.1).toFixed(1)}`;
   return { ...state,
     jobPostings: state.jobPostings.map((j) => j.id === jobId ? { ...j, criteria: criteria.map((c) => ({ ...c })), criteriaVersion } : j),
     applications: state.applications.map((app) => app.jobPostingId === jobId && app.stage === 'postulado' ? {
       ...app,
-      llmScore: simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM'), updatedAt: now,
+      llmScore: sameDefinitions ? simulateScoreRecalculation(criteria, app.criteriaBreakdown, 'LLM') : null,
+      llmEvaluation: undefined, evaluationIssue: undefined, criteriaBreakdown: sameDefinitions ? app.criteriaBreakdown : {}, updatedAt: now,
     } : app),
     decisionLogs: [{ id: `dec-criteria-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       jobPostingId: jobId, applicationId: '', candidateId: '', action: 'Actualización de Criterios y Ponderaciones',
       author: 'Equipo de GTHC', timestamp: now, criteriaVersion,
       evaluationContext: { llmScore: null, method: state.selectedMethod },
-      notes: 'Se recalcularon los pendientes con evidencias completas. Los expedientes ya decididos conservan sus puntajes.' }, ...state.decisionLogs] };
+      notes: 'Pesos ajustados se recalculan con evidencias existentes; cambios en la definición de criterios requieren una nueva evaluación.' }, ...state.decisionLogs] };
 }

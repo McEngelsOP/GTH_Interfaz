@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../../services/supabase.ts';
+import { Button } from '../common/Button.tsx';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import {
@@ -9,6 +11,7 @@ import {
   Laptop,
   Sparkles,
   Menu,
+  LogOut,
 } from 'lucide-react';
 import { Badge } from '../common/Badge.tsx';
 
@@ -24,7 +27,19 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     setCurrentView,
     setTheme,
     toggleAssistant,
+    showToast,
   } = useApp();
+
+  const [signingOut, setSigningOut] = useState(false);
+  const signOut = async () => {
+    if (!supabase) return;
+    setSigningOut(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) showToast('No se pudo cerrar la sesión. Intenta nuevamente.', 'warning');
+    } catch { showToast('No se pudo cerrar la sesión. Intenta nuevamente.', 'warning'); }
+    finally { setSigningOut(false); }
+  };
 
   const handleNextTheme = () => {
     if (appState.theme === 'light') setTheme('dark');
@@ -74,12 +89,14 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
         {IS_STAGE_ONE ? (
           <select
             aria-label="Convocatoria activa"
+            disabled={!appState.jobPostings.length}
             value={appState.activeJobPostingId}
             onChange={(event) => setActiveJobPostingId(event.target.value)}
             style={{ maxWidth: '520px', width: '100%', minWidth: 0, padding: '0.6rem',
               color: 'var(--text-primary)', backgroundColor: 'var(--bg-base)',
               border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}
           >
+            {!appState.jobPostings.length && <option value="">Sin convocatorias</option>}
             {appState.jobPostings.map((job) => (
               <option key={job.id} value={job.id}>{job.title} · {job.code}</option>
             ))}
@@ -144,8 +161,9 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
       {/* Lado derecho: Asistente GTH + Selector de Tema + Perfil GTHC */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         {/* Botón Asistente GTH */}
-        {!IS_STAGE_ONE && <button
+        <button
           onClick={() => toggleAssistant()}
+          aria-label="Asistente GTH"
           className="focus-ring"
           style={{
             display: 'flex',
@@ -161,11 +179,11 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
             cursor: 'pointer',
             transition: 'all var(--transition-fast)',
           }}
-          title="Abrir Asistente GTH de demostración"
+          title="Abrir Asistente GTH · Google Gemini"
         >
           <Sparkles size={16} style={{ color: 'var(--primary-red)' }} />
           <span className="hide-on-mobile">Asistente GTH</span>
-        </button>}
+        </button>
 
         {/* Alternador de Tema */}
         <button
@@ -196,6 +214,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
           )}
         </button>
 
+        {supabase && <Button variant="ghost" size="sm" aria-label="Cerrar sesión" title="Cerrar sesión" disabled={signingOut} onClick={signOut} icon={<LogOut size={17} />} />}
         {/* Perfil Único GTHC (mandatario Sección 2: Equipo de GTHC) */}
         <div
           style={{

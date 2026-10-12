@@ -17,8 +17,15 @@ import {
 import { loadAppState, saveAppState, resetAppState } from '../services/storage.ts';
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
 import { readRoute, routeHash } from '../services/navigation.ts';
-import { createPendingApplication, hasValidCriteria, moveApplicationStage, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
+import { createPendingApplication, hasValidCriteria, moveApplicationStage, releaseSelectedApplications, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
 import { useTheme } from './useTheme.ts';
+import { applyCandidateImport, ImportRow, ImportSummary } from '../services/candidateImport.ts';
+import { applyPreparedEvaluation, recordEvaluationIssue, EvaluationError } from '../services/evaluationService.ts';
+import type { PreparedEvaluation } from '../services/evaluationService.ts';
+import type { EvaluationReply } from '../services/evaluationContract.ts';
+import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
+import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
+import { mergeBumeranJobs } from '../services/bumeranSync.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -93,6 +100,7 @@ interface AppContextValue {
   handleSaveToTalentPool: (candidateId: string) => void;
   handleAdvanceSelected: (rejectOthers?: boolean, customMessage?: string) => void;
   handleReleaseApplication: (appId: string, reason?: string) => void;
+  handleReleaseApplications: (ids: string[], reason: string) => boolean;
   handleAddNote: (appId: string, noteText: string) => void;
   handleScheduleInterview: (
     appId: string,
@@ -110,7 +118,14 @@ interface AppContextValue {
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
   handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
-  handleAddBatchCandidates: (newCandidates: Candidate[], newApps: Application[]) => void;
+  handleApplyEvaluation: (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => void;
+  handleEvaluationIssue: (applicationId: string, error: EvaluationError) => void;
+  handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
+  handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
+  handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
+  handleApplyEmbeddingRanking: (results: Record<string, EmbeddingMatch>) => void;
+  handleSyncBumeranJobs: (jobs: JobPosting[]) => void;
+  handleSyncBumeranCandidates: (jobId: string, rows: ImportRow[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
   handleRevertToPostulado: (applicationId: string) => void;
@@ -292,6 +307,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Liberar postulación
+  const handleReleaseApplications = (ids: string[], reason: string) => {
+    const jobId = activeJob?.id;
+    if (!jobId || releaseSelectedApplications(appState, jobId, ids, reason) === appState) {
+      showToast('Revisa el lote: selecciona expedientes activos de esta convocatoria y registra un motivo.', 'warning');
+      return false;
+    }
+    setAppState(prev => releaseSelectedApplications(prev, jobId, ids, reason));
+    const released = new Set(ids);
+    setSelectedApplicationIds(prev => prev.filter(id => !released.has(id)));
+    if (selectedCandidateForDrawer && released.has(selectedCandidateForDrawer.id)) setSelectedCandidateForDrawer(null);
+    showToast(`${released.size} postulaciones descartadas. Los perfiles y evaluaciones se conservan en No continúan y Banco de Talento.`, 'info');
+    return true;
+  };
+
   const handleReleaseApplication = (appId: string, reason = 'Liberación manual por el evaluador') => {
     const target = appState.applications.find((a) => a.id === appId);
     const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
@@ -345,7 +374,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Nota guardada en la actividad de la postulación.', 'success');
   };
 
-  // Agendar entrevista de demostración
+  // Registrar una entrevista en el expediente local
   const handleScheduleInterview = (
     appId: string,
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
@@ -450,18 +479,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
       jobPostings: prev.jobPostings.map((j) => j.id === jobId ? { ...j, status: 'activa', phase: 'Convocatoria Abierta' } : j),
       decisionLogs: [{ id: `dec-job-${Date.now()}`, jobPostingId: jobId, applicationId: '', candidateId: '',
         action: 'Convocatoria activada', author: 'Equipo de GTHC', timestamp: now, criteriaVersion: job.criteriaVersion,
-        evaluationContext: { llmScore: null, method: prev.selectedMethod }, notes: 'Borrador activado sin añadir postulaciones ficticias.' }, ...prev.decisionLogs] }));
+        evaluationContext: { llmScore: null, method: prev.selectedMethod }, notes: 'Borrador activado sin registrar postulaciones.' }, ...prev.decisionLogs] }));
     showToast('Convocatoria activada. Las postulaciones se incorporan desde Carga o Banco de Talento.', 'success');
   };
 
-  // Carga masiva de lotes de candidatos
-  const handleAddBatchCandidates = (newCandidates: Candidate[], newApps: Application[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      candidates: [...prev.candidates, ...newCandidates],
-      applications: [...prev.applications, ...newApps],
-    }));
-    showToast(`Se incorporaron ${newApps.length} perfiles a la convocatoria activa.`, 'success');
+  const handleApplyEvaluation = (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => {
+    applyPreparedEvaluation(appState, prepared, reply, hash);
+    setAppState((prev) => {
+      try { return applyPreparedEvaluation(prev, prepared, reply, hash); }
+      catch { queueMicrotask(() => showToast('El perfil cambió. La evaluación anterior no se aplicó.', 'warning')); return prev; }
+    });
+  };
+  const handleUpdateEvaluationReference = (jobId: string, reference: string) => {
+    updateEvaluationReference(appState,jobId,reference);
+    setAppState((prev) => updateEvaluationReference(prev,jobId,reference));
+    showToast('Referencia del puesto guardada. Puntajes pendientes de evaluación para este puesto.', 'success');
+  };
+  const handleEvaluationIssue = (applicationId: string, error: EvaluationError) => {
+    setAppState((prev) => recordEvaluationIssue(prev, applicationId, error));
+  };
+  const handleReviewRequirement = (applicationId: string, status: RequirementStatus, justification: string) => {
+    reviewRequirement(appState, applicationId, status, justification);
+    setAppState((prev) => reviewRequirement(prev, applicationId, status, justification));
+    showToast('Revisión humana del requisito guardada.', 'success');
+  };
+
+  const handleImportCandidates = (jobId: string, rows: ImportRow[]) => {
+    const result = applyCandidateImport(appState, jobId, rows);
+    setAppState((prev) => prev.jobPostings.some((job) => job.id === jobId) ? applyCandidateImport(prev, jobId, rows).state : prev);
+    const { newApplications, updatedCandidates } = result.plan.summary;
+    showToast(`${newApplications} postulaciones nuevas; ${updatedCandidates} fichas actualizadas. Evaluación LLM pendiente.`, 'success');
+    return result.plan.summary;
+  };
+
+  // Score de embeddings: se guarda aparte de llmScore y no altera etapas ni el historial.
+  const handleApplyEmbeddingRanking = (results: Record<string, EmbeddingMatch>) => {
+    setAppState((prev) => ({ ...prev, applications: prev.applications.map((app) =>
+      results[app.id] ? { ...app, embeddingMatch: results[app.id] } : app) }));
+  };
+
+  // Avisos de Bumeran (Supabase): se agregan como convocatorias sin tocar las existentes.
+  const handleSyncBumeranJobs = (jobs: JobPosting[]) => {
+    setAppState((prev) => mergeBumeranJobs(prev, jobs));
+  };
+
+  // Postulantes de un aviso de Bumeran: mismo importador que "Cargar CV" (sin duplicar fichas).
+  const handleSyncBumeranCandidates = (jobId: string, rows: ImportRow[]) => {
+    setAppState((prev) => prev.jobPostings.some((job) => job.id === jobId) ? applyCandidateImport(prev, jobId, rows).state : prev);
   };
 
   // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.
@@ -487,14 +551,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleQuickAdvanceToBest = (applicationId: string) => handleAdvanceApplications([applicationId]);
   const handleRevertToPostulado = (applicationId: string) => handleMoveStage(applicationId, 'postulado', 'Revisión de la preselección por el equipo de GTHC');
 
-  // Restablecer datos iniciales de demo
+  // Limpiar los datos locales de selección
   const handleResetData = () => {
     const initial = resetAppState();
     setAppState(initial);
     setSelectedApplicationIds([]);
     setSelectedCandidateForDrawer(null);
     setSelectedCandidateIdState(null);
-    showToast('Datos de demostración restablecidos a su estado original.', 'info');
+    showToast('Datos de candidatos restablecidos.', 'info');
   };
 
   const [selectedCandidateId, setSelectedCandidateIdState] = useState<string | null>(null);
@@ -558,13 +622,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleSaveToTalentPool,
     handleAdvanceSelected,
     handleReleaseApplication,
+    handleReleaseApplications,
     handleAddNote,
     handleScheduleInterview,
     handleSaveEmailDraft,
     handleUpdateJobCriteria,
     handleCreateJobPosting,
     handleActivateJobPosting,
-    handleAddBatchCandidates,
+    handleImportCandidates,
+    handleApplyEmbeddingRanking,
+    handleSyncBumeranJobs,
+    handleSyncBumeranCandidates,
+    handleApplyEvaluation,
+    handleEvaluationIssue,
+    handleReviewRequirement,
+    handleUpdateEvaluationReference,
     handleLinkCandidateToJob,
     handleQuickAdvanceToBest,
     handleRevertToPostulado,
@@ -582,3 +654,4 @@ export function useApp() {
   }
   return context;
 }
+

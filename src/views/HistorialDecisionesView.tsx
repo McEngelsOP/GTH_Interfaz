@@ -170,7 +170,7 @@ export function HistorialDecisionesView() {
         <span>
           <strong>Garantía de Transparencia Ética:</strong> Toda decisión humana registrada en esta bitácora conserva
           el autor, fecha/hora exacta, justificación obligatoria y estado de los puntajes antes y después. Este registro
-          se mantiene en el almacenamiento local versionado de la demo.
+          se mantiene en el almacenamiento local versionado de este navegador.
         </span>
       </div>
 
@@ -360,4 +360,5 @@ export function HistorialDecisionesView() {
     </div>
   );
 }
+
 

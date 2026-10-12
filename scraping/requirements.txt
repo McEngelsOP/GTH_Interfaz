@@ -1,0 +1,5 @@
+selenium>=4.20
+keyring>=24
+psycopg[binary]>=3.2
+google-api-python-client>=2.100
+google-auth-oauthlib>=1.2

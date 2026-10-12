@@ -1,3 +1,4 @@
+import { timeAgo } from '../services/bumeranSync.ts';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { JobPosting, JobCategory, JobStatus } from '../types/index.ts';
@@ -65,6 +66,7 @@ export function ConvocatoriasView() {
 
   const handleOpenJob = (job: JobPosting) => {
     setActiveJobPostingId(job.id);
+    if (job.bumeran) { setCurrentView('mejores_candidatos'); return; }
     const count = candidateCountsByJob[job.id] || 0;
     if (count === 0) {
       showToast(`Convocatoria "${job.title}" seleccionada. Aún no cuenta con postulantes registrados.`, 'info');
@@ -110,21 +112,21 @@ export function ConvocatoriasView() {
           </div>
           <div>
             <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Convocatorias de Selección
+              Convocatorias
             </h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Gestión de puestos docentes, administrativos, operativos y directivos de la Universidad ESAN.
+              Abre una convocatoria para consultar sus candidatos y revisar el ranking.
             </p>
           </div>
         </div>
 
-        <Button
+        {<Button
           variant="primary"
           icon={<PlusCircle size={16} />}
           onClick={() => setCurrentView('nueva_convocatoria')}
         >
           Nueva convocatoria
-        </Button>
+        </Button>}
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
@@ -142,7 +144,7 @@ export function ConvocatoriasView() {
           marginBottom: '1.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '280px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: 1, maxWidth: '380px' }}>
             <Search
               size={16}
@@ -156,7 +158,7 @@ export function ConvocatoriasView() {
             />
             <input
               type="text"
-              placeholder="Buscar por puesto, código o área institucional..."
+              aria-label="Buscar convocatorias" placeholder="Buscar por puesto, código o área…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="focus-ring"
@@ -175,7 +177,7 @@ export function ConvocatoriasView() {
 
           {/* Filtro por Categoría */}
           <select
-            value={selectedCategory}
+            aria-label="Categoría" value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="focus-ring"
             style={{
@@ -197,7 +199,7 @@ export function ConvocatoriasView() {
 
           {/* Filtro por Estado */}
           <select
-            value={selectedStatus}
+            aria-label="Estado de convocatoria" value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="focus-ring"
             style={{
@@ -221,11 +223,12 @@ export function ConvocatoriasView() {
         </span>
       </div>
 
-      {/* Grid de Convocatorias (18 iniciales) */}
+      {!filteredJobs.length && <p role="status" className="import-card">{appState.jobPostings.length ? 'No hay convocatorias que coincidan con los filtros.' : 'Aún no hay convocatorias. Crea una con Nueva convocatoria o sincroniza los avisos de Bumeran.'}</p>}
+      {/* Convocatorias disponibles */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 330px), 1fr))',
           gap: '1.25rem',
         }}
       >
@@ -315,6 +318,9 @@ export function ConvocatoriasView() {
                   </div>
                 </div>
 
+                <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  {job.bumeran ? `Bumeran · Datos ${timeAgo(job.bumeran.updatedAt)} · ${job.bumeran.received ?? '—'} postulantes en origen` : 'Carga manual · Datos de este navegador'}
+                </p>
                 {/* Requisito Obligatorio */}
                 <div
                   style={{
@@ -366,7 +372,7 @@ export function ConvocatoriasView() {
                   iconPosition="right"
                   onClick={() => handleOpenJob(job)}
                 >
-                  {isCurrentActive ? 'Puesto seleccionado' : 'Abrir puesto'}
+                  Ver candidatos
                 </Button>
                 </div>
               </div>
@@ -377,4 +383,5 @@ export function ConvocatoriasView() {
     </div>
   );
 }
+
 

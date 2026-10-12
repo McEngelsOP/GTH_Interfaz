@@ -1,4 +1,5 @@
 import React, { useRef, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useDialog } from './useDialog.ts';
 import { X } from 'lucide-react';
 
@@ -11,6 +12,7 @@ export interface DrawerProps {
   footer?: ReactNode;
   width?: string;
   position?: 'right' | 'left';
+  className?: string;
 }
 
 export function Drawer({
@@ -22,6 +24,7 @@ export function Drawer({
   footer,
   width = '580px',
   position = 'right',
+  className,
 }: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -29,8 +32,9 @@ export function Drawer({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
+      className={className}
       style={{
         position: 'fixed',
         inset: 0,
@@ -46,6 +50,7 @@ export function Drawer({
       }}
     >
       <div
+        className="drawer-panel"
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
@@ -54,7 +59,7 @@ export function Drawer({
         style={{
           width: '100%',
           maxWidth: width,
-          height: '100%',
+          height: '100dvh',
           backgroundColor: 'var(--bg-surface)',
           boxShadow: 'var(--shadow-drawer)',
           borderLeft: position === 'right' ? '1px solid var(--border-default)' : 'none',
@@ -69,6 +74,7 @@ export function Drawer({
         {/* Cabecera del Drawer */}
         {(title || subtitle) && (
           <div
+            className="drawer-header"
             style={{
               padding: '1.25rem 1.5rem',
               borderBottom: '1px solid var(--border-subtle)',
@@ -114,8 +120,10 @@ export function Drawer({
 
         {/* Contenido desplazable */}
         <div
+          className="drawer-body"
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             padding: '1.5rem',
           }}
@@ -126,6 +134,7 @@ export function Drawer({
         {/* Pie con acciones */}
         {footer && (
           <div
+            className="drawer-footer"
             style={{
               padding: '1.25rem 1.5rem',
               borderTop: '1px solid var(--border-subtle)',
@@ -140,7 +149,7 @@ export function Drawer({
           </div>
         )}
       </div>
-    </div>
+    </div>, document.body
   );
 }
 

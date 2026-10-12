@@ -1,4 +1,5 @@
 import React, { useRef, useId, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useDialog } from './useDialog.ts';
 import { X } from 'lucide-react';
 
@@ -28,7 +29,7 @@ export function Modal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -136,7 +137,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>, document.body
   );
 }
 

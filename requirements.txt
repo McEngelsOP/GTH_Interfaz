@@ -1,0 +1,6 @@
+# Módulo de matching por embeddings (matching/embeddings). La interfaz web usa package.json.
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+# Opcional: backend e5. Sin el modelo en caché local, el módulo usa tfidf y no descarga nada.
+sentence-transformers>=2.3

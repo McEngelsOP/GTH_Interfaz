@@ -1,0 +1,12 @@
+{
+  "titulo": "Analista de cobranzas",
+  "nota": "EJEMPLO para uso por línea de comandos. En la interfaz, los requisitos y pesos vienen de los criterios de la convocatoria activa.",
+  "requisitos": [
+    { "texto": "Experiencia en gestión de cobranzas y recuperación de cartera morosa", "peso": 0.30 },
+    { "texto": "Conciliación de cuentas por cobrar, estados de cuenta y aplicación de pagos", "peso": 0.20 },
+    { "texto": "Manejo de ERP (SAP u otro) y registro contable de cobranzas", "peso": 0.15 },
+    { "texto": "Elaboración de reportes de cobranza y análisis de antigüedad de deuda", "peso": 0.15 },
+    { "texto": "Formación en Administración, Contabilidad, Finanzas o afines", "peso": 0.10 },
+    { "texto": "Comunicación con clientes y negociación de compromisos de pago", "peso": 0.10 }
+  ]
+}

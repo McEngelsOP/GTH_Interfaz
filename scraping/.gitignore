@@ -1,0 +1,6 @@
+# Datos personales de postulantes, perfil de Chrome y credenciales: NUNCA al repositorio
+data/
+.env
+
+# Cliente OAuth de Google Drive (secreto)
+google_credentials.json

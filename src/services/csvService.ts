@@ -1,11 +1,11 @@
 // CSV con comillas escapadas, saltos de línea internos y BOM de Excel.
-export function parseCSV(text: string): { records: string[][]; errors: string[] } {
+export function parseCSV(text: string, separator?: string, preserveEmptyRows = false): { records: string[][]; errors: string[] } {
   const source = text.replace(/^\uFEFF/, '');
   const firstLine = source.split(/\r?\n/, 1)[0];
-  const delimiter = firstLine.includes(';') ? ';' : ',';
+  const delimiter = separator || (firstLine.includes(';') ? ';' : ',');
   const records: string[][] = [], errors: string[] = [];
   let row: string[] = [], cell = '', quoted = false;
-  const finishRow = () => { row.push(cell.trim()); if (row.some((v) => v !== '')) records.push(row); row = []; cell = ''; };
+  const finishRow = () => { row.push(cell.trim()); if (preserveEmptyRows || row.some((v) => v !== '')) records.push(row); row = []; cell = ''; };
   for (let i = 0; i < source.length; i++) {
     const char = source[i];
     if (char === '"') {
@@ -15,7 +15,7 @@ export function parseCSV(text: string): { records: string[][]; errors: string[] 
     else if ((char === '\n' || char === '\r') && !quoted) { finishRow(); if (char === '\r' && source[i + 1] === '\n') i++; }
     else cell += char;
   }
-  finishRow();
+  if (cell || row.length) finishRow();
   if (quoted) errors.push('El archivo tiene una celda con comillas sin cerrar.');
   if (!records.length) errors.push('El archivo CSV está vacío.');
   return { records, errors };

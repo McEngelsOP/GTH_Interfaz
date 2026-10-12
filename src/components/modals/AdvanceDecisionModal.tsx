@@ -5,6 +5,7 @@ import { Badge } from '../common/Badge.tsx';
 import { ScoreBadge } from '../candidate/ScoreBadge.tsx';
 import { Application, Candidate, JobPosting, EvaluationMethod } from '../../types/index.ts';
 import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import { UserCheck, Eye, Info, CheckCircle2 } from 'lucide-react';
 
 interface AdvanceDecisionModalProps {
@@ -87,11 +88,11 @@ export function AdvanceDecisionModal({
             lineHeight: 1.45,
           }}
         >
-          {!validSelection && <p role="alert">Revise la selección: todos los expedientes deben estar pendientes, verificados y evaluados.</p>}
+          {!validSelection && <p role="alert">Puedes marcar y comparar estos perfiles para revisión. Para avanzar, todos deben estar postulados, con puntaje completo y requisitos verificados.</p>}
           <strong style={{ color: 'var(--text-primary)' }}>Efectos de esta decisión:</strong>
           <ul style={{ paddingLeft: '1.25rem', marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
             <li>Los perfiles elegidos pasarán de <em>Postulado</em> a <strong>Preseleccionado</strong>.</li>
-            <li>Dejarán la pestaña <em>Top-N pendientes</em> (ya recibieron decisión), y otros pendientes ocuparán sus posiciones.</li>
+            <li>Dejarán la pestaña <em>Top-N para revisión</em> (ya recibieron decisión), y otros pendientes ocuparán sus posiciones.</li>
             <li>Seguirán activos en <em>En proceso</em>, <em>Todos</em> y en el tablero <em>Avance de candidatos</em>.</li>
             <li>Los mensajes se guardarán como borradores locales (no se enviarán correos reales).</li>
           </ul>
@@ -133,7 +134,7 @@ export function AdvanceDecisionModal({
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <ScoreBadge score={app.llmScore} method="LLM" size="sm" />
+                    <ScoreBadge score={app.llmScore} method="LLM" size="sm" summary={evaluationSummary(app, job.criteria)} />
                   </div>
                 </div>
               );
@@ -236,4 +237,3 @@ export function AdvanceDecisionModal({
     </Modal>
   );
 }
-

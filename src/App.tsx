@@ -1,68 +1,40 @@
-import React, { useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext.tsx';
 import { Header } from './components/layout/Header.tsx';
 import { Sidebar } from './components/layout/Sidebar.tsx';
 import { ToastContainer } from './components/layout/ToastContainer.tsx';
 import { CandidateDrawer } from './components/candidate/CandidateDrawer.tsx';
 import { GTHAssistantDrawer } from './components/assistant/GTHAssistantDrawer.tsx';
+import { supabase } from './services/supabase.ts';
+import { useBumeranSync } from './services/useBumeranSync.ts';
+import { BumeranSyncBar } from './components/layout/BumeranSyncBar.tsx';
+import { ConvocatoriasView } from './views/ConvocatoriasView.tsx';
+import { NuevaConvocatoriaView } from './views/NuevaConvocatoriaView.tsx';
+import { LoginView } from './views/LoginView.tsx';
 
 // Vistas del sistema GTH ESAN
-import { ResumenGeneralView } from './views/ResumenGeneralView.tsx';
-import { ConvocatoriasView } from './views/ConvocatoriasView.tsx';
-import { PerfilesPuestosView } from './views/PerfilesPuestosView.tsx';
-import { NuevaConvocatoriaView } from './views/NuevaConvocatoriaView.tsx';
 import { AgregarArchivosView } from './views/AgregarArchivosView.tsx';
 import { MejoresCandidatosView } from './views/MejoresCandidatosView.tsx';
 import { ComparadorView } from './views/ComparadorView.tsx';
 import { AvanceCandidatosView } from './views/AvanceCandidatosView.tsx';
-import { BancoTalentoView } from './views/BancoTalentoView.tsx';
-import { CriteriosEvaluacionView } from './views/CriteriosEvaluacionView.tsx';
-import { HistorialDecisionesView } from './views/HistorialDecisionesView.tsx';
-import { ResultadosProcesoView } from './views/ResultadosProcesoView.tsx';
-import { AjustesGeneralesView } from './views/AjustesGeneralesView.tsx';
 
 function MainContent() {
-  const { currentView } = useApp();
+  const { currentView, activeJob } = useApp();
 
   const renderView = () => {
+    if (!activeJob && currentView !== 'nueva_convocatoria' && currentView !== 'nueva-convocatoria') return <ConvocatoriasView />;
     switch (currentView) {
-      case 'resumen_general':
-      case 'resumen-general':
-        return <ResumenGeneralView />;
-      case 'convocatorias':
-        return <ConvocatoriasView />;
-      case 'perfiles_puestos':
-      case 'perfiles-puestos':
-        return <PerfilesPuestosView />;
+      case 'convocatorias': return <ConvocatoriasView />;
       case 'nueva_convocatoria':
-      case 'nueva-convocatoria':
-        return <NuevaConvocatoriaView />;
+      case 'nueva-convocatoria': return <NuevaConvocatoriaView />;
       case 'agregar_archivos':
       case 'agregar-archivos':
         return <AgregarArchivosView />;
-      case 'mejores_candidatos':
-      case 'mejores-candidatos':
-        return <MejoresCandidatosView />;
       case 'comparador':
         return <ComparadorView />;
       case 'avance_candidatos':
       case 'avance-candidatos':
         return <AvanceCandidatosView />;
-      case 'banco_talento':
-      case 'banco-talento':
-        return <BancoTalentoView />;
-      case 'criterios_evaluacion':
-      case 'criterios-evaluacion':
-        return <CriteriosEvaluacionView />;
-      case 'historial_decisiones':
-      case 'historial-decisiones':
-        return <HistorialDecisionesView />;
-      case 'resultados_proceso':
-      case 'resultados-proceso':
-        return <ResultadosProcesoView />;
-      case 'ajustes_generales':
-      case 'ajustes':
-        return <AjustesGeneralesView />;
       default:
         return <MejoresCandidatosView />;
     }
@@ -85,6 +57,7 @@ function MainContent() {
 
 function AppLayout() {
   const { selectedCandidateForDrawer } = useApp();
+  const sync = useBumeranSync();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -92,6 +65,7 @@ function AppLayout() {
       <Sidebar isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
+        <BumeranSyncBar sync={sync} />
         <MainContent />
       </div>
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
@@ -101,11 +75,26 @@ function AppLayout() {
   );
 }
 
+// Con Supabase configurado se exige sesión (datos personales de postulantes); sin él, la app abre como siempre.
+function AuthGate({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<'cargando' | 'sin_sesion' | 'activa'>(supabase ? 'cargando' : 'activa');
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ? 'activa' : 'sin_sesion')).catch(() => setSession('sin_sesion'));
+    const { data } = supabase.auth.onAuthStateChange((_event, current) => setSession(current ? 'activa' : 'sin_sesion'));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (session === 'cargando') return <div role="status" className="session-loading">Verificando sesión…</div>;
+  return session === 'activa' ? <>{children}</> : <LoginView />;
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <AppLayout />
-    </AppProvider>
+    <AuthGate>
+      <AppProvider>
+        <AppLayout />
+      </AppProvider>
+    </AuthGate>
   );
 }
 

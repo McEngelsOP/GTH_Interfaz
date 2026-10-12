@@ -2,7 +2,8 @@ import React from 'react';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { Badge } from '../common/Badge.tsx';
-import { ShieldCheck, Users, Calendar, Sliders, ArrowRightLeft } from 'lucide-react';
+import { ShieldCheck, Users, Calendar, Sliders, ArrowRightLeft, Clock } from 'lucide-react';
+import { timeAgo } from '../../services/bumeranSync.ts';
 import { Button } from '../common/Button.tsx';
 
 export function ActiveJobBanner() {
@@ -75,6 +76,13 @@ export function ActiveJobBanner() {
             <Users size={14} style={{ color: 'var(--text-muted)' }} />
             <strong>Vacantes previstas:</strong> {activeJob.vacancies !== null ? activeJob.vacancies : 'No registrado'}
           </span>
+          {activeJob.bumeran && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              title={activeJob.bumeran.updatedAt ? `Último CSV de Bumeran: ${new Date(activeJob.bumeran.updatedAt).toLocaleString()}` : undefined}>
+              <Clock size={14} style={{ color: 'var(--text-muted)' }} />
+              <strong>Actualizado:</strong> {timeAgo(activeJob.bumeran.updatedAt)}
+            </span>
+          )}
         </div>
 
         <div
