@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { embeddingTargets, needsEmbeddingRanking, requestEmbeddingRanking } from './embeddingMatching.ts';
+import { isBumeranJob } from './bumeranSync.ts';
+import { supabase } from './supabase.ts';
 
 /** Calcula el ranking de embeddings de la convocatoria activa cuando faltan resultados. Sin elementos visibles:
  *  si el servicio local no responde, la tabla queda igual y solo se registra en consola. */
 export function useEmbeddingRanking() {
   const { activeJob, appState, handleApplyEmbeddingRanking } = useApp();
   const attempted = useRef(new Set<string>());
-  const job = activeJob && activeJob.status === 'activa' ? activeJob : null;
+  // Los avisos de Bumeran usan solo el ranking que el scraper guarda en Supabase (ver useBumeranSync).
+  const job = activeJob && activeJob.status === 'activa' && !(supabase && isBumeranJob(activeJob)) ? activeJob : null;
   const pending = job && needsEmbeddingRanking(job, appState.applications, appState.candidates);
   const key = job ? `${job.id}|${job.criteriaVersion}|${embeddingTargets(job, appState.applications, appState.candidates).length}` : '';
 

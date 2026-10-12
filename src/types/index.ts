@@ -44,6 +44,8 @@ export interface JobPosting {
   templateId?: string;
   evaluationReference?: string;
   createdAt: string;
+  /** Solo en convocatorias que vienen de un aviso de Bumeran (scraping → Supabase). */
+  bumeran?: { avisoId: string; updatedAt: string | null; publicUrl: string | null; received: number | null; rankingAt?: string | null };
 }
 
 export interface Candidate {

@@ -25,6 +25,7 @@ import type { PreparedEvaluation } from '../services/evaluationService.ts';
 import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
 import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
+import { mergeBumeranJobs } from '../services/bumeranSync.ts';
 
 export type ViewType =
   | 'convocatorias'
@@ -123,6 +124,8 @@ interface AppContextValue {
   handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
   handleApplyEmbeddingRanking: (results: Record<string, EmbeddingMatch>) => void;
+  handleSyncBumeranJobs: (jobs: JobPosting[]) => void;
+  handleSyncBumeranCandidates: (jobId: string, rows: ImportRow[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
   handleRevertToPostulado: (applicationId: string) => void;
@@ -515,6 +518,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       results[app.id] ? { ...app, embeddingMatch: results[app.id] } : app) }));
   };
 
+  // Avisos de Bumeran (Supabase): se agregan como convocatorias sin tocar las existentes.
+  const handleSyncBumeranJobs = (jobs: JobPosting[]) => {
+    setAppState((prev) => mergeBumeranJobs(prev, jobs));
+  };
+
+  // Postulantes de un aviso de Bumeran: mismo importador que "Cargar CV" (sin duplicar fichas).
+  const handleSyncBumeranCandidates = (jobId: string, rows: ImportRow[]) => {
+    let summary: ImportSummary | null = null;
+    try { summary = applyCandidateImport(appState, jobId, rows).plan.summary; } catch { return; }
+    if (!summary.newApplications && !summary.updatedCandidates) return;
+    setAppState((prev) => { try { return applyCandidateImport(prev, jobId, rows).state; } catch { return prev; } });
+    const job = appState.jobPostings.find((j) => j.id === jobId);
+    if (summary.newApplications) showToast(`${summary.newApplications} postulantes de Bumeran incorporados a ${job?.code || jobId}. Evaluación LLM pendiente.`, 'success');
+  };
+
   // Una nueva convocatoria requiere evaluación independiente; el perfil se conserva.
   const handleLinkCandidateToJob = (candidateId: string, targetJobId: string) => {
     const cand = appState.candidates.find((c) => c.id === candidateId);
@@ -618,6 +636,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleActivateJobPosting,
     handleImportCandidates,
     handleApplyEmbeddingRanking,
+    handleSyncBumeranJobs,
+    handleSyncBumeranCandidates,
     handleApplyEvaluation,
     handleEvaluationIssue,
     handleReviewRequirement,

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext.tsx';
 import { Header } from './components/layout/Header.tsx';
 import { Sidebar } from './components/layout/Sidebar.tsx';
 import { ToastContainer } from './components/layout/ToastContainer.tsx';
 import { CandidateDrawer } from './components/candidate/CandidateDrawer.tsx';
 import { GTHAssistantDrawer } from './components/assistant/GTHAssistantDrawer.tsx';
+import { supabase } from './services/supabase.ts';
+import { useBumeranSync } from './services/useBumeranSync.ts';
+import { LoginView } from './views/LoginView.tsx';
 
 // Vistas del sistema GTH ESAN
 import { AgregarArchivosView } from './views/AgregarArchivosView.tsx';
@@ -47,6 +50,7 @@ function MainContent() {
 
 function AppLayout() {
   const { selectedCandidateForDrawer } = useApp();
+  useBumeranSync();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -63,10 +67,25 @@ function AppLayout() {
   );
 }
 
+// Con Supabase configurado se exige sesión (datos personales de postulantes); sin él, la app abre como siempre.
+function AuthGate({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<'cargando' | 'sin_sesion' | 'activa'>(supabase ? 'cargando' : 'activa');
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ? 'activa' : 'sin_sesion'));
+    const { data } = supabase.auth.onAuthStateChange((_event, current) => setSession(current ? 'activa' : 'sin_sesion'));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (session === 'cargando') return null;
+  return session === 'activa' ? <>{children}</> : <LoginView />;
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <AppLayout />
-    </AppProvider>
+    <AuthGate>
+      <AppProvider>
+        <AppLayout />
+      </AppProvider>
+    </AuthGate>
   );
 }
