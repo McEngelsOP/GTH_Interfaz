@@ -570,7 +570,7 @@ export function CandidateDrawer() {
           {activeTab === 'oportunidades' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                Puestos sugeridos por afinidad de perfil demostrativo (distinguidos de postulaciones efectivas):
+                Puestos sugeridos para este perfil; una sugerencia no equivale a una postulación:
               </p>
               {(candidate.potentialOpportunities && candidate.potentialOpportunities.length > 0) ? (
                 candidate.potentialOpportunities.map((op, idx) => (
@@ -593,7 +593,7 @@ export function CandidateDrawer() {
                       </span>
                     </div>
                     <Badge variant="purple" size="sm">
-                      Sugerencia demostrativa
+                      Sugerencia
                     </Badge>
                   </div>
                 ))
@@ -638,3 +638,4 @@ export function CandidateDrawer() {
     </>
   );
 }
+

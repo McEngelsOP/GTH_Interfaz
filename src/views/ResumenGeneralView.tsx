@@ -127,7 +127,7 @@ export function ResumenGeneralView() {
               icon={<FileSpreadsheet size={16} />}
               onClick={() => setCurrentView('agregar-archivos')}
             >
-              Carga y Lotes de Prueba
+              Importar postulantes
             </Button>
             <Button
               variant="ghost"
@@ -492,3 +492,4 @@ export function ResumenGeneralView() {
     </div>
   );
 }
+

@@ -13,31 +13,46 @@ describe('persistencia y navegación', () => {
     expect(parseStoredState(JSON.stringify(EMPTY_STATE))).toEqual(EMPTY_STATE);
     expect(readRoute('#view=nueva_convocatoria').view).toBe('nueva_convocatoria');
   });
-  it('retira ejemplos intactos sin borrar convocatorias modificadas ni postulaciones reales', () => {
+  it('retira convocatorias del catálogo ficticio aunque se hayan editado', () => {
     const state = structuredClone(EMPTY_STATE);
     state.jobPostings = structuredClone(INITIAL_JOB_POSTINGS);
     state.activeJobPostingId = state.jobPostings[0].id;
     expect(parseStoredState(JSON.stringify(state))?.jobPostings).toEqual([]);
-    state.jobPostings[0].title = 'Convocatoria real editada';
+    state.jobPostings[0].title = 'Convocatoria ficticia editada';
     const migrated = parseStoredState(JSON.stringify(state))!;
-    expect(migrated.jobPostings).toHaveLength(1);
-    expect(migrated.activeJobPostingId).toBe(state.jobPostings[0].id);
-    const withPeople = structuredClone(INITIAL_APP_STATE);
-    const result = parseStoredState(JSON.stringify(withPeople))!;
-    expect(result.candidates).toEqual(withPeople.candidates);
-    expect(result.applications).toEqual(withPeople.applications);
+    expect(migrated.jobPostings).toEqual([]);
+    expect(migrated.activeJobPostingId).toBe('');
+  });
+  it('limpia los registros maestros ficticios heredados y conserva los datos Bumeran/importados', () => {
+    const legacy = structuredClone(INITIAL_APP_STATE);
+    const realJob = { ...legacy.jobPostings[0], id: 'BUM-1118387829', code: 'BUM-1118387829', title: 'Aviso real de Bumeran',
+      bumeran: { avisoId: '1118387829', updatedAt: null, publicUrl: null, received: 10 } };
+    const realCandidate = { ...legacy.candidates[0], id: 'cand-import-real', name: 'Postulante real', source: 'Bumeran' };
+    const realApplication = { ...legacy.applications[0], id: 'app-import-real', jobPostingId: realJob.id, candidateId: realCandidate.id };
+    legacy.jobPostings.push(realJob);
+    legacy.candidates.push(realCandidate);
+    legacy.applications.push(realApplication);
+    const migrated = parseStoredState(JSON.stringify(legacy))!;
+    expect(migrated.jobPostings.map((job) => job.id)).toEqual([realJob.id]);
+    expect(migrated.candidates.map((candidate) => candidate.id)).toEqual([realCandidate.id]);
+    expect(migrated.applications.map((app) => app.id)).toEqual([realApplication.id]);
+    expect(migrated.activities).toEqual([]);
+    expect(migrated.decisionLogs).toEqual([]);
   });
   it('recupera snapshots completos y normaliza preferencias corruptas', () => {
     const data = structuredClone(INITIAL_APP_STATE);
     data.jobPostings.forEach((job) => { job.title += ' — editada'; });
-    expect(parseStoredState(JSON.stringify(data))).toEqual(data);
+    const migrated = parseStoredState(JSON.stringify(data))!;
+    expect(migrated.jobPostings).toEqual([]);
+    expect(migrated.candidates).toEqual([]);
+    expect(migrated.applications).toEqual([]);
     Object.assign(data, { theme: 'other', topN: -3, selectedMethod: 'other', activeJobPostingId: 'missing' });
     const result = parseStoredState(JSON.stringify(data));
     expect(result?.selectedMethod).toBe('LLM');
     expect(result?.topN).toBe(5); expect(result?.theme).toBe('light');
-    expect(result?.activeJobPostingId).toBe(data.jobPostings[0].id);
+    expect(result?.activeJobPostingId).toBe('');
   });
-  it('migra datos anteriores a LLM sin perder personas, etapas ni evidencias', () => {
+  it('retira postulantes, puntajes y bitácora del catálogo ficticio antiguo', () => {
     const legacy: any = structuredClone(INITIAL_APP_STATE);
     legacy.selectedMethod = 'ML';
     legacy.jobPostings[0].criteria[0].type = 'ML';
@@ -46,13 +61,10 @@ describe('persistencia y navegación', () => {
     legacy.decisionLogs[0].evaluationContext.mlScore = 95;
     const migrated = parseStoredState(JSON.stringify(legacy))!;
     expect(migrated.selectedMethod).toBe('LLM');
-    expect(migrated.candidates).toEqual(legacy.candidates);
-    expect(migrated.applications).toHaveLength(legacy.applications.length);
-    expect(migrated.applications[0].llmScore).toBe(legacy.applications[0].llmScore);
-    expect(migrated.applications[0]).not.toHaveProperty('mlScore');
-    expect(migrated.jobPostings.every((job) => job.criteria.every((c) => c.type === 'LLM'))).toBe(true);
-    expect(migrated.decisionLogs[0].metadata?.legacyEvaluationMethod).toBe('ML');
-    expect(migrated.decisionLogs[0].evaluationContext).not.toHaveProperty('mlScore');
+    expect(migrated.candidates).toEqual([]);
+    expect(migrated.applications).toEqual([]);
+    expect(migrated.jobPostings).toEqual([]);
+    expect(migrated.decisionLogs).toEqual([]);
   });
   it('rechaza JSON inválido, registros nulos e identidades duplicadas o huérfanas', () => {
     for (const raw of ['null', '{', '{}', JSON.stringify({ jobPostings: [null] })]) expect(parseStoredState(raw)).toBeNull();

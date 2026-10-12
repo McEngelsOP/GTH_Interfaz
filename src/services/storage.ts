@@ -11,6 +11,8 @@ const object = (value: unknown): value is Record<string, any> => !!value && type
 const strings = (value: Record<string, any>, keys: string[]) => keys.every((key) => typeof value[key] === 'string');
 const uniqueIds = (records: any[]) => new Set(records.map((r) => r.id)).size === records.length;
 const initialState = () => structuredClone(INITIAL_APP_STATE);
+const LEGACY_DEMO_CANDIDATE_IDS = new Set(Array.from({ length: 16 }, (_, index) => `cand-${String(index + 1).padStart(3, '0')}`));
+const LEGACY_DEMO_JOB_IDS = new Set(INITIAL_JOB_POSTINGS.map((job) => job.id));
 
 export function parseStoredState(raw: string): AppStateData | null {
   try {
@@ -70,10 +72,19 @@ export function parseStoredState(raw: string): AppStateData | null {
     data.selectedMethod = 'LLM';
     data.theme = ['light', 'dark', 'system'].includes(data.theme) ? data.theme : 'light';
     data.reducedMotion = data.reducedMotion === true;
-    // Retirar únicamente ejemplos intactos y sin expedientes; conservar trabajo real.
-    const usedJobs = new Set([...data.applications.map((app) => app.jobPostingId), ...data.decisionLogs.map((log) => log.jobPostingId)]);
-    data.jobPostings = data.jobPostings.filter((job) => usedJobs.has(job.id) || !INITIAL_JOB_POSTINGS.some((example) =>
-      JSON.stringify(example) === JSON.stringify(job)));
+    // Migrar fuera del catálogo y perfiles maestros ficticios de versiones anteriores.
+    // Los datos de Bumeran/importados usan otros IDs y se conservan.
+    const demoApplicationIds = new Set(data.applications
+      .filter((app) => LEGACY_DEMO_CANDIDATE_IDS.has(app.candidateId) || LEGACY_DEMO_JOB_IDS.has(app.jobPostingId) || /^app-\d{3}$/.test(app.id))
+      .map((app) => app.id));
+    data.applications = data.applications.filter((app) => !demoApplicationIds.has(app.id));
+    data.candidates = data.candidates.filter((candidate) => !LEGACY_DEMO_CANDIDATE_IDS.has(candidate.id));
+    data.jobPostings = data.jobPostings.filter((job) => !LEGACY_DEMO_JOB_IDS.has(job.id));
+    data.activities = data.activities.filter((activity) => !demoApplicationIds.has(activity.applicationId));
+    data.decisionLogs = data.decisionLogs.filter((decision) => !demoApplicationIds.has(decision.applicationId) &&
+      !LEGACY_DEMO_CANDIDATE_IDS.has(decision.candidateId) && !LEGACY_DEMO_JOB_IDS.has(decision.jobPostingId));
+    data.emailDrafts = data.emailDrafts.filter((draft) => !demoApplicationIds.has(draft.applicationId));
+    data.interviewRecords = data.interviewRecords.filter((record) => !demoApplicationIds.has(record.applicationId));
     if (!data.jobPostings.some((job) => job.id === data.activeJobPostingId)) {
       data.activeJobPostingId = data.jobPostings[0]?.id || '';
     }

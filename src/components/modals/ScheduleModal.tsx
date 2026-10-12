@@ -70,7 +70,7 @@ export function ScheduleModal({ isOpen, onClose, candidateName, onSchedule }: Sc
         >
           <Info size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: '0.1rem' }} />
           <span>
-            Registrar esta entrevista crea un registro demostrativo local con estado «Invitación pendiente». No envía
+          Registrar esta entrevista crea un registro local con estado «Invitación pendiente». No envía
             invitaciones por correo, no conecta un calendario externo ni mueve automáticamente a la persona a la etapa
             «En entrevista».
           </span>
@@ -130,4 +130,5 @@ export function ScheduleModal({ isOpen, onClose, candidateName, onSchedule }: Sc
     </Modal>
   );
 }
+
 

@@ -12,7 +12,7 @@ const jsonReply = (body:any,partial=false) => ({ requestId:body.requestId,model:
   criteria:body.job.criteria.map((c:any,i:number) => ({ key:c.key,score:partial && i===0?null:80,evidence:partial && i===0?null:'Desarrolló soluciones con Python y AWS.' })) });
 const preview = async (page:Page) => {
   await page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles de prueba'});
+  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles pendientes'});
   await expect(dialog.getByText(/Clave Gemini configurada/)).toBeVisible();
   return dialog;
 };
@@ -250,7 +250,7 @@ test('perfiles sin campos profesionales y claves ausentes no generan envíos', a
   let posts=0;
   await page.route('**/api/evaluate',route=>{if(route.request().method()==='POST')posts++;return route.fulfill({json:{configured:false}});});
   await page.goto('/#view=mejores_candidatos');await page.getByRole('button',{name:'Evaluar todos los pendientes',exact:true}).click();
-  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles de prueba'});
+  const dialog=page.getByRole('dialog',{name:'Evaluar perfiles pendientes'});
   await expect(dialog.getByText(/No hay información profesional suficiente/)).toBeVisible();
   await expect(dialog.getByText(/Falta GEMINI_API_KEY/)).toBeVisible();
   await expect(dialog.getByRole('button',{name:'Evaluar 0 perfiles',exact:true})).toBeDisabled();
@@ -389,7 +389,7 @@ for (const code of ['EVIDENCE_SOURCE_MISMATCH','INVALID_EVALUATION']) test(`cont
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   await page.screenshot({path:'/tmp/gth-special-cases-mobile.png',fullPage:true});
   await cases.getByRole('button',{name:'Reintentar evaluación',exact:true}).click();
-  dialog=page.getByRole('dialog',{name:'Evaluar perfiles de prueba'});
+  dialog=page.getByRole('dialog',{name:'Evaluar perfiles pendientes'});
   await expect(dialog.getByRole('checkbox')).not.toBeChecked();
   await expect(dialog.getByRole('button',{name:'Evaluar 1 perfil',exact:true})).toBeDisabled();
   expect(posts).toBe(3);
@@ -466,3 +466,4 @@ test('una respuesta HTTP 200 ajena se aparta y las evaluaciones parciales no se 
   expect(apps[1].llmEvaluation.missingCriteria).toHaveLength(1);
   expect(posts).toBe(2);
 });
+

@@ -374,7 +374,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Nota guardada en la actividad de la postulación.', 'success');
   };
 
-  // Agendar entrevista de demostración
+  // Registrar una entrevista en el expediente local
   const handleScheduleInterview = (
     appId: string,
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
@@ -479,7 +479,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       jobPostings: prev.jobPostings.map((j) => j.id === jobId ? { ...j, status: 'activa', phase: 'Convocatoria Abierta' } : j),
       decisionLogs: [{ id: `dec-job-${Date.now()}`, jobPostingId: jobId, applicationId: '', candidateId: '',
         action: 'Convocatoria activada', author: 'Equipo de GTHC', timestamp: now, criteriaVersion: job.criteriaVersion,
-        evaluationContext: { llmScore: null, method: prev.selectedMethod }, notes: 'Borrador activado sin añadir postulaciones ficticias.' }, ...prev.decisionLogs] }));
+        evaluationContext: { llmScore: null, method: prev.selectedMethod }, notes: 'Borrador activado sin registrar postulaciones.' }, ...prev.decisionLogs] }));
     showToast('Convocatoria activada. Las postulaciones se incorporan desde Carga o Banco de Talento.', 'success');
   };
 
@@ -551,7 +551,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const handleQuickAdvanceToBest = (applicationId: string) => handleAdvanceApplications([applicationId]);
   const handleRevertToPostulado = (applicationId: string) => handleMoveStage(applicationId, 'postulado', 'Revisión de la preselección por el equipo de GTHC');
 
-  // Restablecer datos iniciales de demo
+  // Limpiar los datos locales de selección
   const handleResetData = () => {
     const initial = resetAppState();
     setAppState(initial);
@@ -654,3 +654,4 @@ export function useApp() {
   }
   return context;
 }
+

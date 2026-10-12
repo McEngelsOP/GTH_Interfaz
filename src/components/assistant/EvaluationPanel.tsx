@@ -25,7 +25,7 @@ export function EvaluationPanel() {
   const [referenceError,setReferenceError] = useState('');
   useEffect(() => { setReference(activeJob?.evaluationReference || '');setReferenceError(''); },[activeJob?.id,activeJob?.evaluationReference]);
   const saveReference = () => { try {
-    if (reference.trim()) validateEvaluationPayload({ requestId:crypto.randomUUID(),profile:[{label:'Puesto',text:'Perfil de prueba'}],job:{title:'Puesto',reference,criteria:[{key:'criterion-1',label:'Experiencia',weightPct:100}]} });
+    if (reference.trim()) validateEvaluationPayload({ requestId:crypto.randomUUID(),profile:[{label:'Puesto',text:'Perfil profesional'}],job:{title:'Puesto',reference,criteria:[{key:'criterion-1',label:'Experiencia',weightPct:100}]} });
     handleUpdateEvaluationReference(activeJob!.id,reference);setReferenceError('');
   } catch (e) {setReferenceError(e instanceof Error ? e.message : 'Revisa la referencia.');} };
   const [currentIds,setCurrentIds] = useState<string[]>([]);
@@ -113,8 +113,8 @@ export function EvaluationPanel() {
   const visibleRows = rows.slice(first,first + EVALUATION_PREVIEW_PAGE_SIZE);
   return <>
     <div className="evaluation-panel">
-      <div><strong><ShieldCheck size={18} /> Evaluación automática · perfiles de prueba</strong><p>Una sola autorización para todos los pendientes. Se depuran los datos y Gemini evalúa cada criterio automáticamente.</p>
-        <p>{activeJob?.bumeran ? 'Este modo admite perfiles de prueba. Los candidatos de Bumeran no se envían automáticamente a Gemini; el ranking de embeddings es independiente.' : 'Los puntajes son apoyo a la revisión humana. Los originales y resultados permanecen en este navegador.'}</p></div>
+      <div><strong><ShieldCheck size={18} /> Evaluación automática · perfiles pendientes</strong><p>Una sola autorización para evaluar los perfiles pendientes de esta convocatoria. Se depura la información profesional antes de enviarla a Gemini.</p>
+        <p>{activeJob?.bumeran ? 'El ranking de embeddings de Bumeran es independiente. Esta evaluación LLM solo se ejecuta cuando el equipo la inicia y autoriza.' : 'Los puntajes son apoyo a la revisión humana. Los originales y resultados permanecen en este navegador.'}</p></div>
       <div className="evaluation-actions"><Button icon={<Sparkles size={16}/>} disabled={!pending.length} onClick={() => void preview()}>Evaluar todos los pendientes</Button>
         {selectedApplicationIds.length > 0 && <Button size="sm" disabled={!selectedPending.length} onClick={() => void preview(true)}>Evaluar seleccionados</Button>}</div>
     </div>
@@ -147,14 +147,14 @@ export function EvaluationPanel() {
       <Button size="sm" onClick={saveReference} disabled={reference.trim() === (activeJob?.evaluationReference || '')}>Guardar referencia</Button>
       {referenceError && <p role="alert" className="evaluation-error">{referenceError}</p>}
     </details>
-    <Modal isOpen={open} onClose={close} title="Evaluar perfiles de prueba" maxWidth="850px" subtitle={`${activeJob?.code} · ${rows.length} perfiles · Autorización única`}
+    <Modal isOpen={open} onClose={close} title="Evaluar perfiles pendientes" maxWidth="850px" subtitle={`${activeJob?.code} · ${rows.length} perfiles · Autorización única`}
       footer={<><Button onClick={close} size="sm">Cerrar</Button>{busy ? <Button onClick={() => { controller.current?.abort(); }} size="sm">Pausar lote</Button>
         : <Button variant="primary" size="sm" onClick={run} disabled={!ready || !configuration || !batchApproved}>Evaluar {ready} {ready === 1 ? 'perfil' : 'perfiles'}</Button>}</>}>
-      <div className="evaluation-notice">Modo de pruebas con perfiles creados por ti. Solo se envían a Google los campos profesionales depurados y los criterios. Puedes consultar la vista previa u omitir campos; no necesitas abrir cada perfil. La depuración reduce la exposición, pero no garantiza anonimato. El requisito obligatorio sigue siendo una revisión del equipo.</div>
+      <div className="evaluation-notice">Se enviarán a Google Gemini los campos profesionales seleccionados y depurados, junto con los criterios del puesto. Puedes revisar la vista previa u omitir campos antes de iniciar. La depuración reduce la exposición, pero no garantiza anonimato. El requisito obligatorio sigue siendo una revisión del equipo.</div>
       <p className="evaluation-muted">{configuration === null ? 'Comprobando conexión del evaluador…' : configuration ? `Clave Gemini configurada. Hasta ${queueOptions.concurrency} perfiles simultáneos, con ${queueOptions.intervalMs / 1000} segundos entre inicios. Las esperas por cuota se reintentan automáticamente.` : 'Falta GEMINI_API_KEY. Configúrala en Vercel y vuelve a desplegar.'}</p>
       <div className="evaluation-batch-summary" aria-label="Resumen del lote"><strong>{rows.length} perfiles preparados</strong><span>{ready} pendientes listos · {blocked} requieren revisión · {completed} resultados recibidos · {reviewed} casos especiales</span></div>
       <label className="evaluation-consent evaluation-batch-consent"><input type="checkbox" checked={batchApproved} disabled={busy || !ready || !configuration}
-        onChange={(e) => setBatchApproved(e.target.checked)}/> Ya revisé estos perfiles: son datos de prueba creados por mí y autorizo enviar todo el lote depurado a Google Gemini.</label>
+        onChange={(e) => setBatchApproved(e.target.checked)}/> Confirmo que tengo autorización para procesar estos perfiles reales y enviar la información profesional depurada a Google Gemini.</label>
       <p className="evaluation-muted">Se evaluarán todos los perfiles listos, incluidos los de otras páginas. Los que requieren revisión se omiten. Una respuesta inválida se aparta como caso especial y el lote continúa. Mantén esta pestaña abierta; puedes pausar y continuar sin repetir los resultados recibidos.</p>
       {error && <p role="alert" className="evaluation-error">{error}</p>}
       {progress && <p role="status" className="evaluation-progress">{progress}</p>}
@@ -178,3 +178,4 @@ export function EvaluationPanel() {
     </Modal>
   </>;
 }
+
