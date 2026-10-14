@@ -106,6 +106,19 @@ def _carpeta(nombre, padre=None) -> str:
     return cache[clave]
 
 
+def compartir_con_enlace():
+    """La carpeta raíz queda como «cualquiera con el enlace puede ver» (decisión del equipo, 2026-10-14): así la web
+    muestra los CV en el visor de Drive sin pedir inicio de sesión en Google. Los archivos de adentro lo heredan."""
+    if not configurado():
+        return False
+    raiz = _carpeta(CARPETA_RAIZ)
+    permisos = _drive().permissions().list(fileId=raiz, fields="permissions(type, role)").execute().get("permissions", [])
+    if not any(p.get("type") == "anyone" for p in permisos):
+        _drive().permissions().create(fileId=raiz, body={"type": "anyone", "role": "reader"}).execute()
+        log.info("Carpeta «%s» compartida con cualquiera que tenga el enlace", CARPETA_RAIZ)
+    return True
+
+
 def subir_cv(ruta_local: Path, carpeta_aviso: str, intentos=3):
     """Sube (o reemplaza) el PDF en <raíz>/<carpeta_aviso>/ de Google Drive.
     Devuelve (file_id, enlace) o (None, None) si no está configurado o falló: el archivo local se

@@ -130,6 +130,7 @@ def subir_a_drive(bd: BD, carpeta_externa=None):
     from . import almacen
     if not almacen.configurado():
         raise SystemExit("Falta scraping/google_credentials.json (ver README, sección Google Drive).")
+    almacen.compartir_con_enlace()
     subidos = 0
     if carpeta_externa is None:
         for c in bd.cvs_sin_drive():

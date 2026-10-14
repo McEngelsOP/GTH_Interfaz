@@ -165,3 +165,52 @@ create table if not exists public.ranking_embeddings (
 alter table public.ranking_embeddings enable row level security;
 drop policy if exists "leer ranking" on public.ranking_embeddings;
 create policy "leer ranking" on public.ranking_embeddings for select to authenticated using (true);
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- Base centralizada (web: «Base centralizada»): todos los postulantes de todos los avisos, solo con los campos que
+-- muestra y filtra la página (sin edad, género, estado civil ni nacionalidad). persona_id agrupa las postulaciones
+-- de una misma persona (misma clave en distintos avisos) sin exponer el documento.
+-- ---------------------------------------------------------------------------------------------------------------
+create or replace view public.v_base_postulantes
+with (security_invoker = true) as             -- respeta el RLS de las tablas (solo usuarios con sesión)
+select md5(p.clave)                                          as persona_id,
+       p.aviso_id,
+       a.titulo                                              as aviso_titulo,
+       a.detalle_json -> 'migas' ->> 1                       as aviso_area,
+       p.id_postulante,
+       initcap(trim(p.nombre))                               as nombre,
+       initcap(trim(p.apellido))                             as apellido,
+       nullif(p.email, '')                                   as email,
+       nullif(p.datos_json ->> 'Teléfono celular', '')       as telefono,
+       nullif(p.datos_json ->> 'Fecha Postulación', '')      as fecha_postulacion,
+       coalesce(nullif(p.datos_json ->> 'Ciudad', ''), nullif(p.datos_json ->> 'Lugar de residencia', '')) as ciudad,
+       nullif(p.datos_json ->> 'Exp[1] Puesto', '')          as puesto_actual,
+       nullif(p.datos_json ->> 'Exp[1] Empresa', '')         as empresa_actual,
+       nullif(p.datos_json ->> 'Exp[1] Area', '')            as area_experiencia,
+       est.titulo                                            as estudio,        -- el de mayor nivel, no el último
+       est.nivel                                             as nivel_estudio,
+       est.estado                                            as estado_estudio,
+       est.institucion                                       as institucion,
+       nullif(p.datos_json ->> 'Idiomas', '')                as idiomas,
+       (select c.drive_url from public.cvs c
+         where c.aviso_id = p.aviso_id and c.drive_url is not null
+           and ((p.documento <> '' and c.documento = p.documento) or (p.email <> '' and lower(c.email) = p.email))
+         limit 1)                                            as cv_url,
+       exists (select 1 from public.cvs c
+         where c.aviso_id = p.aviso_id and c.estado = 'sin_adjunto'
+           and ((p.documento <> '' and c.documento = p.documento) or (p.email <> '' and lower(c.email) = p.email))) as sin_cv
+from public.postulaciones p
+join public.avisos a on a.aviso_id = p.aviso_id
+left join lateral (
+  select e.value as nivel,
+         nullif(p.datos_json ->> replace(e.key, 'Nivel', 'Titulo'), '')      as titulo,
+         nullif(p.datos_json ->> replace(e.key, 'Nivel', 'Estado'), '')      as estado,
+         nullif(p.datos_json ->> replace(e.key, 'Nivel', 'Institucion'), '') as institucion
+  from jsonb_each_text(p.datos_json) e
+  where e.key like 'Est[%] Nivel' and e.value <> ''
+  order by case e.value when 'Doctorado' then 7 when 'Master' then 6 when 'Posgrado' then 5 when 'Universitario' then 4
+                        when 'Terciario/Técnico' then 3 when 'Secundario' then 2 else 1 end desc, e.key
+  limit 1) est on true
+where p.en_ultimo_csv = 1;
+
+grant select on public.v_base_postulantes to authenticated;
