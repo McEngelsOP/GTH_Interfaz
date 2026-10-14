@@ -214,3 +214,22 @@ left join lateral (
 where p.en_ultimo_csv = 1;
 
 grant select on public.v_base_postulantes to authenticated;
+
+-- Postulantes marcados «En revisión» desde la web (ranking). Se comparte entre todo el equipo de GTH:
+-- quien entra desde otra PC ve las mismas marcas. La clave es el aviso de Bumeran + id del postulante.
+create table if not exists public.en_revision (
+    aviso_id          text not null,
+    id_postulante     text not null,
+    marcado_por       uuid default auth.uid(),
+    marcado_por_email text default (auth.jwt() ->> 'email'),
+    marcado_at        timestamptz not null default now(),
+    primary key (aviso_id, id_postulante)
+);
+alter table public.en_revision enable row level security;
+drop policy if exists "leer en revision" on public.en_revision;
+create policy "leer en revision" on public.en_revision for select to authenticated using (true);
+drop policy if exists "marcar en revision" on public.en_revision;
+create policy "marcar en revision" on public.en_revision for insert to authenticated with check (true);
+drop policy if exists "desmarcar en revision" on public.en_revision;
+create policy "desmarcar en revision" on public.en_revision for delete to authenticated using (true);
+grant select, insert, delete on public.en_revision to authenticated;

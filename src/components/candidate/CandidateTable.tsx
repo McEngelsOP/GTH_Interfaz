@@ -5,7 +5,8 @@ import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { ExplicacionEmbeddings } from './ExplicacionEmbeddings.tsx';
 import { VisorCV } from './VisorCV.tsx';
-import { cvPersonal } from '../../services/bumeranSync.ts';
+import { cvPersonal, timeAgo } from '../../services/bumeranSync.ts';
+import { useEnRevision } from '../../services/enRevision.ts';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import {
@@ -14,7 +15,7 @@ import {
   Eye,
   UserCheck,
   UserX,
-  Bookmark,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
@@ -57,7 +58,6 @@ export function CandidateTable({
     selectAllApplications,
     clearApplicationSelection,
     openCandidateDrawer,
-    handleSaveToTalentPool,
     handleMoveStage,
     handleToggleTopNExtra,
     showToast,
@@ -146,8 +146,13 @@ export function CandidateTable({
     }
   };
 
-  const saveCandidateToPool = (cand: Candidate) => {
-    handleSaveToTalentPool(cand.id);
+  // «En revisión»: marca compartida con todo el equipo (se guarda en Supabase)
+  const enRevision = useEnRevision(activeJob, applications, appState.candidates);
+  const alternarRevision = async (cand: Candidate) => {
+    const quitar = applications.some((a) => a.candidateId === cand.id && enRevision.porAplicacion.has(a.id));
+    const error = await enRevision.alternar(cand);
+    if (error) showToast(`No se pudo guardar la marca «En revisión»: ${error}`, 'error');
+    else showToast(quitar ? `${cand.name} ya no está en revisión.` : `${cand.name} quedó en revisión para todo el equipo.`, 'info');
   };
 
   return (
@@ -268,7 +273,7 @@ export function CandidateTable({
             width: '100%',
             borderCollapse: 'collapse',
             textAlign: 'left',
-            fontSize: density === 'compact' ? '0.8125rem' : '0.875rem',
+            fontSize: density === 'compact' ? '0.78rem' : '0.8125rem',
           }}
         >
           <thead>
@@ -277,12 +282,12 @@ export function CandidateTable({
                 backgroundColor: 'var(--bg-base)',
                 borderBottom: '1px solid var(--border-default)',
                 color: 'var(--text-secondary)',
-                fontSize: '0.75rem',
+                fontSize: '0.7rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
               }}
             >
-              <th style={{ width: '40px', padding: '0.75rem 0.85rem' }}>
+              <th style={{ width: '36px', padding: '0.6rem 0.6rem' }}>
                 <input
                   type="checkbox"
                   checked={allCurrentPageSelected}
@@ -291,12 +296,12 @@ export function CandidateTable({
                   style={{ cursor: 'pointer', accentColor: 'var(--primary-red)' }}
                 />
               </th>
-              <th style={{ width: '45px', padding: '0.75rem 0.5rem' }}>#</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '220px' }}>Candidato</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '130px' }}>Etapa</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '110px' }} aria-sort="descending">Score Embeddings ↓</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '150px' }}>Explicación</th>
-              <th style={{ padding: '0.75rem 1rem', minWidth: '220px', textAlign: 'right' }}>Acciones</th>
+              <th style={{ width: '40px', padding: '0.6rem 0.4rem' }}>#</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px' }}>Candidato</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score Embeddings ↓</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Explicación</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'right' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -321,7 +326,7 @@ export function CandidateTable({
                 const eligibility = isEligibleForTopN(app, selectedMethod);
                 const rowRank = posicion.get(app.id) ?? (validPage - 1) * pageSize + index + 1;
                 const enTop = topIds?.has(app.id) ?? false;
-                const cellPadding = density === 'compact' ? '0.45rem 1rem' : '0.8rem 1rem';
+                const cellPadding = density === 'compact' ? '0.4rem 0.6rem' : '0.6rem 0.6rem';
 
                 return (
                   <tr
@@ -336,7 +341,7 @@ export function CandidateTable({
                     }}
                   >
                     {/* Checkbox */}
-                    <td style={{ padding: '0.6rem 0.85rem' }}>
+                    <td style={{ padding: '0.5rem 0.6rem' }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -382,6 +387,7 @@ export function CandidateTable({
                       <StageBadge stage={app.stage} size="sm" />
                     </td>
 
+
                     {/* Score de embeddings (separado del LLM) y su explicación */}
                     <td style={{ padding: cellPadding, color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
                       {embeddingOf(app) ? (
@@ -402,7 +408,7 @@ export function CandidateTable({
 
                     {/* Acciones por fila */}
                     <td style={{ padding: cellPadding, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem', flexWrap: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem', flexWrap: 'nowrap' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -437,9 +443,12 @@ export function CandidateTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          icon={<Bookmark size={14} />}
-                          onClick={() => cand && saveCandidateToPool(cand)}
-                          title="Conservar en Banco de Talento"
+                          icon={<ClipboardCheck size={14} style={enRevision.porAplicacion.has(app.id) ? { color: 'var(--primary-red)' } : undefined} />}
+                          onClick={() => cand && void alternarRevision(cand)}
+                          aria-pressed={enRevision.porAplicacion.has(app.id)}
+                          title={enRevision.porAplicacion.has(app.id)
+                            ? `En revisión${enRevision.porAplicacion.get(app.id)!.email ? ` · marcado por ${enRevision.porAplicacion.get(app.id)!.email}` : ''} ${timeAgo(enRevision.porAplicacion.get(app.id)!.at)} · clic para quitar`
+                            : 'Marcar «En revisión» (lo ve todo el equipo)'}
                         />
 
                         {app.stage !== 'no_continua' && app.stage !== 'contratado' && (

@@ -219,6 +219,7 @@ export function MejoresCandidatosView() {
     <div className="animate-fade-in" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       {/* Aviso; a su derecha, candidatos activos y Top-N. Debajo, el aviso completo en un desplegable */}
       <ActiveJobBanner conDetalle aside={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <div className="ranking-resumen">
           <div className="ranking-dato">
             <span>Candidatos activos</span>
@@ -234,12 +235,15 @@ export function MejoresCandidatosView() {
               <button type="button" className="focus-ring" aria-label="Aumentar Top-N" onClick={() => setTopN(appState.topN + 1)}><Plus size={12} /></button>
             </div>
             <small>{conEstrella ? `+${conEstrella} con estrella · ` : ''}{fueraDelTop.length} fuera del Top-N</small>
-            <Button variant="primary" size="sm" icon={<UserCheck size={14} />} disabled={!topPorPreseleccionar.length || activeJob.status !== 'activa'}
-              onClick={handlePreseleccionarTopN}
-              title={topPorPreseleccionar.length ? 'Revisar y confirmar el paso de todo el Top-N a Preseleccionados' : 'Todo el Top-N ya está en Preseleccionados o en una etapa posterior'}>
-              Pasar Top-N a Preseleccionados ({topPorPreseleccionar.length})
-            </Button>
           </div>
+        </div>
+          {/* Debajo de los recuadros, a todo su ancho, para que conserven su tamaño */}
+          <Button variant="primary" size="sm" icon={<UserCheck size={14} />} style={{ justifyContent: 'center' }}
+            disabled={!topPorPreseleccionar.length || activeJob.status !== 'activa'}
+            onClick={handlePreseleccionarTopN}
+            title={topPorPreseleccionar.length ? 'Revisar y confirmar el paso de todo el Top-N a Preseleccionados' : 'Todo el Top-N ya está en Preseleccionados o en una etapa posterior'}>
+            Pasar Top-N a Preseleccionados ({topPorPreseleccionar.length})
+          </Button>
         </div>
       } />
 

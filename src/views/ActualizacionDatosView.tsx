@@ -48,7 +48,6 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
     .sort((a, b) => Date.parse(b.bumeran!.updatedAt || '') - Date.parse(a.bumeran!.updatedAt || '') || a.title.localeCompare(b.title));
   const conRanking = avisos.filter((job) => job.bumeran!.rankingAt).length;
   const enOrigen = avisos.reduce((s, job) => s + (job.bumeran!.received || 0), 0);
-  const loading = sync.postings.loading || sync.applicants.loading || sync.ranking.loading || sync.runs.loading;
   const errores = [sync.postings.error, sync.applicants.error, sync.ranking.error, sync.runs.error].filter(Boolean);
   const rankeados = activeJobApplications.filter((a) => a.embeddingMatch?.criteriaVersion === activeJob?.criteriaVersion).length;
 
@@ -67,6 +66,7 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
             <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>Actualización de datos</h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
               Cuándo se revisó Bumeran por última vez, qué datos nuevos trajo y el estado de cada aviso.
+              La revisión de Bumeran se hace automáticamente <strong>una vez al día, a las 12:00 a. m.</strong>
             </p>
           </div>
         </div>
@@ -76,8 +76,10 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
             title="Cargar postulantes desde un CSV o Excel (casos excepcionales, fuera de Bumeran)">
             Importar postulantes desde archivo
           </Button>
-          {sync.configured && <Button variant="primary" icon={<RefreshCw size={16} className={loading ? 'spin' : ''} />} disabled={loading} onClick={sync.refresh}>
-            {loading ? 'Consultando…' : errores.length ? 'Reintentar' : 'Volver a cargar datos'}
+          {/* Deshabilitado hasta la migración a Azure; mientras tanto la app se consulta sola cada 5 minutos */}
+          {sync.configured && <Button variant="primary" icon={<RefreshCw size={16} />} disabled
+            title="Deshabilitado por ahora: se habilitará cuando se complete la migración a Azure">
+            Volver a cargar datos (deshabilitado hasta la migración a Azure)
           </Button>}
         </div>
       </div>
@@ -98,6 +100,10 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
               <h2 style={titulo}>Última revisión de Bumeran</h2>
               {ultima && <Badge size="sm" variant={ESTADO[ultima.estado].variant}>{ESTADO[ultima.estado].texto}</Badge>}
             </div>
+            <p style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+              <Clock size={15} style={{ color: 'var(--text-muted)' }} />
+              Programada una vez al día, a las <strong>12:00 a. m.</strong>
+            </p>
             {ultima ? <>
               <div>
                 <p style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>{fechaHora(ultima.inicio)}</p>
@@ -146,7 +152,7 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
             {activeJob?.bumeran && <p style={{ fontSize: '0.84rem' }}>
               <strong>{activeJob.title}:</strong> {activeJobApplications.length} {activeJobApplications.length === 1 ? 'candidato incorporado' : 'candidatos incorporados'} · {rankeados} con ranking
             </p>}
-            <p style={ayuda}>Se consulta sola cada 5 minutos. «Volver a cargar datos» lee lo que guardó el proceso de extracción; no inicia una nueva descarga de Bumeran.</p>
+            <p style={ayuda}>Se consulta sola cada 5 minutos. El botón «Volver a cargar datos» está deshabilitado hasta la migración a Azure.</p>
           </section>
         </div>
 
