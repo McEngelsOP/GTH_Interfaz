@@ -1,387 +1,237 @@
-import { timeAgo } from '../services/bumeranSync.ts';
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
-import { JobPosting, JobCategory, JobStatus } from '../types/index.ts';
+import { JobPosting } from '../types/index.ts';
 import { Badge } from '../components/common/Badge.tsx';
 import { Button } from '../components/common/Button.tsx';
+import { fechaHora, timeAgo } from '../services/bumeranSync.ts';
 import {
-  Briefcase,
-  Search,
-  PlusCircle,
-  Users,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  ShieldCheck,
-  Building,
+  Briefcase, Search, PlusCircle, Users, Calendar, ArrowRight, ShieldCheck, MapPin, ExternalLink, Clock, Sparkles, FileText, ChevronDown,
 } from 'lucide-react';
+
+// Convocatorias en filas delgadas (como el listado de Bumeran), cada una con «Ver candidatos». Al hacer clic en una fila
+// se despliega debajo el aviso completo. Los filtros usan los datos que publica Bumeran (área y nivel).
+
+const TODOS = 'ALL';
+const opciones = (valores: (string | null | undefined)[]) =>
+  Array.from(new Set(valores.filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b, 'es'));
+
+/** Separa el texto del aviso en secciones («Requisitos:», «Funciones:», «¿Qué buscamos?»…) con sus líneas. */
+function seccionesDelAviso(texto: string): { titulo: string | null; lineas: string[] }[] {
+  const out: { titulo: string | null; lineas: string[] }[] = [{ titulo: null, lineas: [] }];
+  for (const cruda of texto.split(/\r?\n/)) {
+    const linea = cruda.replace(/^[\s•●▪►✓✔✅\-*·–]+/, '').trim();
+    if (!linea) continue;
+    if (/^([A-Za-zÁÉÍÓÚÑáéíóúñ ]{3,40}\s*:|¿[^?]{3,60}\?)$/.test(linea)) out.push({ titulo: linea.replace(/\s*:$/, ''), lineas: [] });
+    else out[out.length - 1].lineas.push(linea);
+  }
+  return out.filter((s) => s.lineas.length || s.titulo);
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return <span className="conv-chip">{children}</span>;
+}
 
 export function ConvocatoriasView() {
   const { appState, setActiveJobPostingId, setCurrentView, showToast, handleActivateJobPosting } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [area, setArea] = useState(TODOS);
+  const [nivel, setNivel] = useState(TODOS);
+  const [ranking, setRanking] = useState(TODOS);
+  const [abiertoId, setAbiertoId] = useState<string | null>(null);   // al inicio, ningún aviso desplegado
 
-  // Conteo de postulaciones por convocatoria calculado en tiempo real
   const candidateCountsByJob = useMemo(() => {
     const counts: Record<string, number> = {};
-    appState.jobPostings.forEach((job) => {
-      counts[job.id] = 0;
-    });
-    appState.applications.forEach((app) => {
-      if (counts[app.jobPostingId] !== undefined) {
-        counts[app.jobPostingId]++;
-      }
-    });
+    appState.applications.forEach((app) => { counts[app.jobPostingId] = (counts[app.jobPostingId] || 0) + 1; });
     return counts;
-  }, [appState.jobPostings, appState.applications]);
+  }, [appState.applications]);
 
-  // Filtrado
-  const filteredJobs = useMemo(() => {
-    return appState.jobPostings.filter((job) => {
-      // Búsqueda
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = job.title.toLowerCase().includes(query);
-        const matchesCode = job.code.toLowerCase().includes(query);
-        const matchesDept = job.department.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesCode && !matchesDept) return false;
-      }
+  const detalles = appState.jobPostings.map((j) => j.bumeran?.detalle);
+  const areas = opciones(detalles.map((d) => d?.area));
+  const niveles = opciones(detalles.map((d) => d?.nivel));
 
-      // Categoría
-      if (selectedCategory !== 'ALL' && job.category !== selectedCategory) {
-        return false;
-      }
+  const filteredJobs = useMemo(() => appState.jobPostings.filter((job) => {
+    const d = job.bumeran?.detalle;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const texto = [job.title, job.code, job.department, d?.area, d?.subarea, d?.ubicacion].filter(Boolean).join(' ').toLowerCase();
+      if (!texto.includes(q)) return false;
+    }
+    if (area !== TODOS && d?.area !== area) return false;
+    if (nivel !== TODOS && d?.nivel !== nivel) return false;
+    if (ranking === 'con' && !job.bumeran?.rankingAt) return false;
+    if (ranking === 'sin' && job.bumeran?.rankingAt) return false;
+    return true;
+  }).sort((a, b) => (Date.parse(b.bumeran?.detalle?.publicadoEl || b.createdAt) || 0) - (Date.parse(a.bumeran?.detalle?.publicadoEl || a.createdAt) || 0)),
+  [appState.jobPostings, searchQuery, area, nivel, ranking]);
 
-      // Estado
-      if (selectedStatus !== 'ALL' && job.status !== selectedStatus) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [appState.jobPostings, searchQuery, selectedCategory, selectedStatus]);
 
   const handleOpenJob = (job: JobPosting) => {
     setActiveJobPostingId(job.id);
-    if (job.bumeran) { setCurrentView('mejores_candidatos'); return; }
-    const count = candidateCountsByJob[job.id] || 0;
-    if (count === 0) {
-      showToast(`Convocatoria "${job.title}" seleccionada. Aún no cuenta con postulantes registrados.`, 'info');
-      setCurrentView('mejores_candidatos');
-    } else {
-      showToast(`Convocatoria "${job.title}" seleccionada con ${count} postulantes.`, 'info');
-      setCurrentView('mejores_candidatos');
+    if (!job.bumeran) {
+      const count = candidateCountsByJob[job.id] || 0;
+      showToast(count ? `Convocatoria "${job.title}" seleccionada con ${count} postulantes.`
+        : `Convocatoria "${job.title}" seleccionada. Aún no cuenta con postulantes registrados.`, 'info');
     }
+    setCurrentView('mejores_candidatos');
   };
+
+  const select = (label: string, value: string, onChange: (v: string) => void, items: string[], todos: string) => (
+    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="focus-ring conv-select">
+      <option value={TODOS}>{todos}</option>
+      {items.map((v) => <option key={v} value={v}>{v}</option>)}
+    </select>
+  );
+  const filtrosActivos = [area, nivel, ranking].some((v) => v !== TODOS) || searchQuery.trim() !== '';
 
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
-      {/* Cabecera de la sección */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          backgroundColor: 'var(--bg-surface)',
-          padding: '1.25rem',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border-subtle)',
-          boxShadow: 'var(--shadow-sm)',
-          marginBottom: '1.5rem',
-        }}
-      >
+      {/* Cabecera */}
+      <div className="conv-cabecera">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--primary-red-subtle)',
-              color: 'var(--primary-red)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <div style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-red-subtle)',
+            color: 'var(--primary-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Briefcase size={22} />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Convocatorias
-            </h1>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>Convocatorias</h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Abre una convocatoria para consultar sus candidatos y revisar el ranking.
+              Haz clic en un aviso para ver su detalle, o entra directo a sus candidatos y su ranking.
             </p>
           </div>
         </div>
-
-        {<Button
-          variant="primary"
-          icon={<PlusCircle size={16} />}
-          onClick={() => setCurrentView('nueva_convocatoria')}
-        >
+        <Button variant="primary" icon={<PlusCircle size={16} />} onClick={() => setCurrentView('nueva_convocatoria')}>
           Nueva convocatoria
-        </Button>}
+        </Button>
       </div>
 
-      {/* Barra de Filtros y Búsqueda */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          backgroundColor: 'var(--bg-surface)',
-          padding: '0.85rem 1rem',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
-          marginBottom: '1.5rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '380px' }}>
-            <Search
-              size={16}
-              style={{
-                position: 'absolute',
-                left: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-              }}
-            />
-            <input
-              type="text"
-              aria-label="Buscar convocatorias" placeholder="Buscar por puesto, código o área…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="focus-ring"
-              style={{
-                width: '100%',
-                padding: '0.45rem 0.75rem 0.45rem 2.2rem',
-                fontSize: '0.84rem',
-                backgroundColor: 'var(--bg-base)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* Filtro por Categoría */}
-          <select
-            aria-label="Categoría" value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="focus-ring"
-            style={{
-              padding: '0.45rem 0.65rem',
-              fontSize: '0.8125rem',
-              backgroundColor: 'var(--bg-base)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="ALL">Todas las categorías</option>
-            <option value="docente">Docentes e investigadores</option>
-            <option value="administrativo">Administrativos y gestión</option>
-            <option value="operativo">Operativos y soporte</option>
-            <option value="directivo">Directivos</option>
-          </select>
-
-          {/* Filtro por Estado */}
-          <select
-            aria-label="Estado de convocatoria" value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="focus-ring"
-            style={{
-              padding: '0.45rem 0.65rem',
-              fontSize: '0.8125rem',
-              backgroundColor: 'var(--bg-base)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="ALL">Todos los estados</option>
-            <option value="activa">Convocatorias Abiertas</option>
-            <option value="borrador">Borradores</option>
-          </select>
+      {/* Búsqueda y filtros con los datos de Bumeran */}
+      <div className="conv-filtros">
+        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '160px', maxWidth: '380px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input type="text" aria-label="Buscar convocatorias" placeholder="Buscar por puesto, código, área o ubicación…"
+            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="focus-ring conv-buscar" />
         </div>
-
-        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+        {areas.length > 0 && select('Área', area, setArea, areas, 'Todas las áreas')}
+        {niveles.length > 0 && select('Nivel', nivel, setNivel, niveles, 'Todos los niveles')}
+        <select aria-label="Ranking" value={ranking} onChange={(e) => setRanking(e.target.value)} className="focus-ring conv-select">
+          <option value={TODOS}>Con y sin ranking</option>
+          <option value="con">Con ranking calculado</option>
+          <option value="sin">Ranking pendiente</option>
+        </select>
+        {filtrosActivos && <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setArea(TODOS); setNivel(TODOS); setRanking(TODOS); }}>Limpiar filtros</Button>}
+        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
           Mostrando <strong>{filteredJobs.length}</strong> de {appState.jobPostings.length} convocatorias
         </span>
       </div>
 
       {!filteredJobs.length && <p role="status" className="import-card">{appState.jobPostings.length ? 'No hay convocatorias que coincidan con los filtros.' : 'Aún no hay convocatorias. Crea una con Nueva convocatoria o sincroniza los avisos de Bumeran.'}</p>}
-      {/* Convocatorias disponibles */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 330px), 1fr))',
-          gap: '1.25rem',
-        }}
-      >
+
+      {filteredJobs.length > 0 && <ul className="conv-lista" aria-label="Lista de convocatorias">
         {filteredJobs.map((job) => {
-          const count = candidateCountsByJob[job.id] || 0;
-          const isCurrentActive = job.id === appState.activeJobPostingId;
-
+          const d = job.bumeran?.detalle;
+          const abierto = abiertoId === job.id;
+          const postulantes = job.bumeran?.received ?? candidateCountsByJob[job.id] ?? 0;
           return (
-            <div
-              key={job.id}
-              style={{
-                backgroundColor: 'var(--bg-surface)',
-                borderRadius: 'var(--radius-lg)',
-                border: isCurrentActive
-                  ? '2px solid var(--primary-red)'
-                  : '1px solid var(--border-default)',
-                boxShadow: isCurrentActive ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                padding: '1.25rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all var(--transition-fast)',
-                position: 'relative',
-              }}
-            >
-              <div>
-                {/* Badges de código, categoría y estado */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.65rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                    <Badge variant="primary" size="sm">
-                      {job.code}
-                    </Badge>
-                    <Badge
-                      size="sm"
-                      variant={
-                        job.category === 'docente'
-                          ? 'purple'
-                          : job.category === 'administrativo'
-                          ? 'info'
-                          : job.category === 'directivo'
-                          ? 'warning'
-                          : 'neutral'
-                      }
-                    >
-                      {job.category.charAt(0).toUpperCase() + job.category.slice(1)}
-                    </Badge>
-                  </div>
-
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: job.status === 'activa' ? 'var(--status-verified-text)' : 'var(--text-muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                    }}
-                  >
-                    ● {job.status === 'activa' ? 'Abierta' : 'Borrador'}
-                  </span>
-                </div>
-
-                {/* Título del puesto */}
-                <h3
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    lineHeight: 1.35,
-                    color: 'var(--text-primary)',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  {job.title}
-                </h3>
-
-                {/* Área y Período */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.85rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Building size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {job.department}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Calendar size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                    <span>{job.period}</span>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  {job.bumeran ? `Bumeran · Datos ${timeAgo(job.bumeran.updatedAt)} · ${job.bumeran.received ?? '—'} postulantes en origen` : 'Carga manual · Datos de este navegador'}
-                </p>
-                {/* Requisito Obligatorio */}
-                <div
-                  style={{
-                    padding: '0.5rem 0.65rem',
-                    backgroundColor: 'var(--bg-base)',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-subtle)',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-secondary)',
-                    lineHeight: 1.4,
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, color: 'var(--primary-red)', marginBottom: '0.15rem' }}>
-                    <ShieldCheck size={13} />
-                    <span>Requisito obligatorio:</span>
-                  </div>
-                  <span>{job.knockoutRule}</span>
-                </div>
-              </div>
-
-              {/* Pie de tarjeta con conteo de postulaciones y botón */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingTop: '0.85rem',
-                  borderTop: '1px solid var(--border-subtle)',
-                  marginTop: 'auto',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Users size={16} style={{ color: count > 0 ? 'var(--primary-red)' : 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {count}{' '}
-                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                      {count === 1 ? 'postulación' : 'postulaciones'}
-                    </span>
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {job.status === 'borrador' && <Button size="sm" variant="outline" onClick={() => handleActivateJobPosting(job.id)}>Activar convocatoria</Button>}
-                <Button
-                  variant={isCurrentActive ? 'primary' : 'secondary'}
-                  size="sm"
-                  icon={<ArrowRight size={14} />}
-                  iconPosition="right"
-                  onClick={() => handleOpenJob(job)}
-                >
+            <li key={job.id} className={`conv-item${abierto ? ' abierto' : ''}`}>
+              <div className="conv-fila">
+                <button type="button" className="conv-fila-click focus-ring" aria-expanded={abierto} aria-controls={`aviso-${job.id}`}
+                  onClick={() => setAbiertoId(abierto ? null : job.id)} title={abierto ? 'Ocultar el detalle del aviso' : 'Ver el detalle del aviso'}>
+                  <ChevronDown size={16} className="conv-chevron" />
+                  <span className="conv-fila-titulo">{job.title}</span>
+                  <span className="conv-fila-sub">{d ? [d.subarea || d.area, d.ubicacion].filter(Boolean).join(' · ') : job.department}</span>
+                  {d?.modalidad && <Chip>{d.modalidad}</Chip>}
+                  {d?.nivel && <Chip>{d.nivel}</Chip>}
+                  {!job.bumeran && <Chip>Carga manual</Chip>}
+                  {job.status === 'borrador' && <Chip>Borrador</Chip>}
+                </button>
+                <span className="conv-fila-meta">
+                  <span title={d?.publicadoEl ? fechaHora(d.publicadoEl.slice(0, 10)) : undefined}>{d?.publicadoEl ? `Publicado ${timeAgo(d.publicadoEl)}` : job.period}</span>
+                  <span><Users size={13} /> <strong className="tabular-nums">{postulantes}</strong></span>
+                  {job.bumeran && (job.bumeran.rankingAt
+                    ? <Badge size="sm" variant="success">Ranking listo</Badge>
+                    : <Badge size="sm" variant="warning">Ranking pendiente</Badge>)}
+                </span>
+                <Button size="sm" variant={job.id === appState.activeJobPostingId ? 'primary' : 'secondary'} icon={<ArrowRight size={14} />}
+                  iconPosition="right" onClick={() => handleOpenJob(job)} aria-label={`Ver candidatos de ${job.title}`}>
                   Ver candidatos
                 </Button>
-                </div>
               </div>
-            </div>
+              {abierto && <DetalleConvocatoria job={job} postulantes={postulantes} incorporados={candidateCountsByJob[job.id] || 0}
+                onActivar={() => handleActivateJobPosting(job.id)} />}
+            </li>
           );
         })}
-      </div>
+      </ul>}
     </div>
   );
 }
 
+function DetalleConvocatoria({ job, postulantes, incorporados, onActivar }: {
+  job: JobPosting; postulantes: number; incorporados: number; onActivar: () => void;
+}) {
+  const d = job.bumeran?.detalle;
+  const secciones = job.evaluationReference ? seccionesDelAviso(job.evaluationReference) : [];
+  const dato = (icono: React.ReactNode, etiqueta: string, valor: React.ReactNode) => (
+    <div className="conv-dato"><span>{icono}{etiqueta}</span><strong>{valor}</strong></div>
+  );
+  return (
+    <section id={`aviso-${job.id}`} className="conv-detalle" aria-label={`Aviso: ${job.title}`}>
+      <div className="conv-detalle-cabecera">
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Badge variant="primary" size="sm">{job.code}</Badge>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: job.status === 'activa' ? 'var(--status-verified-text)' : 'var(--text-muted)' }}>
+            ● {job.status === 'activa' ? 'Abierta' : 'Borrador'}
+          </span>
+        </div>
+        <h2>{job.title}</h2>
+        {d && <p className="conv-detalle-sub">
+          {[d.empresa, d.area && d.subarea ? `${d.area} › ${d.subarea}` : d.area].filter(Boolean).join(' · ')}
+        </p>}
+        {d?.ubicacion && <p className="conv-detalle-sub"><MapPin size={13} /> {d.ubicacion}</p>}
+        <div className="conv-fila-chips" style={{ marginTop: '0.5rem' }}>
+          {d?.modalidad && <Chip>{d.modalidad}</Chip>}
+          {d?.jornada && <Chip>{d.jornada}</Chip>}
+          {d?.nivel && <Chip>{d.nivel}</Chip>}
+          {d?.inclusivo && <Chip>Apto para personas con discapacidad</Chip>}
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
+          {job.status === 'borrador' && <Button size="sm" variant="outline" onClick={onActivar}>Activar convocatoria</Button>}
+          {job.bumeran?.publicUrl && <a className="conv-enlace focus-ring" href={job.bumeran.publicUrl} target="_blank" rel="noreferrer">
+            <ExternalLink size={14} /> Ver en Bumeran</a>}
+        </div>
+      </div>
 
+      <div className="conv-datos">
+        {dato(<Calendar size={13} />, 'Publicado', d?.publicadoEl ? fechaHora(d.publicadoEl.slice(0, 10)) : job.period)}
+        {dato(<Users size={13} />, 'Postulantes', <span className="tabular-nums">{postulantes}{job.bumeran && incorporados !== postulantes ? ` (${incorporados} cargados)` : ''}</span>)}
+        {dato(<Briefcase size={13} />, 'Vacantes', job.vacancies ?? '—')}
+        {job.bumeran && dato(<Clock size={13} />, 'Último CSV', timeAgo(job.bumeran.updatedAt))}
+        {job.bumeran && dato(<Sparkles size={13} />, 'Ranking e5', job.bumeran.rankingAt ? `listo ${timeAgo(job.bumeran.rankingAt)}` : 'pendiente')}
+      </div>
+
+      <div className="conv-obligatorio">
+        <ShieldCheck size={14} /><span><strong>Requisito obligatorio:</strong> {job.knockoutRule}</span>
+      </div>
+
+      {job.criteria.length > 0 && <section className="conv-seccion">
+        <h3>Requisitos que se comparan con cada perfil</h3>
+        <ol className="conv-requisitos">
+          {job.criteria.map((c, k) => <li key={c.id}><strong>R{k + 1}</strong> {c.label} <span>· {c.weightPct}%</span></li>)}
+        </ol>
+      </section>}
+
+      {secciones.length > 0 && <section className="conv-seccion">
+        <h3><FileText size={14} /> Aviso publicado</h3>
+        <div className="conv-aviso">
+          {secciones.map((s, i) => (
+            <div key={i}>
+              {s.titulo && <h4>{s.titulo}</h4>}
+              {s.titulo ? <ul>{s.lineas.map((l, j) => <li key={j}>{l}</li>)}</ul> : s.lineas.map((l, j) => <p key={j}>{l}</p>)}
+            </div>
+          ))}
+        </div>
+      </section>}
+    </section>
+  );
+}

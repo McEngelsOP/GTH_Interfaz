@@ -14,7 +14,8 @@ import {
   InterviewRecord,
   Stage,
 } from '../types/index.ts';
-import { loadAppState, saveAppState, resetAppState } from '../services/storage.ts';
+import { loadAppState } from '../services/storage.ts';
+import { borrarEstado, guardarEstado } from '../services/persistence.ts';
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
 import { readRoute, routeHash } from '../services/navigation.ts';
 import { createPendingApplication, hasValidCriteria, moveApplicationStage, releaseSelectedApplications, updateJobCriteria, validateStageTransition } from '../services/workflow.ts';
@@ -26,9 +27,12 @@ import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
 import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
 import { mergeBumeranJobs } from '../services/bumeranSync.ts';
+import { embeddingVigente, enProceso, idsTopN } from '../services/rankingEmbeddings.ts';
 
 export type ViewType =
   | 'convocatorias'
+  | 'actualizacion_datos'
+  | 'base_centralizada'
   | 'perfiles_puestos'
   | 'perfiles-puestos'
   | 'nueva_convocatoria'
@@ -124,6 +128,7 @@ interface AppContextValue {
   handleReviewRequirement: (applicationId: string, status: RequirementStatus, justification: string) => void;
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
   handleApplyEmbeddingRanking: (results: Record<string, EmbeddingMatch>) => void;
+  handleToggleTopNExtra: (applicationId: string) => void;
   handleSyncBumeranJobs: (jobs: JobPosting[]) => void;
   handleSyncBumeranCandidates: (jobId: string, rows: ImportRow[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
@@ -135,9 +140,9 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children, initialState }: { children: ReactNode; initialState?: AppStateData }) {
   const [appState, setAppState] = useState<AppStateData>(() => {
-    const state = loadAppState();
+    const state = initialState ?? loadAppState();
     const job = state.jobPostings.find((j) => j.id === readRoute(window.location.hash).jobId);
     return job ? { ...state, activeJobPostingId: job.id, topN: job.id === state.activeJobPostingId ? state.topN : job.defaultTopN } : state;
   });
@@ -175,10 +180,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Sincronizar persistencia ante cualquier cambio en appState
   useEffect(() => {
-    const res = saveAppState(appState);
-    if (res.warning) {
-      showToast(res.warning, 'warning');
-    }
+    guardarEstado(appState).then((res) => {
+      if (res.warning) showToast(res.warning, 'warning');
+    });
   }, [appState]);
 
   useTheme(appState.theme, appState.reducedMotion);
@@ -262,14 +266,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const target = appState.applications.find((app) => app.id === ids[0]);
     const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
     if (!job || job.status !== 'activa') { showToast('Seleccione una convocatoria activa.', 'warning'); return; }
+    // Top-N del ranking por Score Embeddings: también pueden avanzar; el resto con score recibe el correo de cierre
+    const delPuesto = appState.applications.filter((app) => app.jobPostingId === job.id);
+    const elegiblesPorRanking = idsTopN(delPuesto, appState.candidates, job, appState.topN);
+    const evaluadosPorRanking = new Set(delPuesto.filter((app) => enProceso(app) && embeddingVigente(app, job)).map((app) => app.id));
     const apply = (state: AppStateData) => advanceApplications({
+      elegiblesPorRanking, evaluadosPorRanking,
       selectedAppIds: ids, applications: state.applications, candidates: state.candidates,
       jobPostingId: job.id, jobPostingTitle: state.jobPostings.find((j) => j.id === job.id)?.title || job.title, criteriaVersion: state.jobPostings.find((j) => j.id === job.id)?.criteriaVersion || job.criteriaVersion,
       method: state.selectedMethod, rejectOthersEvaluated: rejectOthers, customEmailMessage: customMessage,
     });
     const result = apply(appState);
     if (!result.newDecisions.length) {
-      showToast('Revise la selección: todos deben estar pendientes, verificados y evaluados para el mismo puesto.', 'warning'); return;
+      showToast('Revise la selección: todos deben estar pendientes y dentro del Top-N (o verificados y evaluados) del mismo puesto.', 'warning'); return;
     }
     setAppState((prev) => {
       const latest = apply(prev);
@@ -518,6 +527,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       results[app.id] ? { ...app, embeddingMatch: results[app.id] } : app) }));
   };
 
+  // Estrella del ranking: agrega o quita a alguien del Top-N además de los N primeros (se guarda en la convocatoria).
+  const handleToggleTopNExtra = (applicationId: string) => {
+    setAppState((prev) => {
+      const app = prev.applications.find((a) => a.id === applicationId);
+      if (!app) return prev;
+      return { ...prev, jobPostings: prev.jobPostings.map((job) => {
+        if (job.id !== app.jobPostingId) return job;
+        const extras = job.topNExtras || [];
+        return { ...job, topNExtras: extras.includes(applicationId) ? extras.filter((id) => id !== applicationId) : [...extras, applicationId] };
+      }) };
+    });
+  };
+
   // Avisos de Bumeran (Supabase): se agregan como convocatorias sin tocar las existentes.
   const handleSyncBumeranJobs = (jobs: JobPosting[]) => {
     setAppState((prev) => mergeBumeranJobs(prev, jobs));
@@ -553,7 +575,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Limpiar los datos locales de selección
   const handleResetData = () => {
-    const initial = resetAppState();
+    const initial = borrarEstado();
     setAppState(initial);
     setSelectedApplicationIds([]);
     setSelectedCandidateForDrawer(null);
@@ -631,6 +653,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     handleActivateJobPosting,
     handleImportCandidates,
     handleApplyEmbeddingRanking,
+    handleToggleTopNExtra,
     handleSyncBumeranJobs,
     handleSyncBumeranCandidates,
     handleApplyEvaluation,

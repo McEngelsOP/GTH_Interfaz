@@ -1,5 +1,5 @@
 import { ActivityLog, AppStateData, Application, Criterion, DecisionLog, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
-import { advanceApplications, isEligibleForTopN, releaseApplication, simulateScoreRecalculation } from './recruitmentRules.ts';
+import { advanceApplications, releaseApplication, simulateScoreRecalculation } from './recruitmentRules.ts';
 
 export const STAGE_ORDER: Stage[] = ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'];
 
@@ -31,10 +31,8 @@ export function validateStageTransition(app: Application, target: Stage, method:
   const targetIndex = STAGE_ORDER.indexOf(target);
   if (currentIndex < 0 || targetIndex < 0 || app.stage === 'contratado') return 'La postulación está cerrada.';
   if (Math.abs(currentIndex - targetIndex) !== 1) return 'Mueva el expediente a la etapa anterior o siguiente, sin omitir etapas.';
-  if (targetIndex > currentIndex) {
-    if (app.stage === 'postulado') return isEligibleForTopN(app, method).reason || null;
-    if (app.mandatoryRequirementStatus !== 'verificado') return 'Verifique el requisito obligatorio antes de avanzar.';
-  }
+  // El tablero es una decisión manual de GTHC con motivo registrado: con el ranking por embeddings ya no hay
+  // verificación de requisitos ni puntaje LLM que exigir para avanzar.
   return null;
 }
 
@@ -46,10 +44,12 @@ export function moveApplicationStage(state: AppStateData, applicationId: string,
     const result = advanceApplications({
       selectedAppIds: [app.id], applications: state.applications, candidates: state.candidates,
       jobPostingId: job.id, jobPostingTitle: job.title, criteriaVersion: job.criteriaVersion, method: state.selectedMethod,
+      elegiblesPorRanking: new Set([app.id]),
     });
+    const { viaTopN: _viaTopN, ...contexto } = result.newDecisions[0]?.evaluationContext ?? {};
     return { ...state, applications: result.updatedApplications, candidates: result.updatedCandidates,
-      activities: [...result.newActivities, ...state.activities],
-      decisionLogs: [...result.newDecisions.map((d) => ({ ...d, notes: reason.trim() })), ...state.decisionLogs],
+      activities: [...result.newActivities.map((a) => ({ ...a, details: `Avance manual desde el tablero de GTHC: ${reason.trim()}` })), ...state.activities],
+      decisionLogs: [...result.newDecisions.map((d) => ({ ...d, evaluationContext: contexto as typeof d.evaluationContext, notes: reason.trim() })), ...state.decisionLogs],
       emailDrafts: [...result.newDrafts, ...state.emailDrafts] };
   }
   const now = new Date().toISOString();

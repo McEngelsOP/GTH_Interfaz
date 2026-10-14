@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeCandidateTables } from './candidateImport.ts';
-import { avisoToJob, fetchAvisos, fetchPostulantes, fetchRanking, postulantesToTable, rankingToMatches } from './bumeranSync.ts';
+import { avisoToJob, fetchAvisos, fetchCorridas, fetchPostulantes, fetchRanking, postulantesToTable, rankingToMatches } from './bumeranSync.ts';
+import type { CorridaRow } from './bumeranSync.ts';
 import { supabase } from './supabase.ts';
 
 type LoadState = { loading: boolean; error: string; checkedAt: string | null };
@@ -17,6 +18,7 @@ export function useBumeranSync() {
   const [postings, setPostings] = useState(initial);
   const [applicants, setApplicants] = useState(initial);
   const [ranking, setRanking] = useState(initial);
+  const [runs, setRuns] = useState<LoadState & { rows: CorridaRow[] }>({ ...initial, rows: [] });
   const refresh = () => setRevision((value) => value + 1);
 
   useEffect(() => {
@@ -35,6 +37,19 @@ export function useBumeranSync() {
       setPostings({ loading: false, error: '', checkedAt: new Date().toISOString() });
     }).catch(() => {
       if (alive) setPostings((prev) => ({ ...prev, loading: false, error: 'No se pudieron leer las convocatorias. Reintenta; si persiste, revisa los permisos de acceso.' }));
+    });
+    return () => { alive = false; };
+  }, [revision]);
+
+  // Corridas del proceso de extracción: última revisión de Bumeran y lo que trajo (página «Actualización de datos»)
+  useEffect(() => {
+    if (!supabase) return;
+    let alive = true;
+    setRuns((prev) => ({ ...prev, loading: true, error: '' }));
+    fetchCorridas(supabase).then((rows) => {
+      if (alive) setRuns({ loading: false, error: '', checkedAt: new Date().toISOString(), rows });
+    }).catch(() => {
+      if (alive) setRuns((prev) => ({ ...prev, loading: false, error: 'No se pudo leer el historial de revisiones.' }));
     });
     return () => { alive = false; };
   }, [revision]);
@@ -76,5 +91,5 @@ export function useBumeranSync() {
     return () => { alive = false; };
   }, [avisoId, job?.criteriaVersion, job?.bumeran?.rankingAt, applicationIds, revision]);
 
-  return { configured: !!supabase, postings, applicants, ranking, refresh };
+  return { configured: !!supabase, postings, applicants, ranking, runs, refresh };
 }

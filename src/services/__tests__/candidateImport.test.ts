@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { INITIAL_APP_STATE } from '../../data/initialData.ts';
+import { estadoConConvocatoriaDePrueba } from '../../../tests/fixtures/convocatoriaDePrueba.ts';
 import { analyzeCandidateTables, applyCandidateImport, tableFromCSV } from '../candidateImport.ts';
 import { parseStoredState } from '../storage.ts';
 import { applyLlmEvaluationResult, getLlmEvaluationRequest } from '../llmIntegration.ts';
 
-const fresh = () => structuredClone(INITIAL_APP_STATE);
+const fresh = () => estadoConConvocatoriaDePrueba();
 const analyze = (csv: string) => analyzeCandidateTables([tableFromCSV(csv, 'perfiles-prueba.csv')]);
 const sample = 'Nombre;Apellido;E-Mail;DNI;Exp[1] Puesto;Exp[1] Empresa;Exp[1] Descripción;Est[1] Titulo\nAna;Ejemplo; ANA@EXAMPLE.COM ;00123456;Analista;Empresa ficticia;"Funciones; con detalle\ny varias líneas";Ingeniería';
 

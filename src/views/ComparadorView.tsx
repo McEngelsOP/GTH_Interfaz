@@ -18,11 +18,15 @@ import {
   ArrowLeft,
   ShieldCheck,
   Info,
+  AlertCircle,
 } from 'lucide-react';
 import { isEligibleForTopN } from '../services/recruitmentRules.ts';
 import { getReviewCandidates, reviewAvailability, reviewEvaluation } from '../services/reviewRanking.ts';
 import { evaluationSummary } from '../services/evaluationSummary.ts';
 import { compareCandidateNames } from '../services/candidateOrdering.ts';
+import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
+import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
+import { argumentosPorRequisito, colorPct, perfilBumeran } from '../services/perfilBumeran.ts';
 import { Application, Candidate } from '../types/index.ts';
 
 export function ComparadorView() {
@@ -42,6 +46,7 @@ export function ComparadorView() {
 
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [selectedCandidateToAdd, setSelectedCandidateToAdd] = useState('');
+  const [soloTop, setSoloTop] = useState(true);
 
   // Candidatos actualmente en la comparación
   const comparedApplications = useMemo(() => {
@@ -54,19 +59,29 @@ export function ComparadorView() {
     return map;
   }, [appState.candidates]);
 
-  // El selector permite encontrar cualquier perfil por su nombre, de A a Z.
+  // Top-N del ranking por Score Embeddings y la posición de cada uno.
+  const topIds = useMemo(() => idsTopN(activeJobApplications, appState.candidates, activeJob, appState.topN),
+    [activeJobApplications, appState.candidates, activeJob, appState.topN]);
+  const posicion = useMemo(() => new Map(ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob).map((app, i) => [app.id, i + 1])),
+    [activeJobApplications, appState.candidates, activeJob]);
+
+  // Con «Solo del Top-N», el selector muestra solo a los del Top-N en el orden del ranking; si no, a todos de la A a la Z.
   const availableToAdd = useMemo(() => {
-    return activeJobApplications.filter((app) => !selectedApplicationIds.includes(app.id)).sort((a, b) =>
+    const disponibles = activeJobApplications.filter((app) => !selectedApplicationIds.includes(app.id));
+    if (soloTop) return disponibles.filter((app) => topIds.has(app.id)).sort((a, b) => (posicion.get(a.id) || 0) - (posicion.get(b.id) || 0));
+    return disponibles.sort((a, b) =>
       compareCandidateNames(candidateMap.get(a.candidateId)?.name || '', candidateMap.get(b.candidateId)?.name || '')
       || a.id.localeCompare(b.id)
     );
-  }, [activeJobApplications, selectedApplicationIds, candidateMap]);
+  }, [activeJobApplications, selectedApplicationIds, candidateMap, soloTop, topIds, posicion]);
   const topNAvailability = useMemo(() => reviewAvailability(activeJobApplications, activeJob?.criteria || []),
     [activeJobApplications, activeJob?.criteria]);
-  const canQuickAdd = topNAvailability.count >= 2;
-  const quickAddHint = canQuickAdd ? 'Comparar hasta 3 perfiles con puntajes disponibles, incluidos parciales. Revisa su cobertura.'
-    : topNAvailability.count === 1 ? 'Se necesitan al menos dos perfiles con puntaje disponible para la comparación automática.'
-    : topNAvailability.hint;
+  const primeros3 = useMemo(() => ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob)
+    .filter((app) => embeddingVigente(app, activeJob) && app.stage !== 'no_continua' && app.stage !== 'contratado').slice(0, 3).map((a) => a.id),
+    [activeJobApplications, appState.candidates, activeJob]);
+  const canQuickAdd = primeros3.length >= 2;
+  const quickAddHint = canQuickAdd ? 'Comparar a los 3 primeros del ranking por Score Embeddings.'
+    : 'Se necesitan al menos dos perfiles con Score Embeddings para la comparación automática.';
 
   const handleAddCandidate = () => {
     if (!selectedCandidateToAdd) return;
@@ -75,7 +90,7 @@ export function ComparadorView() {
   };
 
   const handleQuickAddTop3 = () => {
-    const eligibleApps = getReviewCandidates(activeJobApplications, activeJob?.criteria || [], 3, appState.candidates).map((a) => a.id);
+    const eligibleApps = primeros3;
     if (eligibleApps.length < 2) return;
     selectAllApplications(eligibleApps);
     showToast(`Se agregaron ${eligibleApps.length} perfiles a la comparación.`, 'info');
@@ -190,19 +205,24 @@ export function ComparadorView() {
             minWidth: '260px',
           }}
         >
-          <option value="">-- Seleccionar candidato --</option>
+          <option value="">{availableToAdd.length ? '-- Seleccionar candidato --' : soloTop ? 'No quedan candidatos del Top-N por añadir' : 'No quedan candidatos por añadir'}</option>
           {availableToAdd.map((app) => {
             const cand = candidateMap.get(app.candidateId);
-            const evaluation = reviewEvaluation(app, activeJob.criteria);
-            const label = evaluation ? evaluation.partial ? `Parcial ${evaluation.score} · ${evaluation.coverage}%` : String(evaluation.score)
-              : app.llmEvaluation ? 'Sin evidencia' : app.evaluationIssue ? 'Caso especial' : 'Pendiente';
+            const emb = embeddingVigente(app, activeJob);
+            const label = emb ? `Score ${formatEmbeddingScore(emb.score)}` : 'sin score';
             return (
               <option key={app.id} value={app.id}>
-                {cand?.name} (LLM: {label})
+                {soloTop || emb ? `#${posicion.get(app.id)} · ` : ''}{cand?.name} ({label})
               </option>
             );
           })}
         </select>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', cursor: 'pointer' }}
+          title="Mostrar en la lista solo a los candidatos que están dentro del Top-N del ranking">
+          <input type="checkbox" checked={soloTop} onChange={(e) => { setSoloTop(e.target.checked); setSelectedCandidateToAdd(''); }}
+            style={{ accentColor: 'var(--primary-red)', cursor: 'pointer' }} />
+          Solo del Top-N ({topIds.size})
+        </label>
         <Button
           variant="secondary"
           size="sm"
@@ -215,7 +235,7 @@ export function ComparadorView() {
 
         {comparedApplications.length < 2 && (
           <Button variant="ghost" size="sm" onClick={handleQuickAddTop3} disabled={!canQuickAdd} title={quickAddHint}>
-            Cargar 3 mejores activos
+            Cargar los 3 primeros del ranking
           </Button>
         )}
       </div>
@@ -338,7 +358,7 @@ export function ComparadorView() {
                             onClick={() => openCandidateDrawer(app)}
                             style={{ flex: 1, fontSize: '0.75rem' }}
                           >
-                            Ver ficha
+                            Detalles
                           </Button>
                         </div>
                       </div>
@@ -349,159 +369,114 @@ export function ComparadorView() {
             </thead>
 
             <tbody>
-              {/* Sección: Puntajes independientes */}
-
+              {/* Ranking */}
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <td
-                  style={{
-                    padding: '0.75rem 1rem',
-                    fontWeight: 700,
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-primary)',
-                    position: 'sticky',
-                    left: 0,
-                    backgroundColor: 'var(--bg-surface)',
-                    borderRight: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  Puntaje según LLM
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', position: 'sticky',
+                  left: 0, backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top' }}>
+                  Ranking por Score Embeddings
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>0 a 1 dentro del aviso; el mejor perfil vale 1</div>
                 </td>
-                {comparedApplications.map((app) => (
-                  <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)' }}>
-                    <ScoreBadge score={app.llmScore} method="LLM" summary={evaluationSummary(app, activeJob.criteria)} />
-                    {app.llmScore === null && app.llmEvaluation && <p style={{ fontSize:'.75rem', color:'var(--text-secondary)', marginTop:'.35rem' }}>Cobertura {evaluationSummary(app, activeJob.criteria).coverage}%</p>}
-                  </td>
-                ))}
+                {comparedApplications.map((app) => {
+                  const emb = embeddingVigente(app, activeJob);
+                  return (
+                    <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top', fontSize: '0.8125rem' }}>
+                      {emb ? <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '1.15rem' }} className="tabular-nums">{formatEmbeddingScore(emb.score)}</strong>
+                        <span style={{ color: 'var(--text-secondary)' }}>puesto {posicion.get(app.id)}</span>
+                        <Badge size="sm" variant={topIds.has(app.id) ? 'success' : 'neutral'}>{topIds.has(app.id) ? 'Top-N' : 'Fuera del Top-N'}</Badge>
+                      </div> : <span style={{ color: 'var(--text-muted)' }}>Sin score todavía</span>}
+                    </td>
+                  );
+                })}
               </tr>
 
-              {/* Sección: Requisito Obligatorio */}
+              {/* Puntos fuertes y a repreguntar, según los requisitos */}
               <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <td
-                  style={{
-                    padding: '0.75rem 1rem',
-                    fontWeight: 700,
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-primary)',
-                    position: 'sticky',
-                    left: 0,
-                    backgroundColor: 'var(--bg-surface)',
-                    borderRight: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  Requisito Obligatorio
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>
-                    {activeJob.knockoutRule}
-                  </div>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', position: 'sticky',
+                  left: 0, backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top' }}>
+                  Puntos fuertes
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>Requisitos que mejor sustenta (70% o más)</div>
                 </td>
-                {comparedApplications.map((app) => (
-                  <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <RequirementPill
-                        status={app.mandatoryRequirementStatus}
-                        justification={app.requirementJustification}
-                        criteriaBreakdown={app.criteriaBreakdown}
-                      />
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {app.requirementJustification || 'Sin justificación registrada'}
-                      </span>
-                    </div>
-                  </td>
-                ))}
-              </tr>
-
-              {/* Sección: Fortalezas */}
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <td
-                  style={{
-                    padding: '0.75rem 1rem',
-                    fontWeight: 700,
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-primary)',
-                    position: 'sticky',
-                    left: 0,
-                    backgroundColor: 'var(--bg-surface)',
-                    borderRight: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  Fortalezas Clave Registradas
-                </td>
-                {comparedApplications.map((app) => (
-                  <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                      {app.whyScoreNotes.strengths.map((str, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem' }}>
-                          <CheckCircle2 size={13} style={{ color: 'var(--status-verified-text)', flexShrink: 0 }} />
-                          <span>{str}</span>
+                {comparedApplications.map((app) => {
+                  const { fuertes } = argumentosPorRequisito(app, candidateMap.get(app.candidateId), activeJob);
+                  return (
+                    <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top', fontSize: '0.8125rem' }}>
+                      {fuertes.length ? fuertes.map((r) => (
+                        <div key={r.id} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.3rem' }}>
+                          <CheckCircle2 size={14} style={{ color: 'var(--status-verified-text)', flexShrink: 0, marginTop: '0.1rem' }} />
+                          <span><strong>{r.codigo}</strong> {r.label} <span style={{ color: colorPct(r.pct) }}>({r.pct}%)</span></span>
                         </div>
-                      ))}
-                    </div>
-                  </td>
-                ))}
+                      )) : <span style={{ color: 'var(--text-muted)' }}>Ningún requisito llega al 70%.</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', position: 'sticky',
+                  left: 0, backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top' }}>
+                  A repreguntar en la entrevista
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>Requisitos con poco o ningún sustento en el perfil</div>
+                </td>
+                {comparedApplications.map((app) => {
+                  const { aRevisar } = argumentosPorRequisito(app, candidateMap.get(app.candidateId), activeJob);
+                  return (
+                    <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top', fontSize: '0.8125rem' }}>
+                      {aRevisar.length ? aRevisar.map((r) => (
+                        <div key={r.id} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.3rem' }}>
+                          <AlertCircle size={14} style={{ color: 'var(--status-partial-text)', flexShrink: 0, marginTop: '0.1rem' }} />
+                          <span><strong>{r.codigo}</strong> {r.label} <span style={{ color: colorPct(r.pct) }}>({r.pct === null ? 'sin evidencia' : `${r.pct}%`})</span></span>
+                        </div>
+                      )) : <span style={{ color: 'var(--text-muted)' }}>Sin requisitos débiles.</span>}
+                    </td>
+                  );
+                })}
               </tr>
 
-              {/* Fila divisoria: Criterios específicos del puesto */}
+              {/* Perfil: experiencia reciente, estudios e idiomas */}
+              {([
+                ['Experiencia reciente', (app: Application) => {
+                  const e = perfilBumeran(candidateMap.get(app.candidateId)).experiencias[0];
+                  return e ? <><strong>{e.puesto}</strong><div style={{ color: 'var(--text-secondary)' }}>{[e.empresa, e.periodo].filter(Boolean).join(' · ')}</div></> : '—';
+                }],
+                ['Estudios (mayor nivel)', (app: Application) => {
+                  const e = perfilBumeran(candidateMap.get(app.candidateId)).mejorEstudio;
+                  return e ? <><strong>{e.titulo}</strong><div style={{ color: 'var(--text-secondary)' }}>{[e.institucion, [e.nivel, e.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</div></> : '—';
+                }],
+                ['Idiomas', (app: Application) => perfilBumeran(candidateMap.get(app.candidateId)).idiomas || '—'],
+              ] as [string, (app: Application) => React.ReactNode][]).map(([titulo, valor]) => (
+                <tr key={titulo} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', position: 'sticky',
+                  left: 0, backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top' }}>{titulo}</td>
+                  {comparedApplications.map((app) => <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top', fontSize: '0.8125rem' }}>{valor(app)}</td>)}
+                </tr>
+              ))}
+
+              {/* Fila divisoria: requisitos del aviso */}
               <tr style={{ backgroundColor: 'var(--bg-base)', borderBottom: '2px solid var(--border-default)' }}>
-                <td
-                  colSpan={1 + comparedApplications.length}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  Criterios de Evaluación Específicos del Puesto (Suma 100%)
+                <td colSpan={1 + comparedApplications.length} style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700,
+                  textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                  Requisitos del aviso: similitud y evidencia de cada perfil
                 </td>
               </tr>
 
-              {activeJob.criteria.map((crit) => (
+              {activeJob.criteria.map((crit, k) => (
                 <tr key={crit.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td
-                    style={{
-                      padding: '0.75rem 1rem',
-                      fontWeight: 600,
-                      fontSize: '0.8125rem',
-                      color: 'var(--text-primary)',
-                      position: 'sticky',
-                      left: 0,
-                      backgroundColor: 'var(--bg-surface)',
-                      borderRight: '1px solid var(--border-subtle)',
-                    }}
-                  >
-                    <div>{crit.label}</div>
-                    <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.2rem' }}>
-                      <Badge size="sm" variant={'purple'}>
-                        {crit.type} ({crit.weightPct}%)
-                      </Badge>
-                    </div>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-primary)', position: 'sticky',
+                  left: 0, backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top' }}>
+                    <div><span style={{ color: 'var(--primary-red)' }}>R{k + 1}.</span> {crit.label}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px' }}>peso {crit.weightPct}%</div>
                   </td>
-
                   {comparedApplications.map((app) => {
-                    const item = app.criteriaBreakdown[crit.id];
+                    const r = argumentosPorRequisito(app, candidateMap.get(app.candidateId), activeJob).requisitos[k];
                     return (
-                      <td
-                        key={app.id}
-                        style={{
-                          padding: '0.75rem 1rem',
-                          verticalAlign: 'top',
-                          borderRight: '1px solid var(--border-subtle)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <span
-                            style={{
-                              fontSize: '0.9rem',
-                              fontWeight: 700,
-                              color: item?.score !== undefined ? 'var(--primary-red)' : 'var(--text-muted)',
-                            }}
-                          >
-                            {item?.score !== undefined ? `${item.score} / 100` : 'Sin evidencia'}
-                          </span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            {item?.evidence || 'Evidencia no homologada'}
-                          </span>
+                      <td key={app.id} style={{ padding: '0.75rem 1rem', borderRight: '1px solid var(--border-subtle)', verticalAlign: 'top', fontSize: '0.8125rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                          <strong style={{ color: colorPct(r.pct), minWidth: '2.6rem' }} className="tabular-nums">{r.pct === null ? '—' : `${r.pct}%`}</strong>
+                          <div style={{ flex: 1, height: '6px', borderRadius: '3px', backgroundColor: 'var(--bg-muted)', overflow: 'hidden' }}>
+                            <div style={{ width: `${r.pct ?? 0}%`, height: '100%', backgroundColor: colorPct(r.pct) }} />
+                          </div>
                         </div>
+                        <span style={{ color: 'var(--text-secondary)', lineHeight: 1.45 }}>{r.evidencia || 'Sin evidencia en el perfil.'}</span>
                       </td>
                     );
                   })}
@@ -520,6 +495,7 @@ export function ComparadorView() {
         candidates={appState.candidates}
         job={activeJob}
         method={appState.selectedMethod}
+        topIds={topIds}
         onConfirmAdvance={(rejectOthers, customMsg) => {
           handleAdvanceSelected(rejectOthers, customMsg);
           setCurrentView('mejores_candidatos');

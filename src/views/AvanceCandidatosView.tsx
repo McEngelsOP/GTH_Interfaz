@@ -3,9 +3,10 @@ import { IS_STAGE_ONE } from '../config/edition.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Stage, Application, Candidate } from '../types/index.ts';
-import { ScoreBadge } from '../components/candidate/ScoreBadge.tsx';
-import { RequirementPill } from '../components/candidate/RequirementPill.tsx';
+import { embeddingVigente, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
+import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
 import { StageDecisionModal } from '../components/modals/StageDecisionModal.tsx';
+import { AgradecimientoMasivoModal } from '../components/modals/AgradecimientoMasivoModal.tsx';
 import { validateStageTransition } from '../services/workflow.ts';
 import { Badge } from '../components/common/Badge.tsx';
 import { Button } from '../components/common/Button.tsx';
@@ -18,6 +19,7 @@ import {
   AlertCircle,
   Database,
   ArrowRight,
+  Mail,
 } from 'lucide-react';
 
 const STAGES_ORDER: { id: Stage; label: string; desc: string }[] = [
@@ -43,12 +45,17 @@ export function AvanceCandidatosView() {
   const [pendingMove, setPendingMove] = useState<{ app: Application; target: Stage } | null>(null);
 
   const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
+  const [agradecimientoAbierto, setAgradecimientoAbierto] = useState(false);
 
   const candidateMap = useMemo(() => {
     const map = new Map<string, Candidate>();
     appState.candidates.forEach((c) => map.set(c.id, c));
     return map;
   }, [appState.candidates]);
+
+  // Posición en el ranking por Score Embeddings, la misma que muestra la tabla de «Candidatos y ranking»
+  const posicion = useMemo(() => new Map(ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob)
+    .map((app, i) => [app.id, i + 1])), [activeJobApplications, appState.candidates, activeJob]);
 
   // Agrupar postulaciones por etapa activa
   const columns = useMemo(() => {
@@ -92,6 +99,10 @@ export function AvanceCandidatosView() {
       requestMoveStage(app.id, STAGES_ORDER[currentIndex - 1].id);
     }
   };
+
+  // Preseleccionados o más allá; el resto (postulados y los que no continúan) recibe el agradecimiento
+  const seleccionados = activeJobApplications.length - columns.postulado.length - columns.no_continua.length;
+  const noSeleccionados = [...columns.postulado, ...columns.no_continua];
 
   if (!activeJob) return null;
 
@@ -140,6 +151,16 @@ export function AvanceCandidatosView() {
           </div>
         </div>
 
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
+        {/* Con preseleccionados: correo de agradecimiento a todos los que no fueron seleccionados */}
+        {seleccionados > 0 && (
+          <Button variant="primary" size="sm" icon={<Mail size={14} />} onClick={() => setAgradecimientoAbierto(true)}
+            disabled={!noSeleccionados.length}
+            title="Abrir Gmail con el mensaje de agradecimiento para quienes no están en Preseleccionado ni en una etapa posterior">
+            Agradecer a no seleccionados ({noSeleccionados.length})
+          </Button>
+        )}
+
         {/* Acceso a perfiles liberados que no continúan */}
         {columns.no_continua.length > 0 && (
           <div
@@ -167,6 +188,7 @@ export function AvanceCandidatosView() {
             </Button>}
           </div>
         )}
+        </div>
       </div>
 
       {/* Contenedor del Tablero Kanban con Scroll Horizontal Fluido */}
@@ -319,18 +341,13 @@ export function AvanceCandidatosView() {
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
 
-                        {/* Requisitos y Scores */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem', flexWrap: 'wrap' }}>
-                          <RequirementPill
-                            status={app.mandatoryRequirementStatus}
-                            justification={app.requirementJustification}
-                            criteriaBreakdown={app.criteriaBreakdown}
-                            size="sm"
-                          />
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            <ScoreBadge score={app.llmScore} method="LLM" size="sm" />
-                          </div>
-                        </div>
+                        {/* Score Embeddings y posición en el ranking */}
+                        <span className="tabular-nums" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}
+                          title="Score Embeddings (similitud con los criterios del aviso) y posición en el ranking">
+                          {embeddingVigente(app, activeJob)
+                            ? <><strong style={{ color: 'var(--text-primary)' }}>{formatEmbeddingScore(embeddingVigente(app, activeJob)!.score)}</strong> · #{posicion.get(app.id)} del ranking</>
+                            : 'Score Embeddings pendiente'}
+                        </span>
 
                         {/* Botones de Navegación entre etapas (Accesibilidad / Móvil / Teclado) */}
                         <div
@@ -409,6 +426,8 @@ export function AvanceCandidatosView() {
         candidateName={candidateMap.get(pendingMove.app.candidateId)?.name || 'Candidato'}
         onClose={() => setPendingMove(null)}
         onConfirm={(reason) => handleMoveStage(pendingMove.app.id, pendingMove.target, reason)} />}
+      <AgradecimientoMasivoModal isOpen={agradecimientoAbierto} onClose={() => setAgradecimientoAbierto(false)}
+        job={activeJob} noSeleccionados={noSeleccionados} candidates={candidateMap} />
     </div>
   );
 }

@@ -57,6 +57,15 @@ export function isEligibleForTopN(
 }
 
 /**
+ * Puede pasar a Preselección: por la regla LLM (requisito verificado y puntaje) o porque está en el Top-N del
+ * ranking por Score Embeddings (`topIds`). La vía Top-N solo aplica a postulaciones pendientes (etapa «postulado»).
+ */
+export function puedeAvanzar(application: Application, method: EvaluationMethod, topIds?: Set<string>): boolean {
+  return isEligibleForTopN(application, method).eligible
+    || (application.stage === 'postulado' && Boolean(topIds?.has(application.id)));
+}
+
+/**
  * Obtiene el puntaje según el método especificado (0-100 o null)
  */
 export function getScoreByMethod(
@@ -209,6 +218,10 @@ export function advanceApplications(params: {
   author?: string;
   rejectOthersEvaluated?: boolean;
   customEmailMessage?: string;
+  /** Top-N del ranking por Score Embeddings: pueden avanzar aunque no tengan puntaje LLM. */
+  elegiblesPorRanking?: Set<string>;
+  /** Postulaciones con Score Embeddings: con «los otros no avanzan» reciben el correo de cierre (agradecimiento). */
+  evaluadosPorRanking?: Set<string>;
 }): {
   updatedApplications: Application[];
   updatedCandidates: Candidate[];
@@ -227,6 +240,8 @@ export function advanceApplications(params: {
     customEmailMessage,
     jobPostingId,
     criteriaVersion,
+    elegiblesPorRanking,
+    evaluadosPorRanking,
   } = params;
 
   const now = new Date().toISOString();
@@ -238,7 +253,7 @@ export function advanceApplications(params: {
   const selected = applications.filter((app) => selectedSet.has(app.id));
   // Revalidar toda la decisión: ni expedientes ajenos ni estados ya decididos.
   if (!selected.length || selected.length !== selectedSet.size || selected.some((app) =>
-    app.jobPostingId !== jobPostingId || !isEligibleForTopN(app, method).eligible
+    app.jobPostingId !== jobPostingId || !puedeAvanzar(app, method, elegiblesPorRanking)
   )) {
     return { updatedApplications: applications, updatedCandidates: candidates, newActivities, newDecisions, newDrafts };
   }
@@ -249,6 +264,7 @@ export function advanceApplications(params: {
     if (selectedSet.has(app.id)) {
       // 1. Avanzar a Preseleccionado
       const previousStage = app.stage;
+      const viaTopN = !isEligibleForTopN(app, method).eligible;   // entró por el ranking de embeddings
       const updatedApp: Application = {
         ...app,
         stage: 'preseleccionado',
@@ -261,7 +277,9 @@ export function advanceApplications(params: {
         applicationId: app.id,
         type: 'stage_change',
         title: 'Avance a Preseleccionado',
-        details: `Candidato promovido a la etapa de Preselección mediante evaluación con método ${method}.`,
+        details: viaTopN
+          ? 'Candidato promovido a la etapa de Preselección por estar en el Top-N del ranking por Score Embeddings.'
+          : `Candidato promovido a la etapa de Preselección mediante evaluación con método ${method}.`,
         author,
         timestamp: now,
       });
@@ -281,6 +299,7 @@ export function advanceApplications(params: {
         evaluationContext: {
           llmScore: app.llmScore,
           method,
+          ...(viaTopN ? { embeddingScore: app.embeddingMatch?.score ?? null, viaTopN: true } : {}),
         },
         notes: `Decisión de avance tomada para el puesto "${jobPostingTitle}".`,
       });
@@ -313,7 +332,7 @@ export function advanceApplications(params: {
     if (
       rejectOthersEvaluated &&
       app.stage === 'postulado' &&
-      isEligibleForTopN(app, method).eligible
+      (isEligibleForTopN(app, method).eligible || Boolean(evaluadosPorRanking?.has(app.id)))
     ) {
       closedCandidateIds.add(app.candidateId);
       const updatedApp: Application = {

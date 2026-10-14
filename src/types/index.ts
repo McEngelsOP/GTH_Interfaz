@@ -44,8 +44,14 @@ export interface JobPosting {
   templateId?: string;
   evaluationReference?: string;
   createdAt: string;
+  /** Postulaciones que el reclutador agregó al Top-N con la estrella, además de los N primeros del ranking. */
+  topNExtras?: string[];
   /** Solo en convocatorias que vienen de un aviso de Bumeran (scraping → Supabase). */
-  bumeran?: { avisoId: string; updatedAt: string | null; publicUrl: string | null; received: number | null; rankingAt?: string | null };
+  bumeran?: { avisoId: string; updatedAt: string | null; publicUrl: string | null; received: number | null; rankingAt?: string | null;
+    /** Ficha publicada en Bumeran (área, ubicación, modalidad, jornada, nivel). */
+    detalle?: { area: string | null; subarea: string | null; ubicacion: string | null; empresa: string | null;
+      modalidad: string | null; jornada: string | null; nivel: string | null; inclusivo: boolean;
+      publicadoEl: string | null; url: string | null } };
 }
 
 export interface Candidate {
@@ -144,6 +150,9 @@ export interface DecisionLog {
   evaluationContext: {
     llmScore: number | null;
     method: EvaluationMethod;
+    /** Avance por el ranking de Score Embeddings (estaba en el Top-N) en lugar del puntaje LLM. */
+    embeddingScore?: number | null;
+    viaTopN?: boolean;
   };
   notes?: string;
   reason?: string;

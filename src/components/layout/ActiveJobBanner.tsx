@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { Badge } from '../common/Badge.tsx';
-import { ShieldCheck, Users, Calendar, Sliders, ArrowRightLeft, Clock } from 'lucide-react';
+import { ShieldCheck, Calendar, Sliders, ArrowRightLeft, Clock, FileText } from 'lucide-react';
 import { timeAgo } from '../../services/bumeranSync.ts';
 import { Button } from '../common/Button.tsx';
 
-export function ActiveJobBanner() {
-  const { activeJob, activeJobApplications, setCurrentView } = useApp();
+/** `aside`: contenido a la derecha del aviso (p. ej. candidatos activos y Top-N).
+ *  `conDetalle`: muestra el desplegable con el aviso completo y los requisitos del puesto. */
+export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNode; conDetalle?: boolean } = {}) {
+  const { activeJob, setCurrentView } = useApp();
 
   if (!activeJob) return null;
 
   return (
+    <div style={{ marginBottom: '1.5rem' }}>
     <div
       style={{
         backgroundColor: 'var(--bg-surface)',
@@ -19,7 +22,6 @@ export function ActiveJobBanner() {
         border: '1px solid var(--border-subtle)',
         boxShadow: 'var(--shadow-sm)',
         padding: '1.25rem 1.5rem',
-        marginBottom: '1.5rem',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
@@ -32,7 +34,9 @@ export function ActiveJobBanner() {
           <Badge variant="primary" size="sm">
             {activeJob.code}
           </Badge>
-          <Badge
+          {activeJob.bumeran?.detalle?.area ? (
+            <Badge variant="info" size="sm">{activeJob.bumeran.detalle.subarea || activeJob.bumeran.detalle.area}</Badge>
+          ) : <Badge
             variant={
               activeJob.category === 'docente'
                 ? 'purple'
@@ -45,7 +49,7 @@ export function ActiveJobBanner() {
             size="sm"
           >
             {activeJob.category.charAt(0).toUpperCase() + activeJob.category.slice(1)}
-          </Badge>
+          </Badge>}
           <span
             style={{
               fontSize: '0.75rem',
@@ -66,15 +70,13 @@ export function ActiveJobBanner() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <strong>Área:</strong> {activeJob.department}
+            <strong>Área:</strong> {activeJob.bumeran?.detalle?.area
+              ? [activeJob.bumeran.detalle.area, activeJob.bumeran.detalle.subarea].filter(Boolean).join(' › ')
+              : activeJob.department}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
             {activeJob.period}
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Users size={14} style={{ color: 'var(--text-muted)' }} />
-            <strong>Vacantes previstas:</strong> {activeJob.vacancies !== null ? activeJob.vacancies : 'No registrado'}
           </span>
           {activeJob.bumeran && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
@@ -106,6 +108,8 @@ export function ActiveJobBanner() {
         </div>
       </div>
 
+      {aside}
+
       {/* Botones de acción contextual rápida */}
       {!IS_STAGE_ONE && <div style={{ display: 'flex', flexWrap: 'wrap', maxWidth: '100%', alignItems: 'center', gap: '0.65rem' }}>
         <Button
@@ -128,6 +132,32 @@ export function ActiveJobBanner() {
           Cambiar puesto
         </Button>
       </div>}
+    </div>
+
+      {conDetalle && (activeJob.evaluationReference || activeJob.criteria.length > 0) && (
+        <details className="aviso-detalle">
+          <summary>
+            <FileText size={15} style={{ color: 'var(--primary-red)' }} />
+            Ver aviso y referencia del puesto
+          </summary>
+          <div className="aviso-detalle-cuerpo">
+            <div>
+              <h3>Requisitos que se comparan con cada perfil</h3>
+              <ol>
+                {activeJob.criteria.map((c, k) => (
+                  <li key={c.id}><strong>R{k + 1}.</strong> {c.label} <span>· peso {c.weightPct}%</span></li>
+                ))}
+              </ol>
+            </div>
+            {activeJob.evaluationReference && (
+              <div>
+                <h3>Aviso publicado</h3>
+                <p className="aviso-texto">{activeJob.evaluationReference}</p>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

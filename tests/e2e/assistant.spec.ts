@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { INITIAL_APP_STATE } from '../../src/data/initialData.ts';
+import { estadoConConvocatoriaDePrueba } from '../fixtures/convocatoriaDePrueba.ts';
 import { createPendingApplication } from '../../src/services/workflow.ts';
 import { Candidate } from '../../src/types/index.ts';
 
@@ -7,8 +7,9 @@ const people: Candidate[] = [
   { id: 'fake-chat-1', name: 'Ana Ejemplo', email: 'PRIVATE_EMAIL@example.com', phone: 'PRIVATE_PHONE', currentTitle: 'Analista', currentCompany: 'Empresa inventada', source: 'Prueba', summary: '', rawCvText: 'PRIVATE_CV', savedInTalentPool: false },
   { id: 'fake-chat-2', name: 'Zoe Prueba', email: 'OTHER_PRIVATE_EMAIL@example.com', phone: 'OTHER_PRIVATE_PHONE', currentTitle: 'Analista', currentCompany: 'Empresa inventada', source: 'Prueba', summary: '', rawCvText: 'OTHER_PRIVATE_CV', savedInTalentPool: false },
 ];
-const job = INITIAL_APP_STATE.jobPostings.find((item) => item.id === INITIAL_APP_STATE.activeJobPostingId)!;
-const fixture = { ...INITIAL_APP_STATE, candidates: people, applications: people.map((person) => createPendingApplication(person.id, job)) };
+const base = estadoConConvocatoriaDePrueba();
+const job = base.jobPostings.find((item) => item.id === base.activeJobPostingId)!;
+const fixture = { ...base, candidates: people, applications: people.map((person) => createPendingApplication(person.id, job)) };
 const open = async (page: Page) => { await page.goto('/#view=mejores_candidatos'); await page.getByRole('button', { name: 'Asistente GTH', exact: true }).click(); };
 const configuration = { configured: true, model: 'gemini-3.5-flash-lite', provider: 'Google Gemini' };
 

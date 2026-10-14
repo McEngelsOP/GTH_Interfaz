@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { INITIAL_APP_STATE } from '../../data/initialData.ts';
 import { analyzeCandidateTables, applyCandidateImport } from '../candidateImport.ts';
-import { avisoToJob, BUMERAN_KNOCKOUT, equalCriteria, extractRequirements, mergeBumeranJobs, postulantesToTable, rankingToMatches, timeAgo } from '../bumeranSync.ts';
-import type { PostulanteRow, RankingRow } from '../bumeranSync.ts';
+import { avisoToJob, BUMERAN_KNOCKOUT, equalCriteria, estadoCorrida, extractRequirements, mergeBumeranJobs, postulantesToTable, rankingToMatches, resumirRanking, resumirRevisiones, timeAgo } from '../bumeranSync.ts';
+import type { CorridaRow, PostulanteRow, RankingRow } from '../bumeranSync.ts';
 import { hasValidCriteria } from '../workflow.ts';
 import { parseStoredState } from '../storage.ts';
 
@@ -100,5 +100,36 @@ describe('avisos de Bumeran', () => {
     expect(Object.keys(results)).toEqual([app.id]);
     expect(results[app.id]).toMatchObject({ score: 1, ranking: 1, backend: 'e5', criteriaVersion: job.criteriaVersion,
       requirementSims: { r1: 1, r2: null }, requirementEvidence: { r1: 'Exp[1] Asistente', r2: '' } });
+  });
+
+  it('resume la última revisión de Bumeran con lo que trajo cada corrida', () => {
+    let id = 0;
+    const run = (tipo: string, inicio: string, extra: Partial<CorridaRow> = {}): CorridaRow =>
+      ({ id: ++id, tipo, aviso_id: null, inicio, fin: inicio, estado: 'ok', nuevos: null, total: null, ...extra });
+    const rows = [
+      run('corrida', '2026-10-11T10:00:00Z', { fin: '2026-10-11T10:30:00Z' }),
+      run('lista', '2026-10-11T10:00:05Z', { total: 30 }),
+      run('csv', '2026-10-11T10:01:00Z', { nuevos: 40 }),
+      run('corrida', '2026-10-12T05:42:00Z', { fin: '2026-10-12T06:09:00Z' }),
+      run('lista', '2026-10-12T05:42:10Z', { total: 36 }),
+      run('csv', '2026-10-12T05:43:00Z', { nuevos: 47 }),
+      run('csv', '2026-10-12T05:44:00Z', { nuevos: 73 }),
+      run('csv', '2026-10-12T05:45:00Z', { estado: 'error' }),
+      run('cvs', '2026-10-12T06:00:00Z', { nuevos: 2 }),
+      run('ranking', '2026-10-14T05:00:00Z', { nuevos: 45, fin: '2026-10-14T05:01:00Z' }),
+      run('ranking', '2026-10-14T05:02:00Z', { nuevos: 171, fin: '2026-10-14T05:05:00Z' }),
+      run('ranking', '2026-10-14T05:06:00Z', { nuevos: 0, fin: '2026-10-14T05:06:01Z' }),
+      run('ranking', '2026-10-12T09:53:00Z', { estado: 'en_curso', fin: null }),
+    ].reverse();
+    const [ultima, anterior] = resumirRevisiones(rows, Date.parse('2026-10-14T06:00:00Z'));
+    expect(ultima).toMatchObject({ estado: 'ok', duracionMin: 27, avisosRevisados: 36, avisosConCsv: 2,
+      postulantesNuevos: 120, cvsNuevos: 2, errores: 1 });
+    expect(anterior).toMatchObject({ avisosRevisados: 30, postulantesNuevos: 40, errores: 0 });
+    // el ranking se calcula aparte: solo cuentan los avisos con postulantes nuevos de la última tanda
+    expect(resumirRanking(rows)).toEqual({ fin: '2026-10-14T05:06:01Z', avisos: 2, postulantes: 216 });
+    // una corrida «en curso» de hace días se cortó
+    expect(estadoCorrida(rows.find((r) => r.estado === 'en_curso')!, Date.parse('2026-10-14T06:00:00Z'))).toBe('interrumpida');
+    expect(resumirRevisiones([])).toEqual([]);
+    expect(resumirRanking([])).toBeNull();
   });
 });

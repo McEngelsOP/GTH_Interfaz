@@ -8,6 +8,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Los datos del scraper (CVs, CSV, perfil de Chrome) cambian mientras corre y no son parte de la web
+    watch: { ignored: ['**/scraping/**', '**/matching/**', '**/_insumos/**'] },
     // Servicio local de matching por embeddings: python -m matching.embeddings.server
     proxy: {
       '/api/embeddings': 'http://127.0.0.1:8001'

@@ -7,10 +7,13 @@ import { CandidateDrawer } from './components/candidate/CandidateDrawer.tsx';
 import { GTHAssistantDrawer } from './components/assistant/GTHAssistantDrawer.tsx';
 import { supabase } from './services/supabase.ts';
 import { useBumeranSync } from './services/useBumeranSync.ts';
-import { BumeranSyncBar } from './components/layout/BumeranSyncBar.tsx';
 import { ConvocatoriasView } from './views/ConvocatoriasView.tsx';
 import { NuevaConvocatoriaView } from './views/NuevaConvocatoriaView.tsx';
 import { LoginView } from './views/LoginView.tsx';
+import { ActualizacionDatosView } from './views/ActualizacionDatosView.tsx';
+import { BaseCentralizadaView } from './views/BaseCentralizadaView.tsx';
+import { cargarEstado } from './services/persistence.ts';
+import type { AppStateData } from './types/index.ts';
 
 // Vistas del sistema GTH ESAN
 import { AgregarArchivosView } from './views/AgregarArchivosView.tsx';
@@ -18,10 +21,12 @@ import { MejoresCandidatosView } from './views/MejoresCandidatosView.tsx';
 import { ComparadorView } from './views/ComparadorView.tsx';
 import { AvanceCandidatosView } from './views/AvanceCandidatosView.tsx';
 
-function MainContent() {
+function MainContent({ sync }: { sync: ReturnType<typeof useBumeranSync> }) {
   const { currentView, activeJob } = useApp();
 
   const renderView = () => {
+    if (currentView === 'actualizacion_datos') return <ActualizacionDatosView sync={sync} />;
+    if (currentView === 'base_centralizada') return <BaseCentralizadaView />;
     if (!activeJob && currentView !== 'nueva_convocatoria' && currentView !== 'nueva-convocatoria') return <ConvocatoriasView />;
     switch (currentView) {
       case 'convocatorias': return <ConvocatoriasView />;
@@ -62,11 +67,10 @@ function AppLayout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
-      <Sidebar isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+      <Sidebar sync={sync} isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
-        <BumeranSyncBar sync={sync} />
-        <MainContent />
+        <MainContent sync={sync} />
       </div>
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
       <GTHAssistantDrawer />
@@ -88,12 +92,24 @@ function AuthGate({ children }: { children: ReactNode }) {
   return session === 'activa' ? <>{children}</> : <LoginView />;
 }
 
+// El estado se lee de IndexedDB (asíncrono) antes de montar la aplicación.
+function CargadorEstado({ children }: { children: (estado: AppStateData) => ReactNode }) {
+  const [estado, setEstado] = useState<AppStateData | null>(null);
+  useEffect(() => { cargarEstado().then(setEstado); }, []);
+  if (!estado) return <div role="status" className="session-loading">Cargando datos…</div>;
+  return <>{children(estado)}</>;
+}
+
 export default function App() {
   return (
     <AuthGate>
-      <AppProvider>
-        <AppLayout />
-      </AppProvider>
+      <CargadorEstado>
+        {(estado) => (
+          <AppProvider initialState={estado}>
+            <AppLayout />
+          </AppProvider>
+        )}
+      </CargadorEstado>
     </AuthGate>
   );
 }

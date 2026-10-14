@@ -6,15 +6,15 @@ import { Tabs, TabItem } from '../components/common/Tabs.tsx';
 import { Button } from '../components/common/Button.tsx';
 import { Badge } from '../components/common/Badge.tsx';
 import { AdvanceDecisionModal } from '../components/modals/AdvanceDecisionModal.tsx';
-import { EvaluationPanel } from '../components/assistant/EvaluationPanel.tsx';
 import { ReleaseModal } from '../components/modals/ReleaseModal.tsx';
 import { BulkReleaseModal } from '../components/modals/BulkReleaseModal.tsx';
 import {
   calculateJobMetrics,
   isEligibleForTopN,
+  puedeAvanzar,
 } from '../services/recruitmentRules.ts';
-import { getReviewCandidates, reviewAvailability } from '../services/reviewRanking.ts';
-import { exportCandidatesCSV } from '../services/exportService.ts';
+import { exportarRankingExcel, AlcanceExport } from '../services/exportExcel.ts';
+import { enProceso, idsTopN, idsTopNPorPosicion, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
 import { useEmbeddingRanking } from '../services/useEmbeddingRanking.ts';
 import {
   Users,
@@ -63,24 +63,26 @@ export function MejoresCandidatosView() {
   const metrics = useMemo(() => {
     return calculateJobMetrics(activeJobApplications, appState.selectedMethod, activeJob?.criteria);
   }, [activeJobApplications, appState.selectedMethod, activeJob?.criteria]);
-  const showingPartialAverage = metrics.avgScore === null && metrics.avgPartialScore !== null;
-  const displayedAverage = metrics.avgScore ?? metrics.avgPartialScore;
-  const topNAvailability = useMemo(() => reviewAvailability(activeJobApplications, activeJob?.criteria || []),
-    [activeJobApplications, activeJob?.criteria]);
 
   // Candidatos que ya fueron designados y movidos a Los Mejores (Preseleccionados)
   const preselectedCandidates = useMemo(() => {
     return activeJobApplications.filter((a) => a.stage === 'preseleccionado');
   }, [activeJobApplications]);
 
-  // Mejores perfiles calculados dinámicamente según método y cantidad (pendientes)
-  const topReviewPending = useMemo(() => {
-    return getReviewCandidates(activeJobApplications, activeJob?.criteria || [], appState.topN, appState.candidates);
-  }, [activeJobApplications, activeJob?.criteria, appState.topN, appState.candidates]);
-
-  // El Top-N contiene únicamente expedientes pendientes de primera decisión.
-  const allBestApplications = topReviewPending;
-  const evaluationApplications = activeJobApplications.filter(app => app.stage === 'postulado');
+  // Top-N: los N primeros del ranking por Score Embeddings (se resaltan en la tabla). El resto de los que siguen
+  // en proceso queda «fuera del Top-N»: a ellos se les envía el correo de agradecimiento.
+  const topIds = useMemo(() => idsTopN(activeJobApplications, appState.candidates, activeJob, appState.topN),
+    [activeJobApplications, appState.candidates, activeJob, appState.topN]);
+  const topPorPosicion = useMemo(() => idsTopNPorPosicion(activeJobApplications, appState.candidates, activeJob, appState.topN),
+    [activeJobApplications, appState.candidates, activeJob, appState.topN]);
+  const conEstrella = [...topIds].filter((id) => !topPorPosicion.has(id)).length;
+  const ordenadas = useMemo(() => ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob),
+    [activeJobApplications, appState.candidates, activeJob]);
+  const allBestApplications = useMemo(() => ordenadas.filter((app) => topIds.has(app.id)), [ordenadas, topIds]);
+  const fueraDelTop = useMemo(() => ordenadas.filter((app) => enProceso(app) && !topIds.has(app.id)), [ordenadas, topIds]);
+  const conScore = ordenadas.filter((app) => app.embeddingMatch?.criteriaVersion === activeJob?.criteriaVersion).length;
+  const topNAvailability = { count: allBestApplications.length,
+    hint: conScore ? `Los ${allBestApplications.length} primeros del ranking se resaltan en la tabla.` : 'Aún no hay Score Embeddings para este aviso.' };
 
   // Selección de conjunto según pestaña activa
   const displayedApplications = useMemo(() => {
@@ -110,11 +112,10 @@ export function MejoresCandidatosView() {
     },
     {
       id: 'mejores',
-      label: 'Top-N para revisión',
+      label: 'Top-N',
       count: allBestApplications.length,
     },
     { id: 'preseleccionados', label: 'Preseleccionados', count: preselectedCandidates.length },
-    { id: 'contratados', label: 'Contratados', count: metrics.stageCounts.contratado },
     {
       id: 'marcados',
       label: 'Marcados',
@@ -134,14 +135,22 @@ export function MejoresCandidatosView() {
 
   // Marca un conjunto orientativo para revisar; no cambia etapas ni requisitos.
   const handleSelectTopN = () => {
-    const topIds = topReviewPending.map((a) => a.id);
+    const topIds = allBestApplications.map((a) => a.id);
     if (topIds.length === 0) {
       showToast(topNAvailability.hint, 'info');
       return;
     }
     selectAllApplications(topIds);
     setActiveTab('mejores');
-    showToast(`Se marcaron ${topIds.length} perfiles para revisión con los puntajes LLM disponibles. Revisa cobertura y requisitos antes de decidir el avance.`, 'info');
+    showToast(`Se marcaron los ${topIds.length} primeros del ranking.`, 'info');
+  };
+
+  // Pasa todo el Top-N que sigue en «Postulado» a Preseleccionados: los marca y abre la confirmación de avance
+  const topPorPreseleccionar = allBestApplications.filter((app) => app.stage === 'postulado');
+  const handlePreseleccionarTopN = () => {
+    if (!topPorPreseleccionar.length) return;
+    selectAllApplications(topPorPreseleccionar.map((app) => app.id));
+    setIsAdvanceModalOpen(true);
   };
 
   // Comparar seleccionados
@@ -167,61 +176,26 @@ export function MejoresCandidatosView() {
     return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
   }, [activeJobApplications, selectedApplicationIds]);
   const releasableMarkedApps = markedApps.filter(app => app.stage !== 'no_continua' && app.stage !== 'contratado');
-  const canAdvanceMarked = markedApps.length > 0 && markedApps.every(app => isEligibleForTopN(app, appState.selectedMethod).eligible);
+  const canAdvanceMarked = markedApps.length > 0 && markedApps.every(app => puedeAvanzar(app, appState.selectedMethod, topIds));
   const bulkReleaseApplications = activeJobApplications.filter(app => bulkReleaseIds?.includes(app.id));
 
-  // Exportación CSV de todos los candidatos del puesto
-  const handleExportAll = () => {
+  // Exportación del ranking a Excel: todo, Top-N, fuera del Top-N (agradecimiento) o marcados
+  const [exportando, setExportando] = useState(false);
+  const exportar = async (alcance: AlcanceExport) => {
     if (!activeJob) return;
-    if (activeJobApplications.length === 0) {
-      showToast('No hay candidatos en este puesto para exportar.', 'warning');
-      return;
+    const conjunto = alcance === 'top' ? allBestApplications : alcance === 'fuera' ? fueraDelTop
+      : alcance === 'marcados' ? ordenadas.filter((a) => selectedApplicationIds.includes(a.id)) : ordenadas;
+    if (!conjunto.length) { showToast('No hay candidatos para exportar en esta opción.', 'warning'); return; }
+    setExportando(true);
+    try {
+      const archivo = await exportarRankingExcel({ job: activeJob, ordenadas: conjunto, candidates: appState.candidates, topIds, alcance, rankingCompleto: ordenadas });
+      showToast(`Excel descargado: ${archivo} (${conjunto.length} candidatos).`, 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('No se pudo generar el Excel. Inténtalo de nuevo.', 'error');
+    } finally {
+      setExportando(false);
     }
-    exportCandidatesCSV({
-      emailDrafts: appState.emailDrafts,
-      applications: activeJobApplications,
-      candidates: appState.candidates,
-      job: activeJob,
-      method: appState.selectedMethod,
-      scopeName: 'Todos',
-    });
-    showToast(`Descargando CSV de todos los candidatos (${activeJobApplications.length}) de ${activeJob.code}.`, 'success');
-  };
-
-  // Exportación CSV de Los Mejores perfiles
-  const handleExportBest = () => {
-    if (!activeJob) return;
-    if (allBestApplications.length === 0) {
-      showToast('No hay perfiles catalogados como los mejores para exportar.', 'warning');
-      return;
-    }
-    exportCandidatesCSV({
-      emailDrafts: appState.emailDrafts,
-      applications: allBestApplications,
-      candidates: appState.candidates,
-      job: activeJob,
-      method: appState.selectedMethod,
-      scopeName: 'Top_N_revision',
-    });
-    showToast(`Descargando CSV de los mejores perfiles (${allBestApplications.length}) de ${activeJob.code}.`, 'success');
-  };
-
-  // Exportación CSV de candidatos marcados
-  const handleExportMarked = () => {
-    if (!activeJob) return;
-    if (markedApps.length === 0) {
-      showToast('Seleccione al menos un candidato para exportar.', 'warning');
-      return;
-    }
-    exportCandidatesCSV({
-      emailDrafts: appState.emailDrafts,
-      applications: markedApps,
-      candidates: appState.candidates,
-      job: activeJob,
-      method: appState.selectedMethod,
-      scopeName: 'Marcados',
-    });
-    showToast(`Descargando CSV de los ${markedApps.length} candidatos marcados.`, 'success');
   };
 
   // Mover marcados directamente a "Los Mejores" (Preseleccionados)
@@ -243,303 +217,42 @@ export function MejoresCandidatosView() {
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
-      {/* Banner de Contexto de Convocatoria Activa */}
-      <ActiveJobBanner />
-
-      {/* Indicadores Compactos y Controles de Selección */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem',
-        }}
-      >
-        {/* KPI 1: Candidatos Activos */}
-        <div
-          className="hover-lift"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            padding: '1rem 1.25rem',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-          }}
-        >
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--primary-red-subtle)',
-              color: 'var(--primary-red)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Users size={20} />
+      {/* Aviso; a su derecha, candidatos activos y Top-N. Debajo, el aviso completo en un desplegable */}
+      <ActiveJobBanner conDetalle aside={
+        <div className="ranking-resumen">
+          <div className="ranking-dato">
+            <span>Candidatos activos</span>
+            <strong className="tabular-nums">{metrics.totalActive}</strong>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-              Candidatos Activos
-            </span>
-            <span style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }} className="tabular-nums">
-              {metrics.totalActive}
-            </span>
-          </div>
-        </div>
-
-        {/* KPI 2: Puntaje Promedio del Método Seleccionado */}
-        <div
-          className="hover-lift"
-          role="region"
-          aria-label="Resumen del promedio LLM"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            padding: '1rem 1.25rem',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-          }}
-        >
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--method-llm-bg)',
-              color: 'var(--method-llm-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Award size={20} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-              {showingPartialAverage ? 'Promedio parcial' : 'Promedio'} ({appState.selectedMethod})
-            </span>
-            <span style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }} className="tabular-nums">
-              {displayedAverage !== null ? `${displayedAverage} / 100` : metrics.evaluatedWithoutScoreCount > 0 ? 'Sin evidencia' : 'Sin datos'}
-            </span>
-            {metrics.avgScore !== null && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {metrics.scoredCount} {metrics.scoredCount === 1 ? 'evaluación completa' : 'evaluaciones completas'}
-            </span>}
-            {metrics.avgPartialScore !== null && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {!showingPartialAverage && <>Parciales: {metrics.avgPartialScore} / 100 · </>}
-              {metrics.partialScoreCount} {metrics.partialScoreCount === 1 ? 'evaluación parcial' : 'evaluaciones parciales'} · cobertura media {metrics.avgPartialCoverage}%
-            </span>}
-            {displayedAverage === null && metrics.evaluatedWithoutScoreCount > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {metrics.evaluatedWithoutScoreCount} {metrics.evaluatedWithoutScoreCount === 1 ? 'evaluación recibida sin criterios puntuables' : 'evaluaciones recibidas sin criterios puntuables'}
-            </span>}
-          </div>
-        </div>
-
-        {/* KPI 3: Requisitos Obligatorios Verificados */}
-        <div
-          className="hover-lift"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            padding: '1rem 1.25rem',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-          }}
-        >
-          <div
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--status-verified-bg)',
-              color: 'var(--status-verified-text)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ShieldCheck size={20} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-              Requisitos Verificados
-            </span>
-            <span style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)' }} className="tabular-nums">
-              {metrics.verifiedCount}{' '}
-              <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>
-                de {metrics.totalActive}
-              </span>
-            </span>
-          </div>
-        </div>
-
-        {/* Panel de Control de Selección Top-N y Método */}
-        <div
-          className="hover-lift"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            padding: '0.85rem 1.15rem',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--primary-red-border)',
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            gap: '0.5rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Top-N de revisión:
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <Badge variant="purple" size="sm">LLM</Badge>
+          <div className="ranking-dato" title="Los N primeros del ranking más los que marques con estrella. Se resaltan en la tabla; al resto se le envía el correo de agradecimiento.">
+            <span>Top-N</span>
+            <strong className="tabular-nums" aria-label="Total en el Top-N">{topIds.size}</strong>
+            <div className="topn-control">
+              <small>primeros</small>
+              <button type="button" className="focus-ring" aria-label="Reducir Top-N" onClick={() => setTopN(appState.topN - 1)}><Minus size={12} /></button>
+              <input type="number" aria-label="Cantidad Top-N" min={1} value={appState.topN} onChange={(e) => setTopN(parseInt(e.target.value) || 1)} />
+              <button type="button" className="focus-ring" aria-label="Aumentar Top-N" onClick={() => setTopN(appState.topN + 1)}><Plus size={12} /></button>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button
-                onClick={() => setTopN(appState.topN - 1)}
-                className="focus-ring"
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-default)',
-                  backgroundColor: 'var(--bg-base)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                <Minus size={13} />
-              </button>
-              <input
-                type="number"
-                aria-label="Cantidad Top-N"
-                min={1}
-                value={appState.topN}
-                onChange={(e) => setTopN(parseInt(e.target.value) || 1)}
-                style={{
-                  width: '42px',
-                  textAlign: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-surface)',
-                  color: 'var(--text-primary)',
-                  padding: '0.2rem 0',
-                }}
-              />
-              <button
-                onClick={() => setTopN(appState.topN + 1)}
-                className="focus-ring"
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-default)',
-                  backgroundColor: 'var(--bg-base)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                <Plus size={13} />
-              </button>
-            </div>
-
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Sparkles size={14} />}
-              onClick={handleSelectTopN}
-              disabled={topNAvailability.count === 0 || activeJob.status !== 'activa'}
-              aria-describedby="top-n-availability"
-              title={activeJob.status !== 'activa' ? 'La convocatoria debe estar activa para seleccionar perfiles.' : topNAvailability.hint}
-              style={{ flex: 1 }}
-            >
-              Elegir los mejores
+            <small>{conEstrella ? `+${conEstrella} con estrella · ` : ''}{fueraDelTop.length} fuera del Top-N</small>
+            <Button variant="primary" size="sm" icon={<UserCheck size={14} />} disabled={!topPorPreseleccionar.length || activeJob.status !== 'activa'}
+              onClick={handlePreseleccionarTopN}
+              title={topPorPreseleccionar.length ? 'Revisar y confirmar el paso de todo el Top-N a Preseleccionados' : 'Todo el Top-N ya está en Preseleccionados o en una etapa posterior'}>
+              Pasar Top-N a Preseleccionados ({topPorPreseleccionar.length})
             </Button>
           </div>
-          <span id="top-n-availability" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            {activeJob.status !== 'activa' ? 'La convocatoria debe estar activa para seleccionar perfiles.' : topNAvailability.hint}
-          </span>
         </div>
-      </div>
+      } />
 
-      {/* Barra de Herramientas y Exportación CSV General */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          marginBottom: '1rem',
-          padding: '0.65rem 1rem',
-          backgroundColor: 'var(--bg-surface)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <FileSpreadsheet size={18} style={{ color: 'var(--primary-red)' }} />
-          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Exportación CSV de la convocatoria ({activeJob.code}):
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Download size={14} />}
-            onClick={handleExportAll}
-            title="Descargar todos los candidatos del puesto en archivo CSV"
-          >
-            Exportar todos ({metrics.totalProcessed})
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Star size={14} style={{ color: '#D97706' }} />}
-            onClick={handleExportBest}
-            title="Descargar el Top-N de expedientes pendientes en CSV"
-          >
-            Exportar Top-N ({allBestApplications.length})
-          </Button>
-
-          {selectedApplicationIds.length > 0 && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Download size={14} />}
-              onClick={handleExportMarked}
-              title="Descargar los perfiles marcados en CSV"
-            >
-              Exportar Marcados ({selectedApplicationIds.length})
-            </Button>
-          )}
-        </div>
+      {/* Exportación del ranking a Excel (franja compacta) */}
+      <div className="export-franja">
+        <span><FileSpreadsheet size={16} style={{ color: 'var(--status-verified-text)' }} /> Exportar ranking a Excel:</span>
+        <Button variant="ghost" size="sm" disabled={exportando} onClick={() => exportar('todos')}>Todo ({ordenadas.length})</Button>
+        <Button variant="ghost" size="sm" disabled={exportando} onClick={() => exportar('top')}>Top-N ({allBestApplications.length})</Button>
+        <Button variant="ghost" size="sm" disabled={exportando} onClick={() => exportar('fuera')}
+          title="Lista con correo de quienes no pasan a la siguiente ronda, para el correo de agradecimiento">
+          Fuera del Top-N · agradecimiento ({fueraDelTop.length})
+        </Button>
+        {exportando && <span style={{ color: 'var(--text-muted)' }}>Generando…</span>}
       </div>
 
       {/* Pestañas con significado claro */}
@@ -594,10 +307,10 @@ export function MejoresCandidatosView() {
               variant="secondary"
               size="sm"
               icon={<Download size={14} />}
-              onClick={handleExportMarked}
-              title="Descargar solo los candidatos marcados en CSV"
+              onClick={() => exportar('marcados')}
+              title="Descargar solo los candidatos marcados en Excel"
             >
-              Exportar CSV ({selectedApplicationIds.length})
+              Exportar Excel ({selectedApplicationIds.length})
             </Button>
             <Button
               variant="primary"
@@ -637,19 +350,17 @@ export function MejoresCandidatosView() {
         </div>
       )}
 
-      {activeJob.bumeran && <p className="ranking-help">El ranking de embeddings ordena por similitud con los requisitos del aviso. La evaluación LLM se ejecuta por separado; revisa la evidencia antes de decidir.</p>}
-      <EvaluationPanel />
 
       {/* Tabla central de candidatos */}
       {!activeJobApplications.length && <div className="import-card" role="status">
         <p style={{ marginBottom: '.75rem' }}>{activeJob.bumeran ? 'Los candidatos se incorporan desde Bumeran. Si aún no aparecen, consulta el estado de sincronización y vuelve a cargar los datos.' : 'Esta convocatoria todavía no tiene candidatos. Importa un CSV o Excel para empezar.'}</p>
         {!activeJob.bumeran && <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Importar perfiles</Button>}
       </div>}
-      {evaluationApplications.some((app) => app.llmScore === null) && <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem', marginBottom: '1rem' }}>
-        {evaluationApplications.filter((app) => app.llmScore === null && !app.llmEvaluation && !app.evaluationIssue).length} sin evaluar · {evaluationApplications.filter((app) => app.llmScore === null && app.llmEvaluation).length} con evidencia incompleta · {evaluationApplications.filter((app) => app.evaluationIssue).length} casos especiales. El Top-N para revisión usa los puntajes disponibles. Avanzar requiere puntaje completo y requisitos verificados.
-      </p>}
       <CandidateTable
         applications={displayedApplications}
+        topIds={topIds}
+        topPorPosicion={topPorPosicion}
+        ordenRanking={ordenadas}
         selectedMethod={appState.selectedMethod}
         onOpenReleaseModal={handleOpenReleaseModal}
         onQuickAdvance={(app) => {
@@ -667,6 +378,7 @@ export function MejoresCandidatosView() {
         job={activeJob}
         method={appState.selectedMethod}
         onConfirmAdvance={handleConfirmAdvance}
+        topIds={topIds}
       />
 
       {/* Modal de liberación */}

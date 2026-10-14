@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleGeminiChat, sanitizeContext } from '../../../server/geminiChat.ts';
 import { buildAssistantContext } from '../assistantService.ts';
-import { INITIAL_APP_STATE } from '../../data/initialData.ts';
+import { estadoConConvocatoriaDePrueba } from '../../../tests/fixtures/convocatoriaDePrueba.ts';
 
-const context = buildAssistantContext(INITIAL_APP_STATE, INITIAL_APP_STATE.jobPostings[0]);
+const estado = estadoConConvocatoriaDePrueba();
+const context = buildAssistantContext(estado, estado.jobPostings[0]);
 const request = (body: unknown, ip = 'test-default') => new Request('https://example.com/api/chat', {
   method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://example.com', 'x-forwarded-for': ip }, body: JSON.stringify(body),
 });

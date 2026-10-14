@@ -4,7 +4,8 @@ import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import { ScoreBadge } from '../candidate/ScoreBadge.tsx';
 import { Application, Candidate, JobPosting, EvaluationMethod } from '../../types/index.ts';
-import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { puedeAvanzar } from '../../services/recruitmentRules.ts';
+import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import { evaluationSummary } from '../../services/evaluationSummary.ts';
 import { UserCheck, Eye, Info, CheckCircle2 } from 'lucide-react';
 
@@ -26,7 +27,8 @@ export function AdvanceDecisionModal({
   job,
   method,
   onConfirmAdvance,
-}: AdvanceDecisionModalProps) {
+  topIds,
+}: AdvanceDecisionModalProps & { topIds?: Set<string> }) {
   const [rejectOthers, setRejectOthers] = useState(false);
   const [customMessage, setCustomMessage] = useState(
     `Estimado(a) {nombre},\n\nNos complace comunicarle que su postulación para la convocatoria "{puesto}" ha avanzado a la etapa de Preseleccionado.\n\nPróximamente el equipo de GTHC de la Universidad ESAN se comunicará con usted para coordinar las siguientes etapas.\n\nAtentamente,\nEquipo de GTHC · Universidad ESAN`
@@ -36,7 +38,7 @@ export function AdvanceDecisionModal({
   useEffect(() => { if (isOpen) { setRejectOthers(false); setShowPreview(false); } }, [isOpen, job.id]);
   if (!isOpen) return null;
 
-  const validSelection = selectedApplications.length > 0 && selectedApplications.every((app) => app.jobPostingId === job.id && isEligibleForTopN(app, method).eligible) && job.status === 'activa';
+  const validSelection = selectedApplications.length > 0 && selectedApplications.every((app) => app.jobPostingId === job.id && puedeAvanzar(app, method, topIds)) && job.status === 'activa';
   const count = selectedApplications.length;
 
   const handleConfirm = () => {
@@ -57,7 +59,7 @@ export function AdvanceDecisionModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Revisar decisión de avance de candidatos"
-      subtitle={`Puesto: ${job.code} · ${job.title} · Método: ${method}`}
+      subtitle={`Puesto: ${job.code} · ${job.title} · ${selectedApplications.some((app) => topIds?.has(app.id)) ? 'Top-N del ranking por Score Embeddings' : `Método: ${method}`}`}
       maxWidth="680px"
       footer={
         <>
@@ -134,7 +136,11 @@ export function AdvanceDecisionModal({
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <ScoreBadge score={app.llmScore} method="LLM" size="sm" summary={evaluationSummary(app, job.criteria)} />
+                    {app.embeddingMatch && app.embeddingMatch.criteriaVersion === job.criteriaVersion
+                      ? <span className="tabular-nums" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Score {formatEmbeddingScore(app.embeddingMatch.score)}{topIds?.has(app.id) ? ' · Top-N' : ''}
+                        </span>
+                      : <ScoreBadge score={app.llmScore} method="LLM" size="sm" summary={evaluationSummary(app, job.criteria)} />}
                   </div>
                 </div>
               );
@@ -166,8 +172,8 @@ export function AdvanceDecisionModal({
               Los otros perfiles evaluados no avanzan (No continúa)
             </span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Solo afecta a otros candidatos pendientes evaluados del mismo puesto. Los perfiles con requisitos o datos
-              pendientes seguirán pendientes de evaluación.
+              Solo afecta a otros candidatos pendientes evaluados del mismo puesto (con puntaje LLM o Score Embeddings).
+              Para cada uno se prepara un borrador del correo de agradecimiento; no se envía nada automáticamente.
             </span>
           </div>
         </label>

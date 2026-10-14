@@ -25,24 +25,34 @@ test('recupera una consulta fallida e incorpora candidatos y ranking sin duplica
   await page.route('https://gth-test.supabase.co/rest/v1/**', async (route) => {
     const table = new URL(route.request().url()).pathname.split('/').at(-1);
     if (table === 'avisos' && fail) { await route.fulfill({ status: 403, json: { message: 'Test: permission denied' } }); return; }
+    if (table === 'scrape_runs') { await route.fulfill({ json: [
+      { id: 2, tipo: 'csv', aviso_id: 'demo-sync', inicio: '2026-10-12T10:00:10Z', fin: '2026-10-12T10:00:20Z', estado: 'ok', nuevos: 1, total: 1 },
+      { id: 1, tipo: 'corrida', aviso_id: null, inicio: '2026-10-12T10:00:00Z', fin: '2026-10-12T10:00:30Z', estado: 'ok', nuevos: null, total: null }] }); return; }
     const rows = table === 'avisos' ? [aviso] : table === 'v_postulaciones' ? [{ id_postulante: 'ana001', datos_json: {
       Nombre: 'Ana', Apellido: 'Prueba', 'E-Mail': 'ana@example.test', 'Nro. Documento': '10000001', 'Exp[1] Puesto': 'Asistente' } }] : [{
       id_postulante: 'ana001', criterios_version: job.criteriaVersion, backend: 'e5', ranking: 1, score: .9,
       req_sims: [.9], req_fragmentos: ['Asistente'], explicacion: 'Experiencia relacionada', calculado_at: aviso.ranking_at }];
     await route.fulfill({ json: rows });
   });
-  await page.goto('/#view=convocatorias');
+  // El estado de los datos y «Volver a cargar datos» están en la página «Actualización de datos» del menú
+  await page.goto('/#view=actualizacion_datos');
   await expect(page.getByRole('alert')).toContainText('No se pudieron leer las convocatorias');
   fail = false;
   await page.getByRole('button', { name: 'Reintentar', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Avisos sincronizados' })).toContainText(aviso.titulo);
+  await expect(page.getByRole('region', { name: 'Última revisión de Bumeran' })).toContainText('1');
+  // En Convocatorias no hay selector de aviso: se abre desde su tarjeta
+  await page.locator('aside').getByRole('button', { name: /^Convocatorias/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Convocatoria activa' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: aviso.titulo, exact: true })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Convocatoria activa' }).selectOption(job.id);
-  await page.locator('aside').getByRole('button', { name: /Candidatos y ranking/ }).click();
+  await page.getByRole('button', { name: 'Ver candidatos', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Convocatoria activa' })).toBeVisible();
+  await page.locator('aside').getByRole('button', { name: /Actualización de datos/ }).click();
   await expect(page.getByRole('region', { name: 'Sincronización de Bumeran' })).toContainText('1 candidato incorporado · 1 con ranking');
   await page.getByRole('button', { name: 'Volver a cargar datos', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Volver a cargar datos', exact: true })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Ana Prueba', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Sincronización de Bumeran' })).toContainText('1 candidato incorporado · 1 con ranking');
   await page.screenshot({ path: 'test-results/bumeran-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('button', { name: 'Volver a cargar datos', exact: true })).toBeVisible();

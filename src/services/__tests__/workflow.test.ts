@@ -105,7 +105,13 @@ describe('decisiones aisladas por expediente y convocatoria', () => {
     expect(interviewed.applications.find((a) => a.id === 'app-001')?.stage).toBe('en_entrevista');
     expect(interviewed.decisionLogs[0].criteriaVersion).toBe(state.jobPostings[0].criteriaVersion);
     expect(moveApplicationStage(state, 'app-001', 'contratado', 'Salto')).toBe(state);
-    expect(validateStageTransition({ ...state.applications[0], mandatoryRequirementStatus: 'sin_verificar' }, 'preseleccionado', 'LLM')).toBeTruthy();
+    // Decisión manual del tablero: avanza aunque el requisito no esté verificado ni tenga puntaje LLM
+    const sinVerificar = { ...state.applications[0], mandatoryRequirementStatus: 'sin_verificar' as const, llmScore: null };
+    expect(validateStageTransition(sinVerificar, 'preseleccionado', 'LLM')).toBeNull();
+    const manual = moveApplicationStage({ ...state, applications: state.applications.map((a) => a.id === 'app-001' ? sinVerificar : a) },
+      'app-001', 'preseleccionado', 'Perfil revisado por GTHC');
+    expect(manual.applications.find((a) => a.id === 'app-001')?.stage).toBe('preseleccionado');
+    expect(manual.activities[0].details).toContain('Perfil revisado por GTHC');
     expect(moveApplicationStage(state, 'app-001', 'preseleccionado', '')).toBe(state);
   });
 });

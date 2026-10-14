@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { INITIAL_APP_STATE } from '../../data/initialData.ts';
+import { estadoConConvocatoriaDePrueba } from '../../../tests/fixtures/convocatoriaDePrueba.ts';
 import { analyzeCandidateTables, applyCandidateImport, tableFromCSV } from '../candidateImport.ts';
 import { prepareEvaluationProfile, hasSensitivePatterns } from '../profilePrivacy.ts';
 import { prepareEvaluation, applyPreparedEvaluation, evaluatePreparedProfile, recordEvaluationIssue, EvaluationError } from '../evaluationService.ts';
@@ -13,7 +13,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const raw = 'Nombre completo;E-Mail;Teléfono;DNI;Dirección;Fecha de nacimiento;Exp[1] Puesto;Exp[1] Empresa;Exp[1] Descripción;Est[1] Titulo;Exp[1] Desde;Campo desconocido\nAna Privada;ana.private@example.com;+51 987 654 321;01234567;Av. Privada 987;02/03/1990;Desarrolladora;Empresa Privada;Desarrolló soluciones con Python y AWS. Mi correo es ana.private@example.com;Maestría en informática;01/03/2020;CANARY_UNKNOWN';
 export const fixture = () => {
-  const state = structuredClone(INITIAL_APP_STATE);
+  const state = estadoConConvocatoriaDePrueba();
   return applyCandidateImport(state,state.activeJobPostingId,analyzeCandidateTables([tableFromCSV(raw,'fake-only.csv')]).rows).state;
 };
 const output = (payload:ReturnType<typeof prepareEvaluation>['payload']) => ({

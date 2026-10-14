@@ -1,8 +1,8 @@
 import { test, expect, Page } from '@playwright/test';
-import { INITIAL_APP_STATE } from '../../src/data/initialData.ts';
+import { estadoConConvocatoriaDePrueba, ID_CONVOCATORIA_DE_PRUEBA } from '../fixtures/convocatoriaDePrueba.ts';
 import { analyzeCandidateTables, applyCandidateImport, tableFromCSV } from '../../src/services/candidateImport.ts';
 const raw = 'Nombre completo;E-Mail;Teléfono;DNI;Dirección;Exp[1] Puesto;Exp[1] Empresa;Exp[1] Descripción;Est[1] Titulo;Campo desconocido\nAna Segura;canary_private@example.com;+51 987 654 321;01234567;Av. Privada 987;Desarrolladora;Empresa CANARY_ENTITY;Desarrolló soluciones con Python y AWS.;Maestría en informática;CANARY_UNKNOWN';
-const fixture = applyCandidateImport(structuredClone(INITIAL_APP_STATE),INITIAL_APP_STATE.activeJobPostingId,analyzeCandidateTables([tableFromCSV(raw,'inventado.csv')]).rows).state;
+const fixture = applyCandidateImport(estadoConConvocatoriaDePrueba(),ID_CONVOCATORIA_DE_PRUEBA,analyzeCandidateTables([tableFromCSV(raw,'inventado.csv')]).rows).state;
 const setup = async (page:Page) => {
   await page.addInitScript((state) => { if (!localStorage.getItem('GTH_ESAN_STAGE_I_STATE_V2')) localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2',JSON.stringify(state)); },fixture);
   await page.goto('/#view=mejores_candidatos');

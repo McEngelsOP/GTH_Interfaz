@@ -18,9 +18,14 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  RefreshCw,
+  Library,
 } from 'lucide-react';
+import type { useBumeranSync } from '../../services/useBumeranSync.ts';
+import { resumirRevisiones, timeAgo } from '../../services/bumeranSync.ts';
 
 interface SidebarProps {
+  sync?: ReturnType<typeof useBumeranSync>;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -30,6 +35,8 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   count?: number;
+  /** Punto de estado y texto corto a la derecha (p. ej. «hace 2 h»), en lugar del contador. */
+  status?: { color: string; text: string; label: string };
 }
 
 interface NavGroup {
@@ -37,7 +44,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
+export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const { currentView, setCurrentView, activeJobApplications, appState } = useApp();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -45,6 +52,19 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const totalInJob = activeJobApplications.length;
   const totalTalentPool = appState.candidates.filter((c) => c.savedInTalentPool).length;
   const totalJobPostings = appState.jobPostings.length;
+
+  // Estado de los datos de Bumeran: verde = al día, rojo = error al consultar, gris = consultando o sin datos
+  const ultimaRevision = sync ? resumirRevisiones(sync.runs.rows)[0] : undefined;
+  const errorSync = sync && [sync.postings.error, sync.applicants.error, sync.ranking.error, sync.runs.error].some(Boolean);
+  const cargandoSync = sync && (sync.postings.loading || sync.runs.loading);
+  const datosItem: NavItem = {
+    id: 'actualizacion_datos', label: 'Actualización de datos', icon: <RefreshCw size={18} />,
+    status: !sync?.configured ? undefined : {
+      color: errorSync ? 'var(--status-failed-text)' : cargandoSync || !ultimaRevision ? 'var(--text-muted)' : 'var(--status-verified-text)',
+      text: errorSync ? 'error' : ultimaRevision ? timeAgo(ultimaRevision.inicio).replace('hace ', '') : '',
+      label: errorSync ? 'Error al consultar los datos' : ultimaRevision ? `Última revisión de Bumeran ${timeAgo(ultimaRevision.inicio)}` : 'Consultando',
+    },
+  };
 
   const allNavGroups: NavGroup[] = [
     {
@@ -58,8 +78,8 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
     {
       title: 'Candidatos',
       items: [
-        { id: 'agregar_archivos', label: 'Importación manual', icon: <UploadCloud size={18} /> },
         { id: 'mejores_candidatos', label: 'Candidatos y ranking', icon: <Award size={18} />, count: totalInJob },
+        { id: 'base_centralizada', label: 'Base centralizada', icon: <Library size={18} /> },
         { id: 'comparador', label: 'Comparador', icon: <GitCompare size={18} /> },
       ],
     },
@@ -90,10 +110,11 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
         { id: 'resumen_general', label: 'Resumen general', icon: <BarChart3 size={18} /> },
       ],
     },
+    { title: 'Datos', items: [datosItem] },
   ];
 
   const navGroups = IS_STAGE_ONE
-    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento'].includes(group.title))]
+    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento', 'Datos'].includes(group.title))]
     : allNavGroups;
 
   const handleSelectView = (view: ViewType) => {
@@ -282,14 +303,28 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                         display: 'flex',
                         alignItems: 'center',
                         color: isActive ? 'var(--primary-red)' : 'var(--text-secondary)',
+                        position: 'relative',
                       }}
                     >
                       {item.icon}
+                      {collapsed && item.status && (
+                        <span aria-hidden="true" style={{ position: 'absolute', top: '-2px', right: '-3px', width: '8px', height: '8px',
+                          borderRadius: '50%', backgroundColor: item.status.color, border: '1.5px solid var(--bg-surface)' }} />
+                      )}
                     </span>
 
                     {!collapsed && (
                       <span style={{ flex: 1, whiteSpace: 'normal', lineHeight: 1.35 }}>
                         {item.label}
+                      </span>
+                    )}
+
+                    {!collapsed && item.status && (
+                      <span title={item.status.label} aria-label={item.status.label}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem',
+                          color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.status.color, flexShrink: 0 }} />
+                        {item.status.text}
                       </span>
                     )}
 

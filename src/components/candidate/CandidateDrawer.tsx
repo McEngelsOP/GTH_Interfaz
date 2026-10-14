@@ -4,16 +4,12 @@ import { Drawer } from '../common/Drawer.tsx';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import { StageBadge } from './StageBadge.tsx';
-import { RequirementPill } from './RequirementPill.tsx';
-import { ScoreBadge } from './ScoreBadge.tsx';
-import { evaluationSummary } from '../../services/evaluationSummary.ts';
+import { DesgloseRequisitos } from './DesgloseRequisitos.tsx';
+import { VisorCV } from './VisorCV.tsx';
 import { Tabs } from '../common/Tabs.tsx';
 import { AdvanceDecisionModal } from '../modals/AdvanceDecisionModal.tsx';
 import { ReleaseModal } from '../modals/ReleaseModal.tsx';
 import { EmailDraftModal } from '../modals/EmailDraftModal.tsx';
-import { ScheduleModal } from '../modals/ScheduleModal.tsx';
-import { RequirementReviewModal } from '../modals/RequirementReviewModal.tsx';
-import { NoteModal } from '../modals/NoteModal.tsx';
 import {
   Mail,
   Calendar,
@@ -29,8 +25,11 @@ import {
   ShieldCheck,
   Building,
 } from 'lucide-react';
-import { isEligibleForTopN } from '../../services/recruitmentRules.ts';
+import { puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
+import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
+import { perfilBumeran } from '../../services/perfilBumeran.ts';
+import { cvPersonal } from '../../services/bumeranSync.ts';
 
 export function CandidateDrawer() {
   const {
@@ -40,8 +39,6 @@ export function CandidateDrawer() {
     appState,
     handleAdvanceApplications,
     handleReleaseApplication,
-    handleAddNote,
-    handleScheduleInterview,
     handleSaveEmailDraft,
     setCurrentView,
     setActiveJobPostingId,
@@ -52,9 +49,7 @@ export function CandidateDrawer() {
 
   const [activeTab, setActiveTab] = useState('puntaje');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [isRequirementOpen, setIsRequirementOpen] = useState(false);
-  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [verCv, setVerCv] = useState(false);
 
   const app = selectedCandidateForDrawer;
   if (!app) return null;
@@ -63,8 +58,6 @@ export function CandidateDrawer() {
   const candidate = appState.candidates.find((c) => c.id === app.candidateId);
   if (!candidate) return null;
 
-  // Actividades asociadas a esta postulación
-  const appActivities = appState.activities.filter((a) => a.applicationId === app.id);
   // Decisiones asociadas a esta postulación
   const appDecisions = appState.decisionLogs.filter((d) => d.applicationId === app.id);
   // Borradores de correo asociados
@@ -81,8 +74,16 @@ export function CandidateDrawer() {
       };
     });
 
-  // Elegibilidad para avance
-  const eligibility = isEligibleForTopN(app, appState.selectedMethod);
+  // Ranking por Score Embeddings: posición, Top-N y si puede pasar a Preselección
+  const delPuesto = appState.applications.filter((a) => a.jobPostingId === currentJob.id);
+  const topIds = idsTopN(delPuesto, appState.candidates, currentJob, appState.topN);
+  const ordenadas = ordenarPorEmbeddings(delPuesto, appState.candidates, currentJob);
+  const posicion = ordenadas.findIndex((a) => a.id === app.id) + 1;
+  const emb = embeddingVigente(app, currentJob);
+  const enTop = topIds.has(app.id);
+  const avanzable = puedeAvanzar(app, appState.selectedMethod, topIds);
+  const perfil = perfilBumeran(candidate);
+  const cv = cvPersonal(candidate.importedProfile?.records);
 
   // Iniciales
   const initials = candidate.name
@@ -95,10 +96,8 @@ export function CandidateDrawer() {
 
   const drawerTabs = [
     { id: 'puntaje', label: 'Por qué este puntaje' },
-    { id: 'criterios', label: 'Detalle de criterios' },
-    { id: 'cv', label: 'Ver CV' },
-    { id: 'actividad', label: 'Actividad', count: appActivities.length },
-    { id: 'historial', label: 'Historial', count: appDecisions.length },
+    { id: 'perfil', label: 'Perfil' },
+    { id: 'historial', label: 'Historial', count: appDecisions.length + appDrafts.length },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
@@ -152,22 +151,16 @@ export function CandidateDrawer() {
               </Badge>
             </div>
 
-            {/* Puntaje LLM */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.2rem' }}>
-              <ScoreBadge score={app.llmScore} method="LLM" summary={evaluationSummary(app,currentJob.criteria)} />
-              <RequirementPill
-                status={app.mandatoryRequirementStatus}
-                justification={app.requirementJustification}
-                criteriaBreakdown={app.criteriaBreakdown}
-              />
+            {/* Ranking por Score Embeddings */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+              {emb ? <>
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                  Score Embeddings <strong className="tabular-nums">{formatEmbeddingScore(emb.score)}</strong>
+                </span>
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>· puesto {posicion} de {ordenadas.length}</span>
+                <Badge variant={enTop ? 'success' : 'neutral'} size="sm">{enTop ? 'Dentro del Top-N' : 'Fuera del Top-N'}</Badge>
+              </> : <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>Aún sin Score Embeddings para este aviso.</span>}
             </div>
-
-            <Button size="sm" variant="secondary" icon={<ShieldCheck size={15}/>} onClick={() => setIsRequirementOpen(true)}>Revisar requisito</Button>
-            {isRequirementOpen && <RequirementReviewModal key={app.id} application={app} rule={currentJob.knockoutRule} onClose={() => setIsRequirementOpen(false)}/>}
-            {app.llmEvaluation && <p style={{ fontSize:'.75rem',color:'var(--text-secondary)' }}>Evaluado con {app.llmEvaluation.model} · {new Date(app.llmEvaluation.evaluatedAt).toLocaleString('es-PE')} · Criterios {app.llmEvaluation.criteriaVersion}{app.llmEvaluation.missingCriteria.length ? ' · Evidencia incompleta' : ''}</p>}
-            {app.llmEvaluation && app.llmScore === null && <p style={{fontSize:'.8rem',color:'var(--text-secondary)'}}>
-              Evaluación recibida. Cobertura: {evaluationSummary(app,currentJob.criteria).coverage}%. Falta evidencia o referencia para: {evaluationSummary(app,currentJob.criteria).missingLabels.join('; ')}. El puntaje parcial considera solo los criterios evaluados; completa los restantes para obtener el total.
-            </p>}
 
             {/* Información de contacto honesta (solo si existe) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -242,8 +235,8 @@ export function CandidateDrawer() {
                   size="sm"
                   icon={<UserCheck size={16} />}
                   onClick={() => setIsAdvanceModalOpen(true)}
-                  disabled={!eligibility.eligible || currentJob.status !== 'activa'}
-                  title={!eligibility.eligible ? eligibility.reason : 'Avanzar a etapa de Preseleccionado'}
+                  disabled={!avanzable || currentJob.status !== 'activa'}
+                  title={!avanzable ? 'Solo los del Top-N pueden pasar a Preselección (agrégalo con la estrella)' : 'Avanzar a etapa de Preseleccionado'}
                 >
                   Avanzar a Preseleccionado
                 </Button>
@@ -252,52 +245,16 @@ export function CandidateDrawer() {
           </div>
         }
       >
-        {/* Barra de Acciones Rápidas */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '0.5rem',
-            paddingBottom: '1rem',
-            borderBottom: '1px solid var(--border-subtle)',
-            marginBottom: '1rem',
-          }}
-        >
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Mail size={14} />}
-            onClick={() => setIsEmailModalOpen(true)}
-            title="Preparar borrador de correo para el candidato"
-          >
+        {/* Acciones rápidas */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', paddingBottom: '1rem',
+          borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
+          <Button variant="secondary" size="sm" icon={<Mail size={14} />} onClick={() => setIsEmailModalOpen(true)}
+            title="Preparar borrador de correo para el candidato">
             Correo
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Calendar size={14} />}
-            onClick={() => setIsScheduleModalOpen(true)}
-            title="Registrar una entrevista"
-          >
-            Entrevista
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<StickyNote size={14} />}
-            onClick={() => setIsNoteModalOpen(true)}
-            title="Añadir nota de evaluación"
-          >
-            Nota
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<History size={14} />}
-            onClick={() => setActiveTab('actividad')}
-            title="Ver bitácora de actividad"
-          >
-            Actividad
+          <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={() => setVerCv(true)}
+            title={cv.estado === 'disponible' ? 'Ver el CV personal que adjuntó en Bumeran' : cv.estado === 'sin_adjunto' ? 'No adjuntó CV personal' : 'CV personal aún no disponible'}>
+            Ver CV personal
           </Button>
         </div>
 
@@ -305,225 +262,58 @@ export function CandidateDrawer() {
         <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} />
 
         <div style={{ marginTop: '1.25rem' }}>
-          {/* 1. Por qué este puntaje */}
+          {/* 1. Por qué este puntaje: similitud y evidencia por requisito */}
           {activeTab === 'puntaje' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div
-                style={{
-                  padding: '1rem',
-                  backgroundColor: 'var(--bg-base)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.5rem' }}>
-                  <Sparkles size={16} style={{ color: 'var(--primary-red)' }} />
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>Explicación del Puntaje</h3>
-                </div>
-                <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text-primary)' }}>
-                  {app.whyScoreNotes.explanation}
-                </p>
-              </div>
-
-              <div>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                  Fortalezas Destacadas
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  {app.whyScoreNotes.strengths.map((str, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.84rem',
-                        color: 'var(--text-primary)',
-                      }}
-                    >
-                      <CheckCircle2 size={15} style={{ color: 'var(--status-verified-text)', flexShrink: 0 }} />
-                      <span>{str}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
-                  Resumen de Evidencias Verificadas
-                </h4>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                  {app.whyScoreNotes.evidenceSummary}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* 2. Detalle de criterios */}
-          {activeTab === 'criterios' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            emb ? <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                Evaluación individual por cada criterio del perfil ({currentJob.code}) sumando 100%:
+                Similitud del perfil con cada requisito del aviso (0-100 dentro del aviso) y la parte del perfil que la respalda.
               </p>
-              {currentJob.criteria.map((crit) => {
-                const breakdown = app.criteriaBreakdown[crit.id];
-                const embedding = app.embeddingMatch?.criteriaVersion === currentJob.criteriaVersion ? app.embeddingMatch : null;
-                const similarity = embedding?.requirementSims[crit.id];
-                return (
-                  <div
-                    key={crit.id}
-                    style={{
-                      padding: '0.85rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.35rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {crit.label}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Badge size="sm" variant={'purple'}>
-                          {crit.type} ({crit.weightPct}%)
-                        </Badge>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary-red)' }}>
-                          {breakdown ? `${breakdown.score}/100` : 'Sin datos'}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                      <strong>Evidencia:</strong> {breakdown?.evidence || 'Pendiente de acreditación documental'}
-                    </div>
-                    {embedding && similarity != null && (
-                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }} title={`Backend ${embedding.backend}`}>
-                        <strong>Similitud embeddings:</strong> <span className="tabular-nums">{formatEmbeddingScore(similarity)}</span>
-                        {embedding.requirementEvidence[crit.id] && ` · ${embedding.requirementEvidence[crit.id]}`}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+              <DesgloseRequisitos app={app} candidate={candidate} job={currentJob} />
+            </div> : <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>Este postulante todavía no tiene Score Embeddings para los requisitos actuales.</p>
           )}
 
-          {/* 3. Ver CV */}
-          {activeTab === 'cv' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.5rem 0.75rem',
-                  backgroundColor: 'var(--bg-base)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                <span>Documento: CV_{candidate.name.replace(/\s+/g, '_')}.pdf</span>
-                <span style={{ color: 'var(--status-verified-text)', fontWeight: 600 }}>Texto extraído local</span>
-              </div>
-              <div
-                style={{
-                  padding: '1.25rem',
-                  backgroundColor: 'var(--bg-base)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  fontFamily: 'monospace',
-                  fontSize: '0.84rem',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  color: 'var(--text-primary)',
-                  maxHeight: '450px',
-                  overflowY: 'auto',
-                }}
-              >
-                {candidate.rawCvText}
-              </div>
-            </div>
-          )}
-
-          {/* 4. Actividad */}
-          {activeTab === 'actividad' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {/* Borradores guardados si existen */}
-              {appDrafts.length > 0 && (
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <h4 style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-                    Borradores de Correo Pendientes
-                  </h4>
-                  {appDrafts.map((d) => (
-                    <div
-                      key={d.id}
-                      style={{
-                        padding: '0.65rem 0.85rem',
-                        backgroundColor: 'var(--primary-red-subtle)',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--primary-red-border)',
-                        fontSize: '0.8125rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div>
-                        <strong>{d.subject}</strong> · Destinatario: {d.to || 'Sin correo'}
-                      </div>
-                      <Badge variant="primary" size="sm">
-                        Borrador local
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {appActivities.length === 0 ? (
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                  Aún no hay actividad registrada para esta postulación. Puede añadir una nota o agendar una entrevista.
-                </p>
-              ) : (
-                appActivities.map((act) => (
-                  <div
-                    key={act.id}
-                    style={{
-                      padding: '0.75rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.25rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {act.title}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {new Date(act.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                      {act.details}
-                    </p>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      Por: {act.author}
-                    </span>
-                  </div>
-                ))
-              )}
+          {/* 2. Perfil de Bumeran ordenado */}
+          {activeTab === 'perfil' && (
+            <div className="perfil-bumeran">
+              <section>
+                <h3>Experiencia</h3>
+                {perfil.experiencias.length ? perfil.experiencias.map((e, i) => (
+                  <article key={i}>
+                    <strong>{e.puesto}</strong>
+                    <span>{[e.empresa, e.periodo].filter(Boolean).join(' · ')}</span>
+                    {e.area && <span>{e.area}</span>}
+                    {e.descripcion && <p>{e.descripcion}</p>}
+                  </article>
+                )) : <p className="vacio">Sin experiencia registrada en Bumeran.</p>}
+              </section>
+              <section>
+                <h3>Estudios</h3>
+                {perfil.estudios.length ? perfil.estudios.map((e, i) => (
+                  <article key={i}>
+                    <strong>{e.titulo}</strong>
+                    <span>{[e.institucion, [e.nivel, e.estado].filter(Boolean).join(', '), e.periodo].filter(Boolean).join(' · ')}</span>
+                  </article>
+                )) : <p className="vacio">Sin estudios registrados en Bumeran.</p>}
+              </section>
+              <section>
+                <h3>Idiomas</h3>
+                <p>{perfil.idiomas || <span className="vacio">Sin idiomas registrados.</span>}</p>
+              </section>
+              {perfil.ciudad && <section><h3>Ciudad</h3><p>{perfil.ciudad}</p></section>}
             </div>
           )}
 
           {/* 5. Historial de Decisiones */}
           {activeTab === 'historial' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {appDecisions.length === 0 ? (
+              {appDrafts.map((d) => (
+                <div key={d.id} style={{ padding: '0.65rem 0.85rem', backgroundColor: 'var(--primary-red-subtle)', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--primary-red-border)', fontSize: '0.8125rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem' }}>
+                  <div><strong>{d.subject}</strong> · Para: {d.to || 'Sin correo'}</div>
+                  <Badge variant="primary" size="sm">Borrador de correo</Badge>
+                </div>
+              ))}
+              {appDecisions.length === 0 && appDrafts.length === 0 ? (
                 <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
                   Sin decisiones de auditoría registradas todavía para esta postulación.
                 </p>
@@ -550,7 +340,7 @@ export function CandidateDrawer() {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      Criterios: {dec.criteriaVersion} · Método: {dec.evaluationContext.method}
+                      Criterios: {dec.criteriaVersion} · {dec.evaluationContext.viaTopN ? 'Top-N del ranking por Score Embeddings' : `Método: ${dec.evaluationContext.method}`}
                     </div>
                     {dec.notes && (
                       <p style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', marginTop: '0.2rem' }}>
@@ -617,22 +407,10 @@ export function CandidateDrawer() {
         onSaveDraft={handleSaveEmailDraft}
       />
 
-      <ScheduleModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-        candidateName={candidate.name}
-        onSchedule={(data) => handleScheduleInterview(app.id, data)}
-      />
-
-      <NoteModal
-        isOpen={isNoteModalOpen}
-        onClose={() => setIsNoteModalOpen(false)}
-        candidateName={candidate.name}
-        onSaveNote={(note) => handleAddNote(app.id, note)}
-      />
+      <VisorCV nombre={verCv ? candidate.name : null} cv={cv} onClose={() => setVerCv(false)} />
       <AdvanceDecisionModal isOpen={isAdvanceModalOpen} onClose={() => setIsAdvanceModalOpen(false)}
         selectedApplications={[app]} candidates={appState.candidates} job={currentJob} method={appState.selectedMethod}
-        onConfirmAdvance={(reject, message) => handleAdvanceApplications([app.id], reject, message)} />
+        onConfirmAdvance={(reject, message) => handleAdvanceApplications([app.id], reject, message)} topIds={topIds} />
       <ReleaseModal isOpen={isReleaseModalOpen} onClose={() => setIsReleaseModalOpen(false)} application={app} candidate={candidate} job={currentJob}
         onConfirmRelease={(id, reason) => handleReleaseApplication(id, reason)} />
     </>

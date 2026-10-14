@@ -9,7 +9,6 @@ import {
   Moon,
   Sun,
   Laptop,
-  Sparkles,
   Menu,
   LogOut,
 } from 'lucide-react';
@@ -23,10 +22,10 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
   const {
     appState,
     activeJob,
+    currentView,
     setActiveJobPostingId,
     setCurrentView,
     setTheme,
-    toggleAssistant,
     showToast,
   } = useApp();
 
@@ -86,7 +85,8 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
         </button>
 
         {/* Selector rápido de Puesto Activo */}
-        {IS_STAGE_ONE ? (
+        {/* En Convocatorias el aviso se elige desde su tarjeta («Ver candidatos»): ahí no se muestra el selector */}
+        {IS_STAGE_ONE ? (currentView === 'convocatorias' ? null : (
           <select
             aria-label="Convocatoria activa"
             disabled={!appState.jobPostings.length}
@@ -101,7 +101,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
               <option key={job.id} value={job.id}>{job.title} · {job.code}</option>
             ))}
           </select>
-        ) : (
+        )) : (
         <div
           style={{
             display: 'flex',
@@ -158,33 +158,8 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
         )}
       </div>
 
-      {/* Lado derecho: Asistente GTH + Selector de Tema + Perfil GTHC */}
+      {/* Lado derecho: Selector de Tema + Perfil GTHC (el Asistente GTH vuelve cuando esté configurado) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        {/* Botón Asistente GTH */}
-        <button
-          onClick={() => toggleAssistant()}
-          aria-label="Asistente GTH"
-          className="focus-ring"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            padding: '0.45rem 0.85rem',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-primary)',
-            fontSize: '0.8125rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'all var(--transition-fast)',
-          }}
-          title="Abrir Asistente GTH · Google Gemini"
-        >
-          <Sparkles size={16} style={{ color: 'var(--primary-red)' }} />
-          <span className="hide-on-mobile">Asistente GTH</span>
-        </button>
-
         {/* Alternador de Tema */}
         <button
           onClick={handleNextTheme}
