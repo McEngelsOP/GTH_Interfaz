@@ -2,11 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
 import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
+import { InternalCommentModal } from '../modals/InternalCommentModal.tsx';
+import { internalCommentKey } from '../../services/internalComments.ts';
+import { WhatsAppButton } from './WhatsAppButton.tsx';
 import { StageBadge } from './StageBadge.tsx';
 import { ExplicacionEmbeddings } from './ExplicacionEmbeddings.tsx';
 import { VisorCV } from './VisorCV.tsx';
 import { cvPersonal, timeAgo } from '../../services/bumeranSync.ts';
-import { useEnRevision } from '../../services/enRevision.ts';
+import type { useEnRevision } from '../../services/enRevision.ts';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 import {
@@ -23,12 +26,14 @@ import {
   Star,
   MessageSquareText,
   FileUser,
+  Pencil,
 } from 'lucide-react';
 import { isEligibleForTopN, puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 
 interface CandidateTableProps {
+  enRevision: ReturnType<typeof useEnRevision>;
   applications: Application[];
   selectedMethod: EvaluationMethod;
   onOpenReleaseModal: (app: Application, cand: Candidate) => void;
@@ -43,6 +48,7 @@ interface CandidateTableProps {
 
 export function CandidateTable({
   applications,
+  enRevision,
   selectedMethod,
   onOpenReleaseModal,
   onQuickAdvance,
@@ -61,6 +67,7 @@ export function CandidateTable({
     handleMoveStage,
     handleToggleTopNExtra,
     showToast,
+    handleSaveInternalComment,
   } = useApp();
 
   // Estrella: agrega o quita a alguien del Top-N. Los N primeros ya están por su posición.
@@ -74,8 +81,9 @@ export function CandidateTable({
 
   const [revertTarget, setRevertTarget] = useState<Application | null>(null);
   const [explicacion, setExplicacion] = useState<Application | null>(null);
+  const [commentFor, setCommentFor] = useState<Application | null>(null);
   const [cvDe, setCvDe] = useState<Candidate | null>(null);
-  useEffect(() => { setSearchQuery(''); setCurrentPage(1); setExplicacion(null); }, [activeJob?.id]);
+  useEffect(() => { setSearchQuery(''); setCurrentPage(1); setExplicacion(null); setCommentFor(null); }, [activeJob?.id]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
@@ -146,17 +154,20 @@ export function CandidateTable({
     }
   };
 
-  // «En revisión»: marca compartida con todo el equipo (se guarda en Supabase)
-  const enRevision = useEnRevision(activeJob, applications, appState.candidates);
+  // «Revisado»: marca compartida con todo el equipo (se guarda en Supabase)
   const alternarRevision = async (cand: Candidate) => {
     const quitar = applications.some((a) => a.candidateId === cand.id && enRevision.porAplicacion.has(a.id));
     const error = await enRevision.alternar(cand);
-    if (error) showToast(`No se pudo guardar la marca «En revisión»: ${error}`, 'error');
-    else showToast(quitar ? `${cand.name} ya no está en revisión.` : `${cand.name} quedó en revisión para todo el equipo.`, 'info');
+    if (error) showToast(`No se pudo guardar la marca «Revisado»: ${error}`, 'error');
+    else showToast(quitar ? `${cand.name} ya no está marcado como revisado.` : `${cand.name} quedó como revisado para todo el equipo.`, 'info');
   };
 
+  const commentCandidate = commentFor && candidateMap.get(commentFor.candidateId);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+      {commentFor && commentCandidate && activeJob && <InternalCommentModal key={commentFor.id}
+        name={commentCandidate.name} initialText={appState.comentariosInternos?.[internalCommentKey(activeJob, commentCandidate)]?.texto || ''}
+        onSave={(text) => handleSaveInternalComment(commentFor.id, text)} onClose={() => setCommentFor(null)} />}
       {/* Barra de Filtros, Búsqueda y Densidad */}
       <div
         style={{
@@ -301,13 +312,14 @@ export function CandidateTable({
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score Embeddings ↓</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Explicación</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '145px' }}>Comentarios</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'right' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {paginatedApplications.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
+                <td colSpan={8} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <FileText size={32} style={{ color: 'var(--text-muted)' }} />
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
@@ -406,6 +418,16 @@ export function CandidateTable({
                       ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>—</span>}
                     </td>
 
+                    <td style={{ padding: cellPadding }}>
+                      {cand && activeJob && (() => {
+                        const note = appState.comentariosInternos?.[internalCommentKey(activeJob, cand)]?.texto;
+                        return <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setCommentFor(app)}
+                          aria-label={`Editar comentario de ${cand.name}`} title={note || 'Agregar comentario interno'} style={{ maxWidth: '180px' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note ? note.slice(0, 40) + (note.length > 40 ? '…' : '') : 'Agregar'}</span>
+                        </Button>;
+                      })()}
+                    </td>
+
                     {/* Acciones por fila */}
                     <td style={{ padding: cellPadding, textAlign: 'right' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem', flexWrap: 'nowrap' }}>
@@ -431,6 +453,8 @@ export function CandidateTable({
                           );
                         })()}
 
+                        {cand && activeJob && <WhatsAppButton candidate={cand} jobTitle={activeJob.title} compact />}
+
                         {/* Estrella: en el Top-N (llena) o fuera (vacía). Al marcarla, entra al Top-N y el contador sube */}
                         <button type="button" className="focus-ring estrella-topn" aria-pressed={enTop} onClick={() => alternarEstrella(app)}
                           aria-label={enTop ? `Quitar a ${cand?.name || 'candidato'} del Top-N` : `Agregar a ${cand?.name || 'candidato'} al Top-N`}
@@ -446,9 +470,10 @@ export function CandidateTable({
                           icon={<ClipboardCheck size={14} style={enRevision.porAplicacion.has(app.id) ? { color: 'var(--primary-red)' } : undefined} />}
                           onClick={() => cand && void alternarRevision(cand)}
                           aria-pressed={enRevision.porAplicacion.has(app.id)}
+                          aria-label={enRevision.porAplicacion.has(app.id) ? `Quitar marca de revisado de ${cand?.name}` : `Marcar como revisado a ${cand?.name}`}
                           title={enRevision.porAplicacion.has(app.id)
-                            ? `En revisión${enRevision.porAplicacion.get(app.id)!.email ? ` · marcado por ${enRevision.porAplicacion.get(app.id)!.email}` : ''} ${timeAgo(enRevision.porAplicacion.get(app.id)!.at)} · clic para quitar`
-                            : 'Marcar «En revisión» (lo ve todo el equipo)'}
+                            ? `Revisado${enRevision.porAplicacion.get(app.id)!.email ? ` · marcado por ${enRevision.porAplicacion.get(app.id)!.email}` : ''} ${timeAgo(enRevision.porAplicacion.get(app.id)!.at)} · clic para quitar`
+                            : 'Marcar como revisado (lo ve todo el equipo)'}
                         />
 
                         {app.stage !== 'no_continua' && app.stage !== 'contratado' && (

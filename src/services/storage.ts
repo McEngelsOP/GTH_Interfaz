@@ -54,6 +54,11 @@ export function parseStoredState(raw: string): AppStateData | null {
       !data.decisionLogs.every((d) => strings(d, ['jobPostingId', 'applicationId', 'candidateId', 'action', 'author', 'timestamp', 'criteriaVersion']) && object(d.evaluationContext)) ||
       !data.emailDrafts.every((d) => strings(d, ['applicationId', 'to', 'subject', 'body', 'templateType', 'lang', 'status', 'updatedAt'])) ||
       !data.interviewRecords.every((r) => strings(r, ['applicationId', 'title', 'scheduledAt', 'locationOrLink', 'status', 'createdAt']))) return null;
+    if (data.comentariosInternos !== undefined) {
+      data.comentariosInternos = object(data.comentariosInternos)
+        ? Object.fromEntries(Object.entries(data.comentariosInternos).filter(([key, note]) => key.length <= 500 && object(note) && typeof note.texto === 'string' && note.texto.length <= 4000 && typeof note.at === 'string' && Number.isFinite(Date.parse(note.at))))
+        : {};
+    }
     data.activeJobPostingId = jobs.has(data.activeJobPostingId) ? data.activeJobPostingId : (data.jobPostings[0]?.id || '');
     data.topN = Number.isFinite(data.topN) && data.topN >= 1 ? Math.floor(data.topN) : 5;
     data.jobPostings = data.jobPostings.map((job) => ({ ...job,

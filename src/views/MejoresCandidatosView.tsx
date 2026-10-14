@@ -15,6 +15,7 @@ import {
 } from '../services/recruitmentRules.ts';
 import { exportarRankingExcel, AlcanceExport } from '../services/exportExcel.ts';
 import { enProceso, idsTopN, idsTopNPorPosicion, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
+import { useEnRevision } from '../services/enRevision.ts';
 import { useEmbeddingRanking } from '../services/useEmbeddingRanking.ts';
 import {
   Users,
@@ -52,8 +53,9 @@ export function MejoresCandidatosView() {
     showToast,
   } = useApp();
   useEmbeddingRanking();
+  const enRevision = useEnRevision(activeJob, activeJobApplications, appState.candidates);
 
-  const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'no_continuan' | 'todos'>('en_proceso');
+  const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'revisados' | 'no_continuan' | 'todos'>('en_proceso');
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [releaseTarget, setReleaseTarget] = useState<{ app: Application; cand: Candidate } | null>(null);
   const [bulkReleaseIds, setBulkReleaseIds] = useState<string[] | null>(null);
@@ -93,6 +95,8 @@ export function MejoresCandidatosView() {
       case 'contratados': return activeJobApplications.filter((a) => a.stage === 'contratado');
       case 'marcados':
         return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
+      case 'revisados':
+        return activeJobApplications.filter((a) => enRevision.porAplicacion.has(a.id));
       case 'no_continuan':
         return activeJobApplications.filter((a) => a.stage === 'no_continua');
       case 'todos':
@@ -101,7 +105,7 @@ export function MejoresCandidatosView() {
       default:
         return activeJobApplications.filter((a) => a.stage !== 'no_continua' && a.stage !== 'contratado');
     }
-  }, [activeTab, activeJobApplications, allBestApplications, selectedApplicationIds]);
+  }, [activeTab, activeJobApplications, allBestApplications, selectedApplicationIds, preselectedCandidates, enRevision.porAplicacion]);
 
   // Pestañas con conteos sincronizados en tiempo real
   const candidateTabs: TabItem[] = [
@@ -120,6 +124,11 @@ export function MejoresCandidatosView() {
       id: 'marcados',
       label: 'Marcados',
       count: selectedApplicationIds.length,
+    },
+    {
+      id: 'revisados',
+      label: 'Revisados',
+      count: enRevision.porAplicacion.size,
     },
     {
       id: 'no_continuan',
@@ -261,7 +270,11 @@ export function MejoresCandidatosView() {
 
       {/* Pestañas con significado claro */}
       <div style={{ marginBottom: '1rem' }}>
-        <Tabs tabs={candidateTabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as any)} />
+        <Tabs tabs={candidateTabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as typeof activeTab)} />
+        {(activeTab === 'marcados' || activeTab === 'revisados') && <p style={{ marginTop: '0.6rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+          {activeTab === 'revisados' ? 'Revisados: marca compartida con todo el equipo. Marcados: selección de casillas de tu sesión.' : 'Marcados: selección de casillas de tu sesión. Revisados: marca compartida con todo el equipo.'}
+        </p>}
+        {enRevision.error && <p role="alert" style={{ marginTop: '0.6rem', fontSize: '0.8125rem', color: 'var(--status-failed-text)' }}>No se pudieron cargar las marcas de revisados: {enRevision.error}</p>}
       </div>
 
       {/* Franja integrada para acciones sobre los marcados (Sección 10) */}
@@ -362,6 +375,7 @@ export function MejoresCandidatosView() {
       </div>}
       <CandidateTable
         applications={displayedApplications}
+        enRevision={enRevision}
         topIds={topIds}
         topPorPosicion={topPorPosicion}
         ordenRanking={ordenadas}

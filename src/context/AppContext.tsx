@@ -14,6 +14,7 @@ import {
   InterviewRecord,
   Stage,
 } from '../types/index.ts';
+import { updateInternalComment } from '../services/internalComments.ts';
 import { loadAppState } from '../services/storage.ts';
 import { borrarEstado, guardarEstado } from '../services/persistence.ts';
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
@@ -106,6 +107,7 @@ interface AppContextValue {
   handleReleaseApplication: (appId: string, reason?: string) => void;
   handleReleaseApplications: (ids: string[], reason: string) => boolean;
   handleAddNote: (appId: string, noteText: string) => void;
+  handleSaveInternalComment: (appId: string, text: string) => void;
   handleScheduleInterview: (
     appId: string,
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
@@ -362,6 +364,10 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
 
   // Añadir nota
+  const handleSaveInternalComment = (appId: string, text: string) => {
+    setAppState((prev) => updateInternalComment(prev, appId, text));
+  };
+
   const handleAddNote = (appId: string, noteText: string) => {
     if (!noteText.trim() || !appState.applications.some((a) => a.id === appId)) return;
     const now = new Date().toISOString();
@@ -646,6 +652,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     handleReleaseApplication,
     handleReleaseApplications,
     handleAddNote,
+    handleSaveInternalComment,
     handleScheduleInterview,
     handleSaveEmailDraft,
     handleUpdateJobCriteria,

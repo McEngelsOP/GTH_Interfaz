@@ -5,7 +5,6 @@ import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Stage, Application, Candidate } from '../types/index.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
-import { StageDecisionModal } from '../components/modals/StageDecisionModal.tsx';
 import { AgradecimientoMasivoModal } from '../components/modals/AgradecimientoMasivoModal.tsx';
 import { validateStageTransition } from '../services/workflow.ts';
 import { Badge } from '../components/common/Badge.tsx';
@@ -21,6 +20,8 @@ import {
   ArrowRight,
   Mail,
 } from 'lucide-react';
+
+const MOTIVO_TABLERO = 'Movido desde el tablero de avance';
 
 const STAGES_ORDER: { id: Stage; label: string; desc: string }[] = [
   { id: 'postulado', label: 'Postulado', desc: 'Recepción inicial y matching' },
@@ -41,8 +42,6 @@ export function AvanceCandidatosView() {
     showToast,
     handleMoveStage,
   } = useApp();
-
-  const [pendingMove, setPendingMove] = useState<{ app: Application; target: Stage } | null>(null);
 
   const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
   const [agradecimientoAbierto, setAgradecimientoAbierto] = useState(false);
@@ -83,7 +82,7 @@ export function AvanceCandidatosView() {
     if (!app || app.stage === targetStage) return;
     const error = validateStageTransition(app, targetStage, appState.selectedMethod);
     if (error) { showToast(error, 'warning'); return; }
-    setPendingMove({ app, target: targetStage });
+    handleMoveStage(app.id, targetStage, MOTIVO_TABLERO);
   };
 
   const handleNextStage = (app: Application) => {
@@ -207,12 +206,12 @@ export function AvanceCandidatosView() {
           return (
             <div
               key={stageItem.id}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (draggedAppId) {
-                  requestMoveStage(draggedAppId, stageItem.id);
-                  setDraggedAppId(null);
-                }
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const appId = event.dataTransfer.getData('text/plain') || draggedAppId;
+                if (appId) requestMoveStage(appId, stageItem.id);
+                setDraggedAppId(null);
               }}
               style={{
                 backgroundColor: 'var(--bg-base)',
@@ -287,7 +286,7 @@ export function AvanceCandidatosView() {
                       <div
                         key={app.id}
                         draggable
-                        onDragStart={() => setDraggedAppId(app.id)}
+                        onDragStart={(event) => { event.dataTransfer.setData('text/plain', app.id); event.dataTransfer.effectAllowed = 'move'; setDraggedAppId(app.id); }}
                         onDragEnd={() => setDraggedAppId(null)}
                         style={{
                           backgroundColor: 'var(--bg-surface)',
@@ -421,11 +420,6 @@ export function AvanceCandidatosView() {
           );
         })}
       </div>
-      {pendingMove && <StageDecisionModal key={pendingMove.app.id + pendingMove.target}
-        application={pendingMove.app} target={pendingMove.target}
-        candidateName={candidateMap.get(pendingMove.app.candidateId)?.name || 'Candidato'}
-        onClose={() => setPendingMove(null)}
-        onConfirm={(reason) => handleMoveStage(pendingMove.app.id, pendingMove.target, reason)} />}
       <AgradecimientoMasivoModal isOpen={agradecimientoAbierto} onClose={() => setAgradecimientoAbierto(false)}
         job={activeJob} noSeleccionados={noSeleccionados} candidates={candidateMap} />
     </div>

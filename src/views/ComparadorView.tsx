@@ -1,3 +1,4 @@
+import { ComparisonChart } from '../components/candidate/ComparisonChart.tsx';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
@@ -267,7 +268,9 @@ export function ComparadorView() {
           </p>}
         </div>
       ) : (
-        /* Matriz de Comparación con Desplazamiento Horizontal Controlado (Sección 12) */
+        <>
+        <ComparisonChart key={activeJob.id} applications={comparedApplications} candidates={candidateMap} job={activeJob} />
+        {/* Matriz de Comparación con Desplazamiento Horizontal Controlado (Sección 12) */}
         <div
           style={{
             width: '100%',
@@ -485,6 +488,7 @@ export function ComparadorView() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* Modal de decisión desde el comparador */}

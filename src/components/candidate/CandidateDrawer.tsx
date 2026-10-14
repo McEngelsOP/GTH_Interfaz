@@ -1,3 +1,4 @@
+import { WhatsAppButton } from './WhatsAppButton.tsx';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
 import { Drawer } from '../common/Drawer.tsx';
@@ -174,6 +175,7 @@ export function CandidateDrawer() {
                   Sin correo registrado
                 </span>
               )}
+              <WhatsAppButton candidate={candidate} jobTitle={currentJob.title} />
               {candidate.phone && (
                 <span>
                   <strong>Tel:</strong> {candidate.phone}

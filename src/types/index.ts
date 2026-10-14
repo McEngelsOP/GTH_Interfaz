@@ -195,6 +195,8 @@ export interface ProfileTemplate {
 }
 
 export interface AppStateData {
+  /** Comentarios locales por convocatoria y postulante; no se sincronizan con Supabase. */
+  comentariosInternos?: Record<string, { texto: string; at: string }>;
   jobPostings: JobPosting[];
   candidates: Candidate[];
   applications: Application[];
