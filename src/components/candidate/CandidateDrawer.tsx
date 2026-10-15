@@ -48,7 +48,7 @@ export function CandidateDrawer() {
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('puntaje');
+  const [activeTab, setActiveTab] = useState('perfil');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [verCv, setVerCv] = useState(false);
 
@@ -96,9 +96,8 @@ export function CandidateDrawer() {
     .toUpperCase();
 
   const drawerTabs = [
-    { id: 'puntaje', label: 'Por qué este puntaje' },
     { id: 'perfil', label: 'Perfil' },
-    { id: 'historial', label: 'Historial', count: appDecisions.length + appDrafts.length },
+    { id: 'puntaje', label: 'Por qué este puntaje' },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
@@ -164,7 +163,7 @@ export function CandidateDrawer() {
             </div>
 
             {/* Información de contacto honesta (solo si existe) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               {candidate.email ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <Mail size={13} style={{ color: 'var(--text-muted)' }} />
@@ -177,7 +176,7 @@ export function CandidateDrawer() {
               )}
               <WhatsAppButton candidate={candidate} jobTitle={currentJob.title} />
               {candidate.phone && (
-                <span>
+                <span style={{ whiteSpace: 'nowrap' }}>
                   <strong>Tel:</strong> {candidate.phone}
                 </span>
               )}

@@ -3,6 +3,8 @@ import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
 import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
 import { InternalCommentModal } from '../modals/InternalCommentModal.tsx';
+import { useSharedComments } from '../../services/sharedComments.ts';
+import '../../styles/candidateTable.css';
 import { internalCommentKey } from '../../services/internalComments.ts';
 import { WhatsAppButton } from './WhatsAppButton.tsx';
 import { StageBadge } from './StageBadge.tsx';
@@ -162,12 +164,20 @@ export function CandidateTable({
     else showToast(quitar ? `${cand.name} ya no está marcado como revisado.` : `${cand.name} quedó como revisado para todo el equipo.`, 'info');
   };
 
+  const sharedComments = useSharedComments(activeJob);
+  const comments = sharedComments.enabled ? sharedComments.notes : appState.comentariosInternos;
   const commentCandidate = commentFor && candidateMap.get(commentFor.candidateId);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
       {commentFor && commentCandidate && activeJob && <InternalCommentModal key={commentFor.id}
-        name={commentCandidate.name} initialText={appState.comentariosInternos?.[internalCommentKey(activeJob, commentCandidate)]?.texto || ''}
-        onSave={(text) => handleSaveInternalComment(commentFor.id, text)} onClose={() => setCommentFor(null)} />}
+        name={commentCandidate.name} initialText={comments?.[internalCommentKey(activeJob, commentCandidate)]?.texto || ''} shared={sharedComments.enabled}
+        onSave={async (text) => {
+          if (sharedComments.enabled) await sharedComments.save(commentCandidate, text);
+          else handleSaveInternalComment(commentFor.id, text);
+        }} onClose={() => setCommentFor(null)} />}
+      {sharedComments.error && <div role="alert" style={{ color: 'var(--status-failed-text)', fontSize: '.8125rem' }}>
+        No se pudieron cargar los comentarios compartidos. {sharedComments.error} <Button variant="ghost" size="sm" onClick={() => void sharedComments.reload()}>Reintentar</Button>
+      </div>}
       {/* Barra de Filtros, Búsqueda y Densidad */}
       <div
         style={{
@@ -279,7 +289,7 @@ export function CandidateTable({
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <table
+        <table className="candidate-ranking-table"
           style={{
             width: '100%',
             borderCollapse: 'collapse',
@@ -310,10 +320,10 @@ export function CandidateTable({
               <th style={{ width: '40px', padding: '0.6rem 0.4rem' }}>#</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px' }}>Candidato</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score Embeddings ↓</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Explicación</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score ↓</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Detalle</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '145px' }}>Comentarios</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'right' }}>Acciones</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'center' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -413,24 +423,24 @@ export function CandidateTable({
                       {embeddingOf(app) ? (
                         <Button variant="ghost" size="sm" icon={<MessageSquareText size={14} />} onClick={() => setExplicacion(app)}
                           title="Ver por qué tiene este puntaje: similitud y evidencia por requisito">
-                          Ver explicación
+                          Ver detalle
                         </Button>
                       ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>—</span>}
                     </td>
 
                     <td style={{ padding: cellPadding }}>
                       {cand && activeJob && (() => {
-                        const note = appState.comentariosInternos?.[internalCommentKey(activeJob, cand)]?.texto;
+                        const note = comments?.[internalCommentKey(activeJob, cand)]?.texto;
                         return <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setCommentFor(app)}
-                          aria-label={`Editar comentario de ${cand.name}`} title={note || 'Agregar comentario interno'} style={{ maxWidth: '180px' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note ? note.slice(0, 40) + (note.length > 40 ? '…' : '') : 'Agregar'}</span>
+                          disabled={sharedComments.loading || !!sharedComments.error} aria-label={`Editar comentario de ${cand.name}`} title={note || 'Agregar comentario interno'} style={{ maxWidth: '180px' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sharedComments.loading ? 'Cargando…' : note ? note.slice(0, 40) + (note.length > 40 ? '…' : '') : 'Agregar'}</span>
                         </Button>;
                       })()}
                     </td>
 
                     {/* Acciones por fila */}
-                    <td style={{ padding: cellPadding, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.2rem', flexWrap: 'nowrap' }}>
+                    <td style={{ padding: cellPadding, textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', flexWrap: 'nowrap' }}>
                         <Button
                           variant="ghost"
                           size="sm"
