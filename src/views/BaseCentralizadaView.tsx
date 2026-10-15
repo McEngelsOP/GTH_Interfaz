@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Database, FileSpreadsheet, FileUser, RefreshCw, Search, Users } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Database, FileSpreadsheet, FileUser, RefreshCw, Search, Users, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
+import { Input } from '../components/common/Input.tsx';
+import { Select } from '../components/common/Select.tsx';
+import '../styles/baseCentralizada.css';
 import { Button } from '../components/common/Button.tsx';
 import { VisorCV } from '../components/candidate/VisorCV.tsx';
 import { supabase } from '../services/supabase.ts';
@@ -18,6 +21,7 @@ export function BaseCentralizadaView() {
   const [filtros, setFiltros] = useState<FiltrosBase>(SIN_FILTROS);
   const [pagina, setPagina] = useState(1);
   const [cvDe, setCvDe] = useState<Persona | null>(null);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [exportando, setExportando] = useState(false);
 
   const cargar = () => {
@@ -66,17 +70,28 @@ export function BaseCentralizadaView() {
   };
 
   const sel = (label: string, value: string, onChange: (v: string) => void, items: [string, string][], todos: string) => (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="focus-ring conv-select">
-      <option value="">{todos}</option>
-      {items.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-    </select>
+    <Select label={label} value={value} onChange={(event) => onChange(event.target.value)}
+      options={[{ value: '', label: todos }, ...items.map(([value, label]) => ({ value, label }))]} />
   );
+  const activos = [
+    { key: 'area', label: 'Área', value: filtros.area },
+    { key: 'aviso', label: 'Aviso', value: avisos.find(([id]) => id === filtros.aviso)?.[1] || filtros.aviso },
+    { key: 'nivel', label: 'Estudios', value: filtros.nivel ? `${filtros.nivel} o superior` : '' },
+    { key: 'estado', label: 'Estado', value: filtros.estado },
+    { key: 'ciudad', label: 'Ciudad', value: filtros.ciudad },
+    { key: 'idioma', label: 'Idioma', value: filtros.idioma },
+    { key: 'nivelIdioma', label: 'Nivel de idioma', value: filtros.nivelIdioma },
+    { key: 'cv', label: 'CV', value: filtros.cv === 'con' ? 'Con CV personal' : filtros.cv === 'sin' ? 'Sin CV personal' : '' },
+    { key: 'desde', label: 'Desde', value: filtros.desde },
+    { key: 'varios', label: 'Postulaciones', value: filtros.varios ? 'Varios avisos' : '' },
+  ].filter((filter) => Boolean(filter.value));
+  const quitarFiltro = (key: keyof FiltrosBase) => poner(key === 'idioma' ? { idioma: '', nivelIdioma: '' } : { [key]: SIN_FILTROS[key] });
 
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       <div className="conv-cabecera">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-red-subtle)',
+        <div className="base-cabecera-intro">
+          <div className="base-cabecera-icono" style={{ width: '42px', height: '42px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--primary-red-subtle)',
             color: 'var(--primary-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Database size={22} />
           </div>
@@ -109,30 +124,55 @@ export function BaseCentralizadaView() {
         {estado.leidoEn && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Leído {fechaHora(estado.leidoEn)}</span>}
       </div>
 
-      {/* Filtros */}
-      <div className="conv-filtros">
-        <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: '360px' }}>
-          <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" aria-label="Buscar postulantes" placeholder="Buscar por nombre, puesto, empresa, estudio…"
-            value={filtros.texto} onChange={(e) => poner({ texto: e.target.value })} className="focus-ring conv-buscar" />
+      {/* Búsqueda siempre visible; filtros desplegables, sin comprimir sus campos. */}
+      <section className="base-filtros" aria-label="Búsqueda y filtros de postulantes">
+        <div className="base-filtros-barra">
+          <div className="base-filtros-busqueda">
+            <Input type="search" label="Buscar postulantes" placeholder="Nombre, puesto, empresa o estudios"
+              value={filtros.texto} onChange={(event) => poner({ texto: event.target.value })} leftIcon={<Search size={16} />} />
+          </div>
+          <div className="base-filtros-acciones">
+            <Button variant={filtrosAbiertos ? 'outline' : 'secondary'} icon={<SlidersHorizontal size={16} />}
+              aria-expanded={filtrosAbiertos} aria-controls="base-filtros-avanzados" onClick={() => setFiltrosAbiertos((open) => !open)}>
+              Filtros{activos.length > 0 ? ` (${activos.length})` : ''}<ChevronDown size={14} style={{ transform: filtrosAbiertos ? 'rotate(180deg)' : undefined }} />
+            </Button>
+            {hayFiltros && <Button variant="ghost" onClick={() => poner(SIN_FILTROS)}>Limpiar filtros</Button>}
+          </div>
         </div>
-        {sel('Área del aviso', filtros.area, (v) => poner({ area: v }), areas.map((a) => [a, a]), 'Todas las áreas')}
-        {sel('Aviso', filtros.aviso, (v) => poner({ aviso: v }), avisos, 'Todos los avisos')}
-        {sel('Nivel de estudios', filtros.nivel, (v) => poner({ nivel: v }), ORDEN_NIVEL.slice(0, 6).map((n) => [n, `${n} o superior`]), 'Cualquier nivel de estudios')}
-        {sel('Estado de estudios', filtros.estado, (v) => poner({ estado: v }), [['Graduado', 'Graduado'], ['En Curso', 'En curso'], ['Abandonado', 'Abandonado']], 'Graduado o en curso')}
-        {sel('Idioma', filtros.idioma, (v) => poner({ idioma: v, nivelIdioma: v ? filtros.nivelIdioma : '' }), idiomas.map((i) => [i, i]), 'Cualquier idioma')}
-        {filtros.idioma && sel('Nivel de idioma', filtros.nivelIdioma, (v) => poner({ nivelIdioma: v }), NIVELES_IDIOMA.map((n) => [n, `${n} o más`]), 'Cualquier nivel')}
-        {sel('Ciudad o distrito', filtros.ciudad, (v) => poner({ ciudad: v }), ciudades.map((c) => [c, c]), 'Todas las ciudades')}
-        {sel('CV personal', filtros.cv, (v) => poner({ cv: v }), [['con', 'Con CV personal'], ['sin', 'Sin CV personal']], 'Con y sin CV')}
-        <label className="base-check"><span>Postuló desde</span>
-          <input type="date" aria-label="Postuló desde" value={filtros.desde} onChange={(e) => poner({ desde: e.target.value })} className="focus-ring conv-select" />
-        </label>
-        <label className="base-check"><input type="checkbox" checked={filtros.varios} onChange={(e) => poner({ varios: e.target.checked })} /> Postuló a varios avisos</label>
-        {hayFiltros && <Button variant="ghost" size="sm" onClick={() => poner(SIN_FILTROS)}>Limpiar filtros</Button>}
-        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+        {filtrosAbiertos && <div id="base-filtros-avanzados" className="base-filtros-panel">
+          <p>Elige los criterios que necesitas. Los resultados se actualizan al cambiar cada filtro.</p>
+          <div className="base-filtros-grupos">
+            <fieldset className="base-filtros-grupo">
+              <legend>Convocatoria y postulación</legend>
+              {sel('Área del aviso', filtros.area, (v) => poner({ area: v }), areas.map((a) => [a, a]), 'Todas las áreas')}
+              {sel('Aviso', filtros.aviso, (v) => poner({ aviso: v }), avisos, 'Todos los avisos')}
+              <Input type="date" label="Postuló desde" value={filtros.desde} onChange={(event) => poner({ desde: event.target.value })} />
+              <label className="base-filtros-check"><input type="checkbox" className="focus-ring" checked={filtros.varios} onChange={(event) => poner({ varios: event.target.checked })} />Postuló a varios avisos</label>
+            </fieldset>
+            <fieldset className="base-filtros-grupo">
+              <legend>Estudios y ubicación</legend>
+              {sel('Nivel de estudios', filtros.nivel, (v) => poner({ nivel: v }), ORDEN_NIVEL.slice(0, 6).map((n) => [n, `${n} o superior`]), 'Cualquier nivel de estudios')}
+              {sel('Estado de estudios', filtros.estado, (v) => poner({ estado: v }), [['Graduado', 'Graduado'], ['En Curso', 'En curso'], ['Abandonado', 'Abandonado']], 'Graduado o en curso')}
+              {sel('Ciudad o distrito', filtros.ciudad, (v) => poner({ ciudad: v }), ciudades.map((c) => [c, c]), 'Todas las ciudades')}
+            </fieldset>
+            <fieldset className="base-filtros-grupo">
+              <legend>Idiomas y documentación</legend>
+              {sel('Idioma', filtros.idioma, (v) => poner({ idioma: v, nivelIdioma: v ? filtros.nivelIdioma : '' }), idiomas.map((i) => [i, i]), 'Cualquier idioma')}
+              {filtros.idioma && sel('Nivel de idioma', filtros.nivelIdioma, (v) => poner({ nivelIdioma: v }), NIVELES_IDIOMA.map((n) => [n, `${n} o más`]), 'Cualquier nivel')}
+              {sel('CV personal', filtros.cv, (v) => poner({ cv: v }), [['con', 'Con CV personal'], ['sin', 'Sin CV personal']], 'Con y sin CV')}
+            </fieldset>
+          </div>
+        </div>}
+        {activos.length > 0 && <div className="base-filtros-seleccion" aria-label="Filtros aplicados">
+          {activos.map((filter) => <Button key={filter.key} variant="ghost" size="sm" onClick={() => quitarFiltro(filter.key as keyof FiltrosBase)}
+            aria-label={`Quitar filtro ${filter.label}: ${filter.value}`} title={`Quitar filtro ${filter.label}`}>
+            {filter.label}: {filter.value}<X size={13} />
+          </Button>)}
+        </div>}
+        <p className="base-filtros-resultado" role="status">
           Mostrando <strong>{filtradas.length.toLocaleString('es-PE')}</strong> de {personas.length.toLocaleString('es-PE')} personas
-        </span>
-      </div>
+        </p>
+      </section>
 
       {/* Tabla */}
       <div style={{ overflowX: 'auto', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
