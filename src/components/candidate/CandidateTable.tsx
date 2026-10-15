@@ -321,7 +321,7 @@ export function CandidateTable({
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px' }}>Candidato</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score ↓</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Detalle</th>
+              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Puntaje</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '145px' }}>Comentarios</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'center' }}>Acciones</th>
             </tr>
@@ -423,7 +423,7 @@ export function CandidateTable({
                       {embeddingOf(app) ? (
                         <Button variant="ghost" size="sm" icon={<MessageSquareText size={14} />} onClick={() => setExplicacion(app)}
                           title="Ver por qué tiene este puntaje: similitud y evidencia por requisito">
-                          Ver detalle
+                          Ver puntaje
                         </Button>
                       ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>—</span>}
                     </td>
@@ -448,7 +448,7 @@ export function CandidateTable({
                           onClick={() => openCandidateDrawer(app)}
                           title="Abrir la ficha del candidato"
                         >
-                          Detalles
+                          Ver perfil
                         </Button>
 
                         {cand && (() => {

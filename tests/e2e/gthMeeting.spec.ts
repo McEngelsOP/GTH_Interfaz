@@ -124,13 +124,18 @@ test('gráfico compara requisitos, conserva colores y distingue falta de evidenc
   await expect(chart.getByRole('list', { name: 'Leyenda de candidatos' }).locator('li')).toHaveCount(4);
   await expect(chart.getByRole('heading', { name: 'Score general', exact: true })).toBeVisible();
   await expect(chart.getByRole('heading', { name: 'Requisitos para orientar la entrevista', exact: true })).toBeVisible();
-  await expect(chart.getByRole('img', { name: 'R2 · Gestión de indicadores: Bruno Prueba, sin evidencia', exact: true })).toBeVisible();
+  await expect(chart.getByRole('cell', { name: 'R2 · Gestión de indicadores: Bruno Prueba, Sin datos', exact: true })).toBeVisible();
+  await expect(chart.locator('.comparison-chart-row, .comparison-coverage-track')).toHaveCount(0);
+  await expect(chart.locator('.comparison-donut svg')).toHaveCount(4);
+  await expect(chart.getByRole('img', { name: 'Bruno Prueba: 1 de similitud alta, 0 media, 0 baja y 1 sin datos', exact: true })).toBeVisible();
   const colors = await chart.getByRole('list', { name: 'Leyenda de candidatos' }).locator('li > span').evaluateAll((items) => items.map((el) => getComputedStyle(el).backgroundColor));
   expect(new Set(colors).size).toBe(4);
   await page.getByRole('button', { name: 'Quitar Ana Prueba de la comparación', exact: true }).click();
   expect(await chart.getByRole('list', { name: 'Leyenda de candidatos' }).locator('li > span').evaluateAll((items) => items.map((el) => getComputedStyle(el).backgroundColor))).toEqual(colors.slice(1));
   await chart.evaluate(el => el.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: '/tmp/gth-chart-light-desktop.png', fullPage: true });
+  await chart.locator('.comparison-heatmap').evaluate(el => el.scrollIntoView({ block: 'start' }));
+  await page.screenshot({ path: '/tmp/gth-heatmap-desktop.png', fullPage: true });
   await page.getByRole('button', { name: 'Cambiar tema de apariencia', exact: true }).click();
   await page.screenshot({ path: '/tmp/gth-chart-dark-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -138,6 +143,12 @@ test('gráfico compara requisitos, conserva colores y distingue falta de evidenc
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await chart.evaluate(el => el.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: '/tmp/gth-chart-dark-mobile.png', fullPage: true });
+  await chart.locator('.comparison-heatmap').evaluate(el => el.scrollIntoView({ block: 'start' }));
+  await page.screenshot({ path: '/tmp/gth-heatmap-mobile.png', fullPage: true });
+  const scroll = chart.locator('.comparison-heatmap-scroll');
+  await scroll.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => scroll.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
 
@@ -146,13 +157,16 @@ test('ficha abre en Perfil y tabla centra cabeceras y controles', async ({ page 
   await page.goto('/#view=mejores_candidatos');
   const table = page.locator('.candidate-ranking-table');
   await expect(table.getByRole('columnheader', { name: 'Score ↓', exact: true })).toBeVisible();
-  await expect(table.getByRole('columnheader', { name: 'Detalle', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Puntaje', exact: true })).toBeVisible();
   expect(await table.locator('thead th').evaluateAll(items => items.every(el => getComputedStyle(el).textAlign === 'center'))).toBe(true);
   const row = table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Ana Prueba', exact: true }) });
   expect(await row.locator('td').nth(2).evaluate(el => getComputedStyle(el).textAlign)).toBe('left');
   expect(await row.locator('td').last().evaluate(el => getComputedStyle(el).textAlign)).toBe('center');
   await page.screenshot({ path: '/tmp/gth-ranking-desktop.png', fullPage: true });
-  await row.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
+  await row.getByRole('button', { name: 'Ver puntaje', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Explicación del ranking');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+  await row.getByRole('button', { name: 'Ver perfil', exact: true }).click();
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('tab', { name: 'Perfil', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(drawer.getByRole('tab', { name: 'Historial', exact: true })).toHaveCount(0);
@@ -161,4 +175,24 @@ test('ficha abre en Perfil y tabla centra cabeceras y controles', async ({ page 
   await expect(drawer.getByRole('tab', { name: 'Por qué este puntaje', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '/tmp/gth-profile-mobile.png', fullPage: true });
+});
+
+
+test('comparador distingue cero de pendiente y refleja los conteos en las donas', async ({ page }) => {
+  await page.route('**/api/embeddings', route => route.fulfill({ status: 503, json: { error: 'Servicio desactivado en esta prueba' } }));
+  const state = structuredClone(meetingState);
+  state.applications[0].embeddingMatch!.score = 0;
+  state.applications[0].embeddingMatch!.requirementSims = { r1: 0, r2: 0 };
+  delete state.applications[1].embeddingMatch;
+  await page.addInitScript(state => localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state)), state);
+  await page.goto('/#view=mejores_candidatos');
+  for (const name of ['Ana Prueba', 'Bruno Prueba']) {
+    await page.getByRole('row').filter({ has: page.getByRole('button', { name, exact: true }) }).getByRole('checkbox').check();
+  }
+  await page.getByRole('button', { name: 'Comparador', exact: true }).click();
+  const chart = page.getByRole('region', { name: 'Comparación visual de candidatos', exact: true });
+  await expect(chart.getByRole('cell', { name: 'R1 · Experiencia en selección de personal: Ana Prueba, 0 %', exact: true })).toHaveClass('heatmap-low');
+  await expect(chart.getByRole('cell', { name: 'R1 · Experiencia en selección de personal: Bruno Prueba, Sin datos', exact: true })).toHaveClass('heatmap-missing');
+  await expect(chart.getByRole('img', { name: 'Ana Prueba: 0 de similitud alta, 0 media, 2 baja y 0 sin datos', exact: true })).toBeVisible();
+  await expect(chart.getByRole('img', { name: 'Bruno Prueba: 0 de similitud alta, 0 media, 0 baja y 2 sin datos', exact: true })).toBeVisible();
 });

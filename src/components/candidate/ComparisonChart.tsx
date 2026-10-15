@@ -25,7 +25,6 @@ export function ComparisonChart({ applications, candidates, job }: { application
     requisitos: argumentosPorRequisito(app, candidates.get(app.candidateId), job).requisitos,
     total: embeddingVigente(app, job)?.score ?? null,
   })), [applications, candidates, job]);
-  const rows = job.criteria.map((criterion, index) => ({ id: criterion.id, label: `R${index + 1} · ${criterion.label}`, total: false }));
 
   return <section className="comparison-chart" aria-labelledby="comparison-chart-title">
     <h3 id="comparison-chart-title">Comparación visual de candidatos</h3>
@@ -54,42 +53,58 @@ export function ComparisonChart({ applications, candidates, job }: { application
         <li><span className="coverage-low" />Baja (&lt; 40 %)</li>
         <li><span className="coverage-missing" />Sin datos</li>
       </ul>
-      {series.map(({ app, name, requisitos }) => {
-        const counts = [requisitos.filter(r => r.pct !== null && r.pct >= 70).length,
-          requisitos.filter(r => r.pct !== null && r.pct >= 40 && r.pct < 70).length,
-          requisitos.filter(r => r.pct !== null && r.pct < 40).length,
-          requisitos.filter(r => r.pct === null).length];
-        const label = `${name}: ${counts[0]} de similitud alta, ${counts[1]} media, ${counts[2]} baja y ${counts[3]} sin datos`;
-        return <div key={app.id} className="comparison-coverage-row">
-          <span className="comparison-chart-name" title={name}>{name}</span>
-          <div className="comparison-coverage-track" role="img" aria-label={label} title={label}>
-            {counts.map((count, index) => count > 0 && <span key={index} className={['coverage-strong', 'coverage-medium', 'coverage-low', 'coverage-missing'][index]}
-              style={{ flex: count }} aria-hidden="true">{count}</span>)}
-          </div>
-          <span className="comparison-coverage-count">{requisitos.length ? `${counts[0]} alta · ${counts[1]} media · ${counts[2]} baja · ${counts[3]} sin datos` : 'Sin requisitos'}</span>
-        </div>;
-      })}
-    </section>
-    <h4>Similitud por requisito</h4>
-    <div className="comparison-chart-axis" aria-hidden="true"><span>0 %</span><span>50 %</span><span>100 %</span></div>
-    {rows.map((row) => <div key={row.id} className="comparison-chart-row">
-      <strong>{row.label}</strong>
-      <div className="comparison-chart-series">
-        {series.map(({ app, name, requisitos, total }) => {
-          const pct = row.total ? total === null ? null : total * 100 : requisitos.find((requirement) => requirement.id === row.id)?.pct ?? null;
-          const value = pct === null ? 'sin evidencia' : row.total ? formatEmbeddingScore(total!) : `${pct} %`;
-          return <div key={app.id} className="comparison-chart-bar-row">
-            <span className="comparison-chart-name" title={name}>{name}</span>
-            <div className="comparison-chart-track focus-ring" tabIndex={0} role="img"
-              aria-label={`${row.label}: ${name}, ${value}`}
-              title={`${name} · ${row.label}: ${value}${row.total && pct !== null ? ` (${Math.round(pct)} % de la escala)` : ''}`}>
-              {pct !== null && <div className="comparison-chart-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: colors.get(app.candidateId) }} />}
-            </div>
-            <span className="comparison-chart-value tabular-nums">{value}</span>
-          </div>;
+      {job.criteria.length === 0 ? <p>No hay requisitos configurados para comparar.</p> : <div className="comparison-donuts">
+        {series.map(({ app, name, requisitos }) => {
+          const counts = [requisitos.filter(r => r.pct !== null && r.pct >= 70).length,
+            requisitos.filter(r => r.pct !== null && r.pct >= 40 && r.pct < 70).length,
+            requisitos.filter(r => r.pct !== null && r.pct < 40).length,
+            requisitos.filter(r => r.pct === null).length];
+          const levels = ['Alta', 'Media', 'Baja', 'Sin datos'];
+          const classes = ['coverage-strong', 'coverage-medium', 'coverage-low', 'coverage-missing'];
+          const label = `${name}: ${counts[0]} de similitud alta, ${counts[1]} media, ${counts[2]} baja y ${counts[3]} sin datos`;
+          let offset = 0;
+          return <figure key={app.id} className="comparison-donut">
+            <figcaption>{name}</figcaption>
+            <svg viewBox="0 0 120 120" role="img" aria-label={label}>
+              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--bg-muted)" strokeWidth="16" />
+              {counts.map((count, index) => {
+                const percent = count / requisitos.length * 100;
+                const position = offset; offset += percent;
+                return count > 0 ? <circle key={index} className={classes[index]} cx="60" cy="60" r="44" fill="none" strokeWidth="16"
+                  pathLength="100" strokeDasharray={`${percent} ${100 - percent}`} strokeDashoffset={-position} transform="rotate(-90 60 60)" /> : null;
+              })}
+              <text x="60" y="59" textAnchor="middle" className="comparison-donut-total">{requisitos.length}</text>
+              <text x="60" y="75" textAnchor="middle" className="comparison-donut-caption">requisitos</text>
+            </svg>
+            <ul aria-label={`Distribución de ${name}`}>
+              {counts.map((count, index) => <li key={levels[index]}><span className={classes[index]} aria-hidden="true" />{levels[index]}<strong className="tabular-nums">{count}</strong></li>)}
+            </ul>
+          </figure>;
         })}
-      </div>
-    </div>)}
-    <p>Barra más larga = mayor similitud del CV con ese requisito. No acredita cumplimiento ni sustituye la revisión del CV. «Sin evidencia» indica que no hay un valor disponible; no equivale a cero.</p>
+      </div>}
+    </section>
+    <section aria-labelledby="comparison-heatmap-title" className="comparison-heatmap">
+      <h4 id="comparison-heatmap-title">Mapa de similitud por requisito</h4>
+      <p>Cada columna es un candidato. Compara los porcentajes de una misma fila para ver quién tiene mayor similitud con ese requisito.</p>
+      {job.criteria.length > 0 && <p className="comparison-heatmap-hint">Desliza la tabla para ver todos los candidatos.</p>}
+      {job.criteria.length > 0 && <div className="comparison-heatmap-scroll focus-ring" tabIndex={0} role="region" aria-label="Mapa de similitud, desplazamiento horizontal">
+        <table aria-label="Similitud por requisito y candidato, de 0 a 100 por ciento">
+          <thead><tr><th scope="col">Requisito del puesto</th>{series.map(({ app, name }) => <th scope="col" key={app.id}>{name}</th>)}</tr></thead>
+          <tbody>{job.criteria.map((criterion, index) => <tr key={criterion.id}>
+            <th scope="row"><span>R{index + 1}</span> {criterion.label}<small>Peso: {criterion.weightPct} %</small></th>
+            {series.map(({ app, name, requisitos }) => {
+              const pct = requisitos.find(r => r.id === criterion.id)?.pct ?? null;
+              const level = pct === null ? 'missing' : pct >= 70 ? 'strong' : pct >= 40 ? 'medium' : 'low';
+              const value = pct === null ? 'Sin datos' : `${pct} %`;
+              return <td key={app.id} className={`heatmap-${level}`} aria-label={`R${index + 1} · ${criterion.label}: ${name}, ${value}`}>
+                <strong className="tabular-nums">{value}</strong>
+                {pct !== null && <small>{pct >= 70 ? 'Alta' : pct >= 40 ? 'Media' : 'Baja'}</small>}
+              </td>;
+            })}
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </section>
+    <p>Los colores representan similitud, no cumplimiento acreditado. «Sin datos» no equivale a cero. Revisa el CV y la evidencia en la matriz inferior antes de decidir.</p>
   </section>;
 }

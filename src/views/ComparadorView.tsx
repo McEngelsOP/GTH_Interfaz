@@ -361,7 +361,7 @@ export function ComparadorView() {
                             onClick={() => openCandidateDrawer(app)}
                             style={{ flex: 1, fontSize: '0.75rem' }}
                           >
-                            Detalles
+                            Ver perfil
                           </Button>
                         </div>
                       </div>
