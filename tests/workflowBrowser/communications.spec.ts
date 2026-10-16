@@ -124,7 +124,7 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await b.getByRole('button', { name: 'Actualizar avance', exact: true }).click();
   await banner(b, 'Postulado').click();
-  await expect(b.getByRole('button', { name: 'Bruno Prueba', exact: true })).toHaveCount(0);
+  await expect(b.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toHaveCount(0);
   expect((await db.query("select etapa from public.gth_avance where id_postulante='qa-external-1'")).rows[0].etapa).toBe('no_continua');
   expect(errors).toEqual([]);
   await first.close(); await second.close();

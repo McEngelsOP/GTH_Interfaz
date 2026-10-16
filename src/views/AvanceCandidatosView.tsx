@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Kanban, Search, Mail, Calendar, Settings, ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react';
+import { Kanban, Search, Mail, Calendar, Settings, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Button } from '../components/common/Button.tsx';
@@ -19,7 +19,7 @@ function loadMultitest(key: string): MultitestConfig {
   catch { return EMPTY_CONFIG; }
 }
 export function AvanceCandidatosView() {
-  const { activeJob, activeJobApplications, appState, workflow, openCandidateDrawer, handleMoveStage, showToast, setTopN } = useApp();
+  const { activeJob, activeJobApplications, appState, workflow, handleMoveStage, showToast, setTopN } = useApp();
   const [stage, setStage] = useState<Stage>('postulado');
   const [onlyTop, setOnlyTop] = useState(false);
   const [query, setQuery] = useState('');
@@ -130,19 +130,20 @@ export function AvanceCandidatosView() {
           const score = embeddingVigente(app, activeJob);
           const records = candidate ? workflow.actions.filter(a => a.id_postulante === workflowCandidateId(candidate)) : [];
           const locked = records.some(a => a.estado === 'preparado');
-          return <article className="workflow-candidate" key={app.id} draggable={canMove && !locked && !moving}
+          return <article className="workflow-candidate" aria-label={candidate?.name || 'Candidato'} key={app.id} draggable={canMove && !locked && !moving}
             onDragStart={e => { e.dataTransfer.setData('text/plain', app.id); e.dataTransfer.effectAllowed = 'move'; }}>
-            <div className="workflow-candidate-info"><div className="workflow-candidate-heading"><button className="workflow-name focus-ring" onClick={() => openCandidateDrawer(app)}>{candidate?.name || 'Candidato'}</button><Button size="sm" variant="ghost" aria-label={`Ver perfil de ${candidate?.name}`} title="Ver perfil" icon={<Eye size={14} />} onClick={() => openCandidateDrawer(app)} /></div><p>{candidate?.currentTitle || 'Sin profesión registrada'}{candidate?.currentCompany ? ` · ${candidate.currentCompany}` : ''}</p>
-              {records.length > 0 && <div className="workflow-action-status">{records.map(record => <span key={record.accion}>{record.accion === 'multitest' ? 'Multitest' : record.accion === 'entrevista' ? 'Entrevista' : 'Agradecimiento'}: {record.estado === 'confirmado' ? 'envío confirmado' : 'en preparación'}</span>)}</div>}
+            <div className="workflow-candidate-info">
+              <h4 className="workflow-name">{candidate?.name || 'Candidato'}</h4>
+              <p>{candidate?.currentTitle || 'Sin profesión registrada'}{candidate?.currentCompany && <> · <strong>{candidate.currentCompany}</strong></>}</p>
             </div>
-            <div className="workflow-score"><span>Score</span><strong>{score ? formatEmbeddingScore(score.score) : 'Pendiente'}</strong><small>#{position.get(app.id)} del ranking</small></div>
+            <div className="workflow-score"><strong>{score ? formatEmbeddingScore(score.score) : 'Pendiente'}</strong><small>· #{position.get(app.id)} del ranking</small></div>
             <div className="workflow-card-actions">
               <Button size="sm" variant="ghost" aria-label={`Volver de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex > 0 ? `Volver a ${PIPELINE_STAGES[columnIndex - 1].label}` : 'Primera etapa'} disabled={!canMove || !!moving || locked || columnIndex === 0 || stageItem.id === 'contratado'} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex - 1].id)} icon={<ChevronLeft size={15} />}>Atrás</Button>
               <Button size="sm" variant="outline" aria-label={`Avanzar de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex < 3 ? `Avanzar a ${PIPELINE_STAGES[columnIndex + 1].label}` : 'Etapa final'} disabled={!canMove || !!moving || locked || columnIndex === 3} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex + 1].id)} iconPosition="right" icon={<ChevronRight size={15} />}>{moving === app.id ? 'Guardando…' : 'Avanzar'}</Button>
             </div>
           </article>;
         })}
-        {!stageApps.length && <div className="workflow-empty"><Search size={24} /><h4>{columnApps.length ? 'No hay perfiles con estos filtros' : 'Todavía no hay candidatos en esta etapa'}</h4><p>{columnApps.length ? 'Prueba otro nombre o selecciona Todos.' : 'Los perfiles aparecerán aquí cuando avancen en el proceso.'}</p>{columnApps.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setOnlyTop(false); setQuery(''); }}>Limpiar filtros</Button>}</div>}
+        {!stageApps.length && <div className="workflow-empty"><Search size={24} /><h4>{columnApps.length ? 'No hay perfiles con estos filtros' : 'Sin candidatos en esta etapa'}</h4><p>{columnApps.length ? 'Prueba otro nombre o selecciona Todos.' : 'Los perfiles aparecerán aquí cuando avancen en el proceso.'}</p>{columnApps.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setOnlyTop(false); setQuery(''); }}>Limpiar filtros</Button>}</div>}
             </div>
           </section>;
         })}

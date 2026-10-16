@@ -1,6 +1,6 @@
 # Avance de candidatos
 
-El tablero mantiene cuatro columnas visibles: Postulado → Preseleccionado → En entrevista → Contratado. Seleccionar la cabecera de una columna cambia las acciones y filtros de la esquina superior derecha del banner del puesto. Los expedientes antiguos de En evaluación o En oferta se muestran dentro de En entrevista, sin eliminarlos. Los descartados siguen disponibles en Candidatos y ranking.
+El tablero mantiene cuatro columnas visibles: Postulado → Preseleccionado → En entrevista → Contratado. Seleccionar la cabecera de una columna cambia las acciones y filtros de la esquina superior derecha del banner del puesto. Las tarjetas muestran nombre, cargo, empresa, score y posición; no tienen controles para abrir perfiles. Los expedientes antiguos de En evaluación o En oferta se muestran dentro de En entrevista, sin eliminarlos. Los descartados siguen disponibles en Candidatos y ranking.
 
 ## Activar el registro compartido
 

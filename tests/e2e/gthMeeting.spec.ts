@@ -39,15 +39,15 @@ test('tablero usa cuatro etapas, avanza y mantiene la decisión tras recargar', 
   await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('preseleccionado');
   expect((await readState(page)).decisionLogs[0].notes).toBe('Movido desde el tablero de avance');
   await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
-  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
   await stages.getByRole('button', { name: /^En entrevista/ }).click();
-  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
   await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('contratado');
   await page.reload();
   await stages.getByRole('button', { name: /^Contratado/ }).click();
-  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true })).toBeDisabled();
 });
 
@@ -72,7 +72,7 @@ test('postulado filtra Top-N y nombre, Ctrl K enfoca búsqueda y Multitest queda
   await page.getByRole('button', { name: 'Todos', exact: true }).click();
   await page.getByLabel('Buscar candidato por nombre').fill('carla');
   await expect(page.getByRole('region', { name: 'Candidatos en Postulado', exact: true }).locator('.workflow-candidate')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Carla Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Carla Prueba', exact: true })).toBeVisible();
   const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
   await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
   await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
@@ -260,8 +260,8 @@ test('columnas permanecen visibles y las acciones cambian en la esquina derecha 
   const actionBox = await actions.boundingBox();
   expect(actionBox!.x).toBeGreaterThan(titleBox!.x);
   expect(actionBox!.y).toBeLessThan(titleBox!.y + titleBox!.height);
-  await expect(board.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
-  await expect(board.getByRole('button', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await expect(board.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(board.getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Cambiar tema de apariencia', exact: true }).click();
   await page.screenshot({ path: '/tmp/gth-kanban-banner-desktop.png', fullPage: true });
   await stages.getByRole('button', { name: /^En entrevista/ }).click();
@@ -301,4 +301,28 @@ test('cabeceras conservan los colores del sistema y la selección de columna', a
   await expect(preseleccionado).toHaveAttribute('aria-pressed', 'true');
   await expect(postulado).toHaveAttribute('aria-pressed', 'false');
   await expect.poll(async () => (await read()).normal).toBe(styles.selected);
+});
+
+
+test('tarjetas compactas muestran datos breves sin controles ni enlaces de perfil', async ({ page }) => {
+  await page.goto('/#view=avance_candidatos');
+  const board = page.getByRole('region', { name: 'Tablero de avance de candidatos', exact: true });
+  const card = board.getByRole('article', { name: 'Bruno Prueba', exact: true });
+  await expect(card.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(card).toContainText('Especialista');
+  await expect(card.locator('strong').first()).toHaveText('Datos de prueba');
+  await expect(card).toContainText('0.88'); await expect(card).toContainText('#2 del ranking');
+  await expect(board.locator('.workflow-candidate').getByRole('button', { name: /perfil|ficha/i })).toHaveCount(0);
+  await expect(board.getByRole('link')).toHaveCount(0);
+  await expect(board.locator('.workflow-name button, button.workflow-name')).toHaveCount(0);
+  expect(await card.getByRole('button').count()).toBe(2);
+  expect(await card.getByRole('button').last().evaluate(el => getComputedStyle(el).borderStyle)).toBe('none');
+  expect(await card.boundingBox().then(box => box!.height)).toBeLessThan(165);
+  await card.getByRole('heading').click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.screenshot({ path: '/tmp/gth-compact-cards-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await board.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.screenshot({ path: '/tmp/gth-compact-cards-mobile.png', fullPage: true });
 });
