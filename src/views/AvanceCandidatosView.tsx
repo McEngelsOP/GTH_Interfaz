@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Kanban, Search, Mail, Calendar, Settings, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Kanban, Search, Mail, Calendar, Settings, ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Button } from '../components/common/Button.tsx';
@@ -49,7 +49,7 @@ export function AvanceCandidatosView() {
   const top = useMemo(() => idsTopN(activeJobApplications, appState.candidates, activeJob, appState.topN), [activeJobApplications, appState.candidates, activeJob, appState.topN]);
   const position = new Map(ranked.map((a, i) => [a.id, i + 1]));
   const inStage = ranked.filter(a => pipelineStage(a.stage) === stage);
-  const visible = inStage.filter(a => stage !== 'postulado' || ((!onlyTop || top.has(a.id)) && (candidates.get(a.candidateId)?.name || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(query.trim().toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))));
+
   const rejected = ranked.filter(a => a.stage === 'postulado' || a.stage === 'no_continua');
   const currentIndex = PIPELINE_STAGES.findIndex(s => s.id === stage);
   const canMove = activeJob?.status === 'activa' && (!supabase || workflow.ready);
@@ -70,29 +70,14 @@ export function AvanceCandidatosView() {
   if (!activeJob) return null;
   const communicationAllowed = workflow.ready && activeJob.status === 'activa';
   return <div className="workflow-page">
-    <ActiveJobBanner />
-    <header className="workflow-header">
-      <div><h2><Kanban size={22} />Avance de candidatos</h2><p>Selecciona una etapa para revisar perfiles y coordinar las siguientes acciones.</p></div>
-      {supabase && <Button size="sm" variant="ghost" icon={<RefreshCw size={15} />} onClick={() => void workflow.reload()}>Actualizar avance</Button>}
-    </header>
-    <nav className="workflow-stages" aria-label="Etapas del proceso">
-      {PIPELINE_STAGES.map((item, index) => <button key={item.id} className="workflow-stage focus-ring" aria-pressed={stage === item.id}
-        onClick={() => { setStage(item.id); setAction(null); }}
-        onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) void move(id, item.id); }}>
-        <span className="workflow-stage-title">{item.label}<strong>{ranked.filter(a => pipelineStage(a.stage) === item.id).length}</strong></span>
-        <span className="workflow-stage-description">{item.desc}</span>
-        {index < 3 && <ChevronRight className="workflow-stage-arrow" size={16} aria-hidden="true" />}
-      </button>)}
-    </nav>
-    {supabase && !workflow.ready && <div className="workflow-notice" role="status">{workflow.error || 'Sincronizando las decisiones del equipo…'} Las acciones compartidas estarán disponibles al sincronizar.</div>}
-    {!supabase && <div className="workflow-notice">Vista local. Conecta Supabase y activa el SQL de avance compartido para habilitar comunicaciones con protección entre colaboradores.</div>}
-    <section className="workflow-panel" aria-label={`Candidatos en ${PIPELINE_STAGES[currentIndex].label}`}>
-      <div className="workflow-toolbar">
-        <div><h3>{PIPELINE_STAGES[currentIndex].label}</h3><p>{visible.length} de {inStage.length} candidatos</p></div>
+    <ActiveJobBanner aside={<div className="workflow-banner-actions" aria-label={`Acciones de ${PIPELINE_STAGES[currentIndex].label}`}>
+      <div className="workflow-banner-context"><span>{PIPELINE_STAGES[currentIndex].label}</span>
+        {supabase && <Button size="sm" variant="ghost" aria-label="Actualizar avance" title="Actualizar avance" icon={<RefreshCw size={15} />} onClick={() => void workflow.reload()} />}
+      </div>
         {stage === 'postulado' && <div className="workflow-filters">
           <div className="workflow-segment" aria-label="Mostrar candidatos">
             <button className="focus-ring" aria-pressed={!onlyTop} onClick={() => setOnlyTop(false)}>Todos</button>
-            <button className="focus-ring" aria-pressed={onlyTop} onClick={() => setOnlyTop(true)}>Top-N</button>
+            <button className="focus-ring" aria-pressed={onlyTop} title="Mismo Top-N del ranking, incluidos los perfiles añadidos con la estrella" onClick={() => setOnlyTop(true)}>Top-N</button>
           </div>
           {onlyTop && <label className="workflow-topn">N<input aria-label="Cantidad Top-N" type="number" min={1} max={500} value={appState.topN} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 500) setTopN(n); }} /></label>}
           <label className="workflow-search"><Search size={16} aria-hidden="true" /><input ref={search} type="search" aria-label="Buscar candidato por nombre" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre" /><kbd>Ctrl K</kbd></label>
@@ -105,7 +90,13 @@ export function AvanceCandidatosView() {
           <Button size="sm" variant="outline" icon={<Mail size={15} />} disabled={!communicationAllowed || !rejected.length} onClick={() => setAction('agradecimiento')}>Agradecer a no seleccionados</Button>
           <Button size="sm" icon={<Calendar size={15} />} disabled={!communicationAllowed || !inStage.length} onClick={() => setAction('entrevista')}>Agendar entrevista</Button>
         </div>}
-      </div>
+      {stage === 'preseleccionado' && !config.enlace && !configOpen && <p className="workflow-banner-help">Configura el enlace y plazo de Multitest para habilitar la invitación.</p>}
+    </div>} />
+    <header className="workflow-header">
+      <div><h2><Kanban size={22} />Avance de candidatos</h2><p>Selecciona una columna para cambiar las acciones del banner. Arrastra tarjetas o usa los botones para avanzar.</p></div>
+    </header>
+    {supabase && !workflow.ready && <div className="workflow-notice" role="status">{workflow.error || 'Sincronizando las decisiones del equipo…'} Las acciones compartidas estarán disponibles al sincronizar.</div>}
+    {!supabase && <div className="workflow-notice">Vista local. Conecta Supabase y activa el SQL de avance compartido para habilitar comunicaciones con protección entre colaboradores.</div>}
       {stage === 'preseleccionado' && configOpen && <section className="workflow-config" aria-label="Configuración de Multitest">
         <h3>Configura tu invitación a Multitest</h3><p>Indica el enlace y el plazo reales. Se guardan por convocatoria en este navegador; podrás revisar el mensaje antes de enviarlo.</p>
         <div className="workflow-form-grid">
@@ -115,30 +106,48 @@ export function AvanceCandidatosView() {
         {configError && <p role="alert">{configError}</p>}
         <div className="workflow-buttons"><Button size="sm" onClick={saveConfig}>Guardar configuración</Button><Button size="sm" variant="ghost" onClick={() => setConfigOpen(false)}>Cancelar</Button></div>
       </section>}
-      {stage === 'preseleccionado' && !config.enlace && !configOpen && <p className="workflow-inline-help">Configura el enlace y plazo de Multitest para habilitar la invitación.</p>}
-      {stage === 'postulado' && onlyTop && <p className="workflow-inline-help">Mismo Top-N del ranking: incluye los perfiles añadidos con la estrella y muestra solo quienes siguen en Postulado.</p>}
-      <div className="workflow-candidates">
-        {visible.map(app => {
+
+    <div className="workflow-board" role="region" aria-label="Tablero de avance de candidatos" tabIndex={0}>
+      <div className="workflow-kanban">
+        <nav className="workflow-stages" aria-label="Etapas del proceso">
+          {PIPELINE_STAGES.map(item => <button key={item.id} className="workflow-stage focus-ring" aria-pressed={stage === item.id}
+            aria-controls={`workflow-column-${item.id}`}
+            onClick={() => { setStage(item.id); setAction(null); }}
+            onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) { setStage(item.id); void move(id, item.id); } }}>
+            <span className="workflow-stage-title">{item.label}<strong>{ranked.filter(a => pipelineStage(a.stage) === item.id).length}</strong></span>
+            <span className="workflow-stage-description">{item.desc}</span>
+          </button>)}
+        </nav>
+        {PIPELINE_STAGES.map((stageItem, columnIndex) => {
+          const columnApps = ranked.filter(a => pipelineStage(a.stage) === stageItem.id);
+          const stageApps = stageItem.id === 'postulado' ? columnApps.filter(a => (!onlyTop || top.has(a.id)) && (candidates.get(a.candidateId)?.name || '').toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(query.trim().toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) : columnApps;
+          return <section key={stageItem.id} id={`workflow-column-${stageItem.id}`} className="workflow-column" aria-label={`Candidatos en ${stageItem.label}`} data-selected={stage === stageItem.id}
+            onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) { setStage(stageItem.id); void move(id, stageItem.id); } }}>
+            {stageItem.id === 'postulado' && (onlyTop || query.trim()) && <p className="workflow-column-count">{stageApps.length} de {columnApps.length} candidatos</p>}
+            <div className="workflow-candidates">
+        {stageApps.map(app => {
           const candidate = candidates.get(app.candidateId);
           const score = embeddingVigente(app, activeJob);
           const records = candidate ? workflow.actions.filter(a => a.id_postulante === workflowCandidateId(candidate)) : [];
           const locked = records.some(a => a.estado === 'preparado');
           return <article className="workflow-candidate" key={app.id} draggable={canMove && !locked && !moving}
             onDragStart={e => { e.dataTransfer.setData('text/plain', app.id); e.dataTransfer.effectAllowed = 'move'; }}>
-            <div className="workflow-candidate-info"><button className="workflow-name focus-ring" onClick={() => openCandidateDrawer(app)}>{candidate?.name || 'Candidato'}</button><p>{candidate?.currentTitle || 'Sin profesión registrada'}{candidate?.currentCompany ? ` · ${candidate.currentCompany}` : ''}</p>
+            <div className="workflow-candidate-info"><div className="workflow-candidate-heading"><button className="workflow-name focus-ring" onClick={() => openCandidateDrawer(app)}>{candidate?.name || 'Candidato'}</button><Button size="sm" variant="ghost" aria-label={`Ver perfil de ${candidate?.name}`} title="Ver perfil" icon={<Eye size={14} />} onClick={() => openCandidateDrawer(app)} /></div><p>{candidate?.currentTitle || 'Sin profesión registrada'}{candidate?.currentCompany ? ` · ${candidate.currentCompany}` : ''}</p>
               {records.length > 0 && <div className="workflow-action-status">{records.map(record => <span key={record.accion}>{record.accion === 'multitest' ? 'Multitest' : record.accion === 'entrevista' ? 'Entrevista' : 'Agradecimiento'}: {record.estado === 'confirmado' ? 'envío confirmado' : 'en preparación'}</span>)}</div>}
             </div>
             <div className="workflow-score"><span>Score</span><strong>{score ? formatEmbeddingScore(score.score) : 'Pendiente'}</strong><small>#{position.get(app.id)} del ranking</small></div>
             <div className="workflow-card-actions">
-              <Button size="sm" variant="ghost" onClick={() => openCandidateDrawer(app)}>Ver perfil</Button>
-              <Button size="sm" variant="ghost" aria-label={`Volver de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : currentIndex > 0 ? `Volver a ${PIPELINE_STAGES[currentIndex - 1].label}` : 'Primera etapa'} disabled={!canMove || !!moving || locked || currentIndex === 0 || stage === 'contratado'} onClick={() => void move(app.id, PIPELINE_STAGES[currentIndex - 1].id)} icon={<ChevronLeft size={15} />}>Atrás</Button>
-              <Button size="sm" variant="outline" aria-label={`Avanzar de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : currentIndex < 3 ? `Avanzar a ${PIPELINE_STAGES[currentIndex + 1].label}` : 'Etapa final'} disabled={!canMove || !!moving || locked || currentIndex === 3} onClick={() => void move(app.id, PIPELINE_STAGES[currentIndex + 1].id)} icon={<ChevronRight size={15} />}>{moving === app.id ? 'Guardando…' : 'Avanzar'}</Button>
+              <Button size="sm" variant="ghost" aria-label={`Volver de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex > 0 ? `Volver a ${PIPELINE_STAGES[columnIndex - 1].label}` : 'Primera etapa'} disabled={!canMove || !!moving || locked || columnIndex === 0 || stageItem.id === 'contratado'} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex - 1].id)} icon={<ChevronLeft size={15} />}>Atrás</Button>
+              <Button size="sm" variant="outline" aria-label={`Avanzar de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex < 3 ? `Avanzar a ${PIPELINE_STAGES[columnIndex + 1].label}` : 'Etapa final'} disabled={!canMove || !!moving || locked || columnIndex === 3} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex + 1].id)} iconPosition="right" icon={<ChevronRight size={15} />}>{moving === app.id ? 'Guardando…' : 'Avanzar'}</Button>
             </div>
           </article>;
         })}
-        {!visible.length && <div className="workflow-empty"><Search size={24} /><h4>{inStage.length ? 'No hay perfiles con estos filtros' : 'Todavía no hay candidatos en esta etapa'}</h4><p>{inStage.length ? 'Prueba otro nombre o selecciona Todos.' : 'Los perfiles aparecerán aquí cuando avancen en el proceso.'}</p>{inStage.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setOnlyTop(false); setQuery(''); }}>Limpiar filtros</Button>}</div>}
+        {!stageApps.length && <div className="workflow-empty"><Search size={24} /><h4>{columnApps.length ? 'No hay perfiles con estos filtros' : 'Todavía no hay candidatos en esta etapa'}</h4><p>{columnApps.length ? 'Prueba otro nombre o selecciona Todos.' : 'Los perfiles aparecerán aquí cuando avancen en el proceso.'}</p>{columnApps.length > 0 && <Button size="sm" variant="ghost" onClick={() => { setOnlyTop(false); setQuery(''); }}>Limpiar filtros</Button>}</div>}
+            </div>
+          </section>;
+        })}
       </div>
-    </section>
+    </div>
     {ranked.some(a => a.stage === 'no_continua') && <p className="workflow-inline-help">{ranked.filter(a => a.stage === 'no_continua').length} postulaciones no continúan. Sus perfiles se conservan en «Candidatos y ranking».</p>}
     {action && <WorkflowCommunicationModal key={`${activeJob.id}-${action}`} action={action} job={activeJob} applications={action === 'agradecimiento' ? rejected : inStage} multitest={config} onClose={() => setAction(null)} />}
   </div>;

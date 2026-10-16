@@ -66,12 +66,12 @@ test('revisados tiene contador y selección independiente de las casillas', asyn
 test('postulado filtra Top-N y nombre, Ctrl K enfoca búsqueda y Multitest queda configurable', async ({ page }) => {
   await page.goto('/#view=avance_candidatos');
   await page.getByRole('button', { name: 'Top-N', exact: true }).click();
-  await expect(page.locator('.workflow-candidate')).toHaveCount(2);
+  await expect(page.getByRole('region', { name: 'Candidatos en Postulado', exact: true }).locator('.workflow-candidate')).toHaveCount(2);
   await page.getByLabel('Cantidad Top-N').fill('2');
-  await expect(page.locator('.workflow-candidate')).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Candidatos en Postulado', exact: true }).locator('.workflow-candidate')).toHaveCount(1);
   await page.getByRole('button', { name: 'Todos', exact: true }).click();
   await page.getByLabel('Buscar candidato por nombre').fill('carla');
-  await expect(page.locator('.workflow-candidate')).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Candidatos en Postulado', exact: true }).locator('.workflow-candidate')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Carla Prueba', exact: true })).toBeVisible();
   const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
   await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
@@ -106,7 +106,7 @@ test('etapas antiguas se muestran dentro de En entrevista sin perder perfiles', 
   await page.addInitScript(state => localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state)), state);
   await page.goto('/#view=avance_candidatos');
   await page.getByRole('navigation', { name: 'Etapas del proceso' }).getByRole('button', { name: /^En entrevista/ }).click();
-  await expect(page.locator('.workflow-candidate')).toHaveCount(2);
+  await expect(page.getByRole('region', { name: 'Candidatos en En entrevista', exact: true }).locator('.workflow-candidate')).toHaveCount(2);
   await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
   await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('contratado');
 });
@@ -244,4 +244,61 @@ test('descarte masivo conserva el perfil, la evaluación y las notas del banco t
   expect(after.candidates[1].talentPoolNotes).toContain('No cumplen con el perfil solicitado');
   await page.reload();
   expect((await readState(page)).applications[1].stage).toBe('no_continua');
+});
+
+
+test('columnas permanecen visibles y las acciones cambian en la esquina derecha del banner', async ({ page }) => {
+  await page.goto('/#view=avance_candidatos');
+  const board = page.getByRole('region', { name: 'Tablero de avance de candidatos', exact: true });
+  await expect(board.locator('.workflow-column')).toHaveCount(4);
+  await expect(board.locator('.workflow-candidate')).toHaveCount(6);
+  const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
+  await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
+  const actions = page.getByLabel('Acciones de Preseleccionado', { exact: true });
+  await expect(actions.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeVisible();
+  const titleBox = await page.getByRole('heading', { name: 'Especialista en selección', exact: true }).boundingBox();
+  const actionBox = await actions.boundingBox();
+  expect(actionBox!.x).toBeGreaterThan(titleBox!.x);
+  expect(actionBox!.y).toBeLessThan(titleBox!.y + titleBox!.height);
+  await expect(board.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(board.getByRole('button', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cambiar tema de apariencia', exact: true }).click();
+  await page.screenshot({ path: '/tmp/gth-kanban-banner-desktop.png', fullPage: true });
+  await stages.getByRole('button', { name: /^En entrevista/ }).click();
+  await expect(page.getByLabel('Acciones de En entrevista', { exact: true }).getByRole('button', { name: 'Agendar entrevista', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toHaveCount(0);
+  await stages.getByRole('button', { name: /^Contratado/ }).click();
+  await expect(page.getByRole('button', { name: 'Agendar entrevista', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByLabel('Buscar candidato por nombre')).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.screenshot({ path: '/tmp/gth-kanban-banner-mobile.png', fullPage: true });
+  await board.scrollIntoViewIfNeeded();
+  await board.focus(); await page.keyboard.press('ArrowRight');
+  await expect.poll(() => board.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  await page.screenshot({ path: '/tmp/gth-kanban-columns-mobile.png', fullPage: true });
+});
+
+
+test('cabeceras conservan los colores del sistema y la selección de columna', async ({ page }) => {
+  await page.goto('/#view=avance_candidatos');
+  const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
+  const postulado = stages.getByRole('button', { name: /^Postulado/ });
+  const preseleccionado = stages.getByRole('button', { name: /^Preseleccionado/ });
+  const read = async () => stages.evaluate(el => {
+    const buttons = el.querySelectorAll('button');
+    const selected = getComputedStyle(buttons[0]);
+    const normal = getComputedStyle(buttons[1]);
+    return { selected: selected.backgroundColor, normal: normal.backgroundColor, align: selected.textAlign,
+      title: getComputedStyle(buttons[0].querySelector('.workflow-stage-title')!).display,
+      description: getComputedStyle(buttons[0].querySelector('.workflow-stage-description')!).display };
+  });
+  const styles = await read();
+  expect(styles.selected).not.toBe(styles.normal); expect(styles.align).toBe('left');
+  expect(styles.title).toBe('flex'); expect(styles.description).toBe('block');
+  await preseleccionado.click();
+  await expect(preseleccionado).toHaveAttribute('aria-pressed', 'true');
+  await expect(postulado).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(async () => (await read()).normal).toBe(styles.selected);
 });
