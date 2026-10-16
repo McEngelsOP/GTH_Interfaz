@@ -178,7 +178,7 @@ export function MejoresCandidatosView() {
 
   // Confirmar avance
   const handleConfirmAdvance = (rejectOthers: boolean, customMessage: string) => {
-    handleAdvanceSelected(rejectOthers, customMessage);
+    return handleAdvanceSelected(rejectOthers, customMessage);
   };
 
   const markedApps = useMemo(() => {
@@ -409,10 +409,7 @@ export function MejoresCandidatosView() {
         application={releaseTarget?.app || null}
         candidate={releaseTarget?.cand || null}
         job={activeJob}
-        onConfirmRelease={(appId, reason) => {
-          handleReleaseApplication(appId, reason);
-          setReleaseTarget(null);
-        }}
+        onConfirmRelease={handleReleaseApplication}
       />
     </div>
   );

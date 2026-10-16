@@ -1,7 +1,8 @@
 import { ActivityLog, AppStateData, Application, Criterion, DecisionLog, EvaluationMethod, JobPosting, Stage } from '../types/index.ts';
+import { pipelineStage } from './sharedWorkflow.ts';
 import { advanceApplications, releaseApplication, simulateScoreRecalculation } from './recruitmentRules.ts';
 
-export const STAGE_ORDER: Stage[] = ['postulado', 'preseleccionado', 'en_entrevista', 'en_evaluacion', 'en_oferta', 'contratado'];
+export const STAGE_ORDER: Stage[] = ['postulado', 'preseleccionado', 'en_entrevista', 'contratado'];
 
 /** Descarte por lote: valida todos los expedientes antes de cambiar el estado. */
 export function releaseSelectedApplications(state: AppStateData, jobId: string, ids: string[], reason: string): AppStateData {
@@ -27,7 +28,7 @@ export function releaseSelectedApplications(state: AppStateData, jobId: string, 
 }
 
 export function validateStageTransition(app: Application, target: Stage, method: EvaluationMethod): string | null {
-  const currentIndex = STAGE_ORDER.indexOf(app.stage);
+  const currentIndex = STAGE_ORDER.indexOf(pipelineStage(app.stage));
   const targetIndex = STAGE_ORDER.indexOf(target);
   if (currentIndex < 0 || targetIndex < 0 || app.stage === 'contratado') return 'La postulación está cerrada.';
   if (Math.abs(currentIndex - targetIndex) !== 1) return 'Mueva el expediente a la etapa anterior o siguiente, sin omitir etapas.';

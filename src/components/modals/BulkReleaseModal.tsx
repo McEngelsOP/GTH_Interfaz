@@ -11,10 +11,11 @@ interface Props {
   expectedCount: number;
   candidates: Candidate[];
   job: JobPosting;
-  onConfirm: (ids: string[], reason: string) => boolean;
+  onConfirm: (ids: string[], reason: string) => Promise<boolean>;
 }
 
 export function BulkReleaseModal({ isOpen, onClose, applications, expectedCount, candidates, job, onConfirm }: Props) {
+  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState('');
   useEffect(() => { if (isOpen) setReason(''); }, [isOpen, job.id]);
   const valid = applications.length > 0 && applications.length === expectedCount && job.status === 'activa' && applications.every(app =>
@@ -22,8 +23,8 @@ export function BulkReleaseModal({ isOpen, onClose, applications, expectedCount,
   return <Modal isOpen={isOpen} onClose={onClose} title="Descartar postulantes marcados"
     subtitle={`${applications.length} postulaciones · ${job.code}`} maxWidth="600px" footer={<>
       <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-      <Button variant="danger" icon={<UserX size={16} />} disabled={!valid || !reason.trim()}
-        onClick={() => { if (onConfirm(applications.map(app => app.id), reason.trim())) onClose(); }}>
+      <Button variant="danger" icon={<UserX size={16} />} disabled={busy || !valid || !reason.trim()}
+        onClick={async () => { setBusy(true); try { if (await onConfirm(applications.map(app => app.id), reason.trim())) onClose(); } finally { setBusy(false); } }}>
         Confirmar descarte ({applications.length})
       </Button>
     </>}>

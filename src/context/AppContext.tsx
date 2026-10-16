@@ -2,7 +2,7 @@
    TalentAI | GTHC · ESAN — Contexto Global de Estado y Acciones
    ========================================================================== */
 
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, ReactNode } from 'react';
 import {
   AppStateData,
   JobPosting,
@@ -14,6 +14,8 @@ import {
   InterviewRecord,
   Stage,
 } from '../types/index.ts';
+import { supabase } from '../services/supabase.ts';
+import { loadWorkflow, persistStageChanges, workflowCandidateId, type SharedAction } from '../services/sharedWorkflow.ts';
 import { updateInternalComment } from '../services/internalComments.ts';
 import { loadAppState } from '../services/storage.ts';
 import { borrarEstado, guardarEstado } from '../services/persistence.ts';
@@ -100,12 +102,13 @@ interface AppContextValue {
   showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
   removeToast: (id: string) => void;
   // Acciones de negocio
-  handleAdvanceApplications: (ids: string[], rejectOthers?: boolean, customMessage?: string) => void;
-  handleMoveStage: (appId: string, target: Stage, reason: string) => void;
+  handleAdvanceApplications: (ids: string[], rejectOthers?: boolean, customMessage?: string) => Promise<boolean>;
+  handleMoveStage: (appId: string, target: Stage, reason: string) => Promise<void>;
   handleSaveToTalentPool: (candidateId: string) => void;
-  handleAdvanceSelected: (rejectOthers?: boolean, customMessage?: string) => void;
-  handleReleaseApplication: (appId: string, reason?: string) => void;
-  handleReleaseApplications: (ids: string[], reason: string) => boolean;
+  handleAdvanceSelected: (rejectOthers?: boolean, customMessage?: string) => Promise<boolean>;
+  handleReleaseApplication: (appId: string, reason?: string) => Promise<boolean>;
+  handleReleaseApplications: (ids: string[], reason: string) => Promise<boolean>;
+  workflow: { ready: boolean; error: string; actions: SharedAction[]; userId: string; reload: () => Promise<void> };
   handleAddNote: (appId: string, noteText: string) => void;
   handleSaveInternalComment: (appId: string, text: string) => void;
   handleScheduleInterview: (
@@ -263,11 +266,98 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     setIsAssistantOpen((prev) => (open !== undefined ? open : !prev));
   };
 
+  const stateRef = useRef(appState);
+  stateRef.current = appState;
+  const workflowBusy = useRef(false);
+  const workflowRequest = useRef(0);
+  const [workflowReady, setWorkflowReady] = useState(false);
+  const [workflowError, setWorkflowError] = useState('');
+  const [workflowActions, setWorkflowActions] = useState<SharedAction[]>([]);
+  const [workflowUser, setWorkflowUser] = useState('');
+  const [workflowLoadedJob, setWorkflowLoadedJob] = useState('');
+  const workflowJob = activeJob?.id;
+  const workflowIds = activeJobApplications.map(app => app.id).sort().join('|');
+  const reloadWorkflow = useCallback(async () => {
+    if (!supabase || workflowBusy.current) return;
+    const snapshot = stateRef.current;
+    const job = snapshot.jobPostings.find(j => j.id === workflowJob);
+    if (!job) return;
+    const request = ++workflowRequest.current;
+    try {
+      const { data } = await supabase.auth.getUser();
+      const result = await loadWorkflow(job, snapshot.applications.filter(a => a.jobPostingId === job.id), snapshot.candidates);
+      if (request !== workflowRequest.current || workflowBusy.current || stateRef.current.activeJobPostingId !== workflowJob) return;
+      const stages = new Map(result.stages.map(row => [row.id_postulante, row.etapa]));
+      const people = new Map(snapshot.candidates.map(c => [c.id, c]));
+      setAppState(prev => {
+        let changed = false;
+        const applications = prev.applications.map(app => {
+          const person = people.get(app.candidateId);
+          const stage = app.jobPostingId === job.id && person ? stages.get(workflowCandidateId(person)) : undefined;
+          if (!stage || stage === app.stage) return app;
+          changed = true; return { ...app, stage };
+        });
+        return changed ? { ...prev, applications } : prev;
+      });
+      setWorkflowActions(result.actions); setWorkflowUser(data.user?.id || ''); setWorkflowLoadedJob(job.id);
+      setWorkflowReady(true); setWorkflowError('');
+    } catch (error) {
+      if (request !== workflowRequest.current) return;
+      setWorkflowReady(false); setWorkflowError(error instanceof Error ? error.message : 'No se pudo sincronizar el avance.');
+    }
+  }, [workflowJob, workflowIds]);
+  const reloadWorkflowRef = useRef(reloadWorkflow);
+  reloadWorkflowRef.current = reloadWorkflow;
+  useEffect(() => {
+    setWorkflowReady(false); setWorkflowActions([]); setWorkflowError('');
+    void reloadWorkflow();
+    const timer = window.setInterval(() => void reloadWorkflow(), 15000);
+    const focus = () => void reloadWorkflow();
+    window.addEventListener('focus', focus);
+    return () => { ++workflowRequest.current; window.clearInterval(timer); window.removeEventListener('focus', focus); };
+  }, [reloadWorkflow]);
+
+  const commitWorkflowState = async (next: AppStateData) => {
+    if (workflowBusy.current) { showToast('Espera a que termine la acción anterior.', 'warning'); return false; }
+    const before = appState;
+    const changes = next.applications.filter(app => before.applications.some(old => old.id === app.id && old.stage !== app.stage));
+    if (!changes.length) return false;
+    const job = before.jobPostings.find(j => j.id === changes[0].jobPostingId);
+    if (!job) return false;
+    workflowBusy.current = true; ++workflowRequest.current;
+    try {
+      await persistStageChanges(job, before.applications.filter(a => a.jobPostingId === job.id), next.applications.filter(a => a.jobPostingId === job.id), before.candidates);
+      const updates = new Map(changes.map(app => [app.id, app]));
+      const additions = <T extends { id: string }>(items: T[], previous: T[], current: T[]) => {
+        const existing = new Set(previous.map(item => item.id));
+        return [...items.filter(item => !existing.has(item.id)), ...current];
+      };
+      setAppState(prev => ({ ...prev,
+        applications: prev.applications.map(app => updates.has(app.id) ? { ...app, stage: updates.get(app.id)!.stage, updatedAt: updates.get(app.id)!.updatedAt } : app),
+        candidates: prev.candidates.map(c => {
+          const updated = next.candidates.find(n => n.id === c.id);
+          if (!updated || updated === before.candidates.find(n => n.id === c.id)) return c;
+          return { ...c, savedInTalentPool: updated.savedInTalentPool, talentPoolOriginJob: updated.talentPoolOriginJob, talentPoolNotes: updated.talentPoolNotes };
+        }),
+        activities: additions(next.activities, before.activities, prev.activities),
+        decisionLogs: additions(next.decisionLogs, before.decisionLogs, prev.decisionLogs),
+        emailDrafts: additions(next.emailDrafts, before.emailDrafts, prev.emailDrafts),
+      }));
+      return true;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se guardó la acción.', 'error'); return false;
+    } finally {
+      workflowBusy.current = false;
+      // La recarga posterior usa los expedientes de la próxima renderización.
+      window.setTimeout(() => void reloadWorkflowRef.current(), 0);
+    }
+  };
+
   // La decisión siempre identifica explícitamente sus expedientes y convocatoria.
-  const handleAdvanceApplications = (ids: string[], rejectOthers = false, customMessage?: string) => {
+  const handleAdvanceApplications = async (ids: string[], rejectOthers = false, customMessage?: string) => {
     const target = appState.applications.find((app) => app.id === ids[0]);
     const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
-    if (!job || job.status !== 'activa') { showToast('Seleccione una convocatoria activa.', 'warning'); return; }
+    if (!job || job.status !== 'activa') { showToast('Seleccione una convocatoria activa.', 'warning'); return false; }
     // Top-N del ranking por Score Embeddings: también pueden avanzar; el resto con score recibe el correo de cierre
     const delPuesto = appState.applications.filter((app) => app.jobPostingId === job.id);
     const elegiblesPorRanking = idsTopN(delPuesto, appState.candidates, job, appState.topN);
@@ -280,31 +370,29 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     });
     const result = apply(appState);
     if (!result.newDecisions.length) {
-      showToast('Revise la selección: todos deben estar pendientes y dentro del Top-N (o verificados y evaluados) del mismo puesto.', 'warning'); return;
+      showToast('Revise la selección: todos deben estar pendientes y dentro del Top-N (o verificados y evaluados) del mismo puesto.', 'warning'); return false;
     }
-    setAppState((prev) => {
-      const latest = apply(prev);
-      return { ...prev, applications: latest.updatedApplications, candidates: latest.updatedCandidates,
-        activities: [...latest.newActivities, ...prev.activities],
-        decisionLogs: [...latest.newDecisions, ...prev.decisionLogs], emailDrafts: [...latest.newDrafts, ...prev.emailDrafts] };
-    });
+    const next = { ...appState, applications: result.updatedApplications, candidates: result.updatedCandidates,
+      activities: [...result.newActivities, ...appState.activities], decisionLogs: [...result.newDecisions, ...appState.decisionLogs], emailDrafts: [...result.newDrafts, ...appState.emailDrafts] };
+    if (!await commitWorkflowState(next)) return false;
     clearApplicationSelection();
     showToast(`${new Set(ids).size} perfiles avanzaron a Preseleccionado. Se guardaron borradores de avance${rejectOthers ? ' y cierre' : ''}.`, 'success');
+    return true;
   };
 
   const handleAdvanceSelected = (rejectOthers = false, customMessage?: string) => {
     const ids = selectedApplicationIds.filter((id) => activeJobApplications.some((a) => a.id === id));
-    handleAdvanceApplications(ids, rejectOthers, customMessage);
+    return handleAdvanceApplications(ids, rejectOthers, customMessage);
   };
 
-  const handleMoveStage = (appId: string, target: Stage, reason: string) => {
+  const handleMoveStage = async (appId: string, target: Stage, reason: string) => {
     const app = appState.applications.find((a) => a.id === appId);
     const error = app && validateStageTransition(app, target, appState.selectedMethod);
     if (!app || error || !reason.trim()) { showToast(error || 'Registre el motivo de la decisión.', 'warning'); return; }
     if (moveApplicationStage(appState, appId, target, reason) === appState) {
       showToast('La convocatoria debe estar activa.', 'warning'); return;
     }
-    setAppState((prev) => moveApplicationStage(prev, appId, target, reason));
+    if (!await commitWorkflowState(moveApplicationStage(appState, appId, target, reason))) return;
     setSelectedApplicationIds((prev) => prev.filter((id) => id !== appId));
     showToast('Cambio de etapa registrado en el expediente y el historial.', 'success');
   };
@@ -318,13 +406,13 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
 
   // Liberar postulación
-  const handleReleaseApplications = (ids: string[], reason: string) => {
+  const handleReleaseApplications = async (ids: string[], reason: string) => {
     const jobId = activeJob?.id;
     if (!jobId || releaseSelectedApplications(appState, jobId, ids, reason) === appState) {
       showToast('Revisa el lote: selecciona expedientes activos de esta convocatoria y registra un motivo.', 'warning');
       return false;
     }
-    setAppState(prev => releaseSelectedApplications(prev, jobId, ids, reason));
+    if (!await commitWorkflowState(releaseSelectedApplications(appState, jobId, ids, reason))) return false;
     const released = new Set(ids);
     setSelectedApplicationIds(prev => prev.filter(id => !released.has(id)));
     if (selectedCandidateForDrawer && released.has(selectedCandidateForDrawer.id)) setSelectedCandidateForDrawer(null);
@@ -332,10 +420,10 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     return true;
   };
 
-  const handleReleaseApplication = (appId: string, reason = 'Liberación manual por el evaluador') => {
+  const handleReleaseApplication = async (appId: string, reason = 'Liberación manual por el evaluador') => {
     const target = appState.applications.find((a) => a.id === appId);
     const job = appState.jobPostings.find((j) => j.id === target?.jobPostingId);
-    if (!job) return;
+    if (!job) return false;
     const result = releaseApplication({
       applicationId: appId,
       applications: appState.applications,
@@ -344,23 +432,16 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
       reason,
     });
 
-    if (!result) { showToast('El expediente ya está cerrado o el motivo no es válido.', 'warning'); return; }
+    if (!result) { showToast('El expediente ya está cerrado o el motivo no es válido.', 'warning'); return false; }
 
-    // Desmarcar si estaba seleccionado
-    setSelectedApplicationIds((prev) => prev.filter((id) => id !== appId));
-    if (selectedCandidateForDrawer?.id === appId) {
-      setSelectedCandidateForDrawer(null);
-    }
-
-    setAppState((prev) => {
-      const latest = releaseApplication({ applicationId: appId, applications: prev.applications, candidates: prev.candidates,
-        jobPostingTitle: job.title, reason, criteriaVersion: job.criteriaVersion, method: prev.selectedMethod });
-      if (!latest) return prev;
-      return { ...prev, applications: latest.updatedApplications, candidates: latest.updatedCandidates,
-        activities: [latest.newActivity, ...prev.activities], decisionLogs: [latest.newDecision, ...prev.decisionLogs] };
-    });
+    const next = { ...appState, applications: result.updatedApplications, candidates: result.updatedCandidates,
+      activities: [result.newActivity, ...appState.activities], decisionLogs: [result.newDecision, ...appState.decisionLogs] };
+    if (!await commitWorkflowState(next)) return false;
+    setSelectedApplicationIds(prev => prev.filter(id => id !== appId));
+    if (selectedCandidateForDrawer?.id === appId) setSelectedCandidateForDrawer(null);
 
     showToast('Postulación liberada. El perfil continúa conservado en No continúan y en Banco de Talento.', 'info');
+    return true;
   };
 
   // Añadir nota
@@ -646,6 +727,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     showToast,
     removeToast,
     handleAdvanceApplications,
+    workflow: { ready: workflowReady && workflowLoadedJob === activeJob?.id, error: workflowError, actions: workflowLoadedJob === activeJob?.id ? workflowActions : [], userId: workflowUser, reload: reloadWorkflow },
     handleMoveStage,
     handleSaveToTalentPool,
     handleAdvanceSelected,

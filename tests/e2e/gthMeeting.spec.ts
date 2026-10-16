@@ -27,20 +27,28 @@ test.beforeEach(async ({ page }) => {
   }, { key: storageKey, state: meetingState });
 });
 
-test('tablero avanza directamente, guarda motivo fijo y mantiene validaciones', async ({ page }) => {
+test('tablero usa cuatro etapas, avanza y mantiene la decisión tras recargar', async ({ page }) => {
   await page.goto('/#view=avance_candidatos');
-  const card = page.locator('[draggable="true"]').filter({ has: page.getByRole('button', { name: 'Bruno Prueba', exact: true }) });
-  await card.getByRole('button', { name: 'Avanzar', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
+  await expect(stages.getByRole('button')).toHaveCount(4);
+  expect(await stages.getByRole('button').allTextContents()).toEqual([
+    'Postulado5Recepción y revisión de perfiles', 'Preseleccionado1Invitación a Multitest',
+    'En entrevista0Coordinación y cierre de selección', 'Contratado0Incorporación confirmada',
+  ]);
+  await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
   await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('preseleccionado');
   expect((await readState(page)).decisionLogs[0].notes).toBe('Movido desde el tablero de avance');
-  const dragged = page.locator('[draggable="true"]').filter({ has: page.getByRole('button', { name: 'Carla Prueba', exact: true }) });
-  await dragged.dragTo(card.locator('..').locator('..'), { targetPosition: { x: 80, y: 30 } });
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect.poll(async () => (await readState(page)).applications[2].stage).toBe('preseleccionado');
+  await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
+  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
+  await stages.getByRole('button', { name: /^En entrevista/ }).click();
+  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
+  await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('contratado');
   await page.reload();
-  await expect(card).toBeVisible();
-  expect((await readState(page)).applications[1].stage).toBe('preseleccionado');
+  await stages.getByRole('button', { name: /^Contratado/ }).click();
+  await expect(page.getByRole('button', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true })).toBeDisabled();
 });
 
 test('revisados tiene contador y selección independiente de las casillas', async ({ page }) => {
@@ -55,31 +63,52 @@ test('revisados tiene contador y selección independiente de las casillas', asyn
   await expect(page.getByRole('tab', { name: 'Marcados 0', exact: true })).toBeVisible();
 });
 
-test('agradecimiento permite elegir, buscar y reabrir con todos marcados', async ({ page }) => {
+test('postulado filtra Top-N y nombre, Ctrl K enfoca búsqueda y Multitest queda configurable', async ({ page }) => {
   await page.goto('/#view=avance_candidatos');
-  const open = page.getByRole('button', { name: 'Agradecer a no seleccionados (5)', exact: true });
-  await open.click();
-  const modal = page.getByRole('dialog');
-  await expect(modal.getByText('5 de 5 seleccionados', { exact: true })).toBeVisible();
-  for (const name of ['Bruno Prueba', 'Diego Prueba']) await modal.getByRole('checkbox', { name: `Incluir a ${name}`, exact: true }).uncheck();
-  await expect(modal.getByText('3 de 5 seleccionados', { exact: true })).toBeVisible();
-  await modal.getByLabel('Buscar destinatario por nombre').fill('Carla');
-  await expect(modal.getByRole('checkbox')).toHaveCount(1);
-  await modal.getByRole('button', { name: /Abrir en Gmail/ }).click();
-  const url = new URL(await page.evaluate(() => (window as any).__opened[0]));
-  expect(url.searchParams.get('bcc')).toBe('persona2@example.com,persona4@example.com');
-  await modal.getByLabel('Buscar destinatario por nombre').fill('');
-  await modal.getByRole('button', { name: 'Desmarcar todos', exact: true }).click();
-  await expect(modal.getByRole('button', { name: 'Copiar correos', exact: true })).toBeDisabled();
-  await modal.getByRole('button', { name: 'Listo', exact: true }).click();
-  await open.click(); await expect(modal.getByText('5 de 5 seleccionados', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Top-N', exact: true }).click();
+  await expect(page.locator('.workflow-candidate')).toHaveCount(2);
+  await page.getByLabel('Cantidad Top-N').fill('2');
+  await expect(page.locator('.workflow-candidate')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Todos', exact: true }).click();
+  await page.getByLabel('Buscar candidato por nombre').fill('carla');
+  await expect(page.locator('.workflow-candidate')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Carla Prueba', exact: true })).toBeVisible();
+  const stages = page.getByRole('navigation', { name: 'Etapas del proceso' });
+  await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
+  await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Configurar Multitest', exact: true }).click();
+  await page.getByLabel('Enlace de Multitest', { exact: true }).fill('http://example.com/prueba');
+  await page.getByLabel('Plazo para rendir las pruebas', { exact: true }).fill('48 horas');
+  await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('HTTPS');
+  await page.getByLabel('Enlace de Multitest', { exact: true }).fill('https://example.com/prueba');
+  await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Configuración de Multitest' })).toHaveCount(0);
+  await page.reload();
+  await stages.getByRole('button', { name: /^Preseleccionado/ }).click();
+  await page.getByRole('button', { name: 'Configurar Multitest', exact: true }).click();
+  await expect(page.getByLabel('Enlace de Multitest', { exact: true })).toHaveValue('https://example.com/prueba');
+  await stages.getByRole('button', { name: /^En entrevista/ }).click();
+  await expect(page.getByRole('button', { name: 'Agradecer a no seleccionados', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Agendar entrevista', exact: true })).toBeDisabled();
+  await page.keyboard.press('Control+k');
+  await expect(page.getByLabel('Buscar candidato por nombre')).toBeFocused();
+  await page.getByLabel('Buscar candidato por nombre').fill('');
+  await page.screenshot({ path: '/tmp/gth-workflow-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(await modal.evaluate((el) => {
-    const bounds = el.getBoundingClientRect();
-    return [...el.querySelectorAll('button')].every((button) => {
-      const rect = button.getBoundingClientRect(); return rect.left >= bounds.left && rect.right <= bounds.right;
-    });
-  })).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.screenshot({ path: '/tmp/gth-workflow-mobile.png', fullPage: true });
+});
+
+test('etapas antiguas se muestran dentro de En entrevista sin perder perfiles', async ({ page }) => {
+  const state = structuredClone(meetingState);
+  state.applications[1].stage = 'en_evaluacion'; state.applications[2].stage = 'en_oferta';
+  await page.addInitScript(state => localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state)), state);
+  await page.goto('/#view=avance_candidatos');
+  await page.getByRole('navigation', { name: 'Etapas del proceso' }).getByRole('button', { name: /^En entrevista/ }).click();
+  await expect(page.locator('.workflow-candidate')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
+  await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('contratado');
 });
 
 test('WhatsApp usa el destinatario correcto y aparece también en la ficha', async ({ page }) => {
@@ -195,4 +224,24 @@ test('comparador distingue cero de pendiente y refleja los conteos en las donas'
   await expect(chart.getByRole('cell', { name: 'R1 · Experiencia en selección de personal: Bruno Prueba, Sin datos', exact: true })).toHaveClass('heatmap-missing');
   await expect(chart.getByRole('img', { name: 'Ana Prueba: 0 de similitud alta, 0 media, 2 baja y 0 sin datos', exact: true })).toBeVisible();
   await expect(chart.getByRole('img', { name: 'Bruno Prueba: 0 de similitud alta, 0 media, 0 baja y 2 sin datos', exact: true })).toBeVisible();
+});
+
+test('descarte masivo conserva el perfil, la evaluación y las notas del banco tras el guardado asíncrono', async ({ page }) => {
+  await page.goto('/#view=mejores_candidatos');
+  for (const name of ['Bruno Prueba', 'Carla Prueba']) {
+    await page.getByRole('row').filter({ has: page.getByRole('button', { name, exact: true }) }).getByRole('checkbox').check();
+  }
+  await page.getByRole('button', { name: 'Descartar marcados (2)', exact: true }).click();
+  await page.getByLabel('Motivo del descarte', { exact: true }).fill('No cumplen con el perfil solicitado');
+  await page.getByRole('button', { name: 'Confirmar descarte (2)', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(async () => (await readState(page)).applications[1].stage).toBe('no_continua');
+  const after = await readState(page);
+  expect(after.applications[2].stage).toBe('no_continua');
+  expect(after.applications[1].embeddingMatch).toEqual(meetingState.applications[1].embeddingMatch);
+  expect(after.candidates[1].savedInTalentPool).toBe(true);
+  expect(after.candidates[1].talentPoolOriginJob).toBe(meetingState.jobPostings[0].title);
+  expect(after.candidates[1].talentPoolNotes).toContain('No cumplen con el perfil solicitado');
+  await page.reload();
+  expect((await readState(page)).applications[1].stage).toBe('no_continua');
 });

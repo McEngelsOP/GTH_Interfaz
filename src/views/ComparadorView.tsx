@@ -500,9 +500,10 @@ export function ComparadorView() {
         job={activeJob}
         method={appState.selectedMethod}
         topIds={topIds}
-        onConfirmAdvance={(rejectOthers, customMsg) => {
-          handleAdvanceSelected(rejectOthers, customMsg);
-          setCurrentView('mejores_candidatos');
+        onConfirmAdvance={async (rejectOthers, customMsg) => {
+          const saved = await handleAdvanceSelected(rejectOthers, customMsg);
+          if (saved) setCurrentView('mejores_candidatos');
+          return saved;
         }}
       />
     </div>

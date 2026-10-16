@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:local": "node scripts/e2e-local.mjs"
+    "test:e2e:local": "node scripts/e2e-local.mjs",
+    "test:workflow:sql": "node scripts/test-shared-workflow.mjs",
+    "test:workflow:browser": "playwright test --config=playwright.workflow.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -20,6 +22,7 @@
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
     "@playwright/test": "^1.63.0",
     "@types/node": "22.20.5",
     "@types/react": "^19.0.0",

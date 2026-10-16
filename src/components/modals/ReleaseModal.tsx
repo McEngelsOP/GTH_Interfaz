@@ -10,7 +10,7 @@ interface ReleaseModalProps {
   application: Application | null;
   candidate: Candidate | null;
   job: JobPosting;
-  onConfirmRelease: (applicationId: string, reason: string) => void;
+  onConfirmRelease: (applicationId: string, reason: string) => Promise<boolean>;
 }
 
 export function ReleaseModal({
@@ -21,13 +21,15 @@ export function ReleaseModal({
   job,
   onConfirmRelease,
 }: ReleaseModalProps) {
+  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState('Perfil no se ajusta al requerimiento de la cátedra');
 
   if (!isOpen || !application || !candidate) return null;
 
-  const handleConfirm = () => {
-    onConfirmRelease(application.id, reason);
-    onClose();
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { if (await onConfirmRelease(application.id, reason)) onClose(); } finally { setBusy(false); }
   };
 
   return (
@@ -42,7 +44,7 @@ export function ReleaseModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger" icon={<UserX size={15} />} onClick={handleConfirm} disabled={!reason.trim()}>
+          <Button variant="danger" icon={<UserX size={15} />} onClick={handleConfirm} disabled={busy || !reason.trim()}>
             Confirmar liberación
           </Button>
         </>

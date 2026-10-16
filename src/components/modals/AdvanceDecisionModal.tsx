@@ -16,7 +16,7 @@ interface AdvanceDecisionModalProps {
   candidates: Candidate[];
   job: JobPosting;
   method: EvaluationMethod;
-  onConfirmAdvance: (rejectOthers: boolean, customMessage: string) => void;
+  onConfirmAdvance: (rejectOthers: boolean, customMessage: string) => Promise<boolean>;
 }
 
 export function AdvanceDecisionModal({
@@ -29,6 +29,7 @@ export function AdvanceDecisionModal({
   onConfirmAdvance,
   topIds,
 }: AdvanceDecisionModalProps & { topIds?: Set<string> }) {
+  const [busy, setBusy] = useState(false);
   const [rejectOthers, setRejectOthers] = useState(false);
   const [customMessage, setCustomMessage] = useState(
     `Estimado(a) {nombre},\n\nNos complace comunicarle que su postulación para la convocatoria "{puesto}" ha avanzado a la etapa de Preseleccionado.\n\nPróximamente el equipo de GTHC de la Universidad ESAN se comunicará con usted para coordinar las siguientes etapas.\n\nAtentamente,\nEquipo de GTHC · Universidad ESAN`
@@ -41,9 +42,10 @@ export function AdvanceDecisionModal({
   const validSelection = selectedApplications.length > 0 && selectedApplications.every((app) => app.jobPostingId === job.id && puedeAvanzar(app, method, topIds)) && job.status === 'activa';
   const count = selectedApplications.length;
 
-  const handleConfirm = () => {
-    onConfirmAdvance(rejectOthers, customMessage);
-    onClose();
+  const handleConfirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { if (await onConfirmAdvance(rejectOthers, customMessage)) onClose(); } finally { setBusy(false); }
   };
 
   const sampleCandidate = candidates.find(
@@ -70,7 +72,7 @@ export function AdvanceDecisionModal({
             variant="primary"
             icon={<UserCheck size={16} />}
             onClick={handleConfirm}
-            disabled={!validSelection || !customMessage.trim()}
+            disabled={busy || !validSelection || !customMessage.trim()}
           >
             Confirmar avance ({count} {count === 1 ? 'perfil' : 'perfiles'})
           </Button>
