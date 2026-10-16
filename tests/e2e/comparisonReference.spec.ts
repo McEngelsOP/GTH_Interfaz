@@ -25,9 +25,18 @@ for (const count of [4, 0, 1, 16]) {
     await expect(page.getByRole('heading', { name: 'Mapa de similitud por requisito' })).toHaveCount(0);
     await expect(page.locator('.comparison-ring-arc')).toHaveCount(count * 3);
     if (count === 4) {
+      await expect(page.locator('.comparison-score strong')).toHaveText(['1.00', '0.80', '0.60']);
       await expect(page.locator('.comparison-card').first().locator('.comparison-ring-value')).toHaveText('1/4');
       await expect(page.locator('.comparison-card').first().getByLabel('R3: Requisito de prueba 3, 0 %', { exact: true })).toBeVisible();
       await expect(page.locator('.comparison-card').first().getByLabel('R4: Requisito de prueba 4, sin datos', { exact: true })).toBeVisible();
+
+      // Reagregar al candidato con mayor score al final no debe cambiar el orden del comparador.
+      await page.locator('.comparison-card').first().getByRole('button', { name: 'Quitar Ana Prueba de la comparación', exact: true }).click();
+      await page.getByLabel('Candidato para comparar').selectOption('comparison-app-0');
+      await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+      await expect(page.locator('.comparison-score strong')).toHaveText(['1.00', '0.80', '0.60']);
+      await expect(page.locator('table thead tr').first().locator('th').nth(1)).toContainText('Ana Prueba');
+
       await page.locator('.comparison-chart').screenshot({ path: 'test-results/comparison-reference-desktop.png' });
       await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
       await page.setViewportSize({ width: 390, height: 844 });
