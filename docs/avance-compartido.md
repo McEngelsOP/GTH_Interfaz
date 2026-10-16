@@ -10,6 +10,8 @@ La web debe seguir conectada a ese mismo proyecto mediante sus variables existen
 
 Al abrir la web, se registran los expedientes nuevos con su etapa actual del navegador que los inicializa. Una vez registrado un expediente, su etapa compartida prevalece sobre copias locales antiguas. Durante la primera activación conviene abrir desde el navegador que tiene las decisiones vigentes. No se migran automáticamente correos ni entrevistas históricas; antes de enviar, verificar los contactos hechos fuera de este flujo.
 
+Si ya activaste el avance compartido, ejecutar una vez `supabase/migrations/20261016004500_retroceso_desde_contratado.sql` (nombre sugerido: **Permitir retroceso desde Contratado**). Corrige la función de movimientos sin cambiar datos, permisos ni comunicaciones. Contratado puede volver únicamente a En entrevista; luego se puede seguir retrocediendo de una etapa en una. Los descartados siguen cerrados.
+
 Los movimientos y descartes se validan en el servidor con la etapa anterior. Se actualizan al recuperar el foco, pulsar Actualizar avance o cada 15 segundos. Sin la migración, las comunicaciones y los cambios conectados se bloquean; no se simula un guardado compartido.
 
 ## Configurar Multitest

@@ -49,6 +49,18 @@ test('tablero usa cuatro etapas, avanza y mantiene la decisión tras recargar', 
   await stages.getByRole('button', { name: /^Contratado/ }).click();
   await expect(page.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true })).toBeDisabled();
+  for (const target of ['en_entrevista', 'preseleccionado', 'postulado'] as const) {
+    await expect(page.getByRole('button', { name: 'Volver de etapa a Bruno Prueba', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Volver de etapa a Bruno Prueba', exact: true }).click();
+    await expect.poll(async () => (await readState(page)).applications[1].stage).toBe(target);
+    await page.reload();
+    expect((await readState(page)).applications[1].stage).toBe(target);
+  }
+  const result = await readState(page);
+  expect(result.applications[1].embeddingMatch).toEqual(meetingState.applications[1].embeddingMatch);
+  expect(result.decisionLogs.filter(log => log.applicationId === result.applications[1].id).slice(0, 3).map(log => [log.previousStage, log.newStage])).toEqual([
+    ['preseleccionado', 'postulado'], ['en_entrevista', 'preseleccionado'], ['contratado', 'en_entrevista'],
+  ]);
 });
 
 test('revisados tiene contador y selección independiente de las casillas', async ({ page }) => {

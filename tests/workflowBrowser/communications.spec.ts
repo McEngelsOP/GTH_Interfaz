@@ -59,6 +59,7 @@ test.beforeEach(async () => {
     grant usage on schema auth to authenticated; insert into auth.users values('${user1}'),('${user2}');`);
   await db.exec(readFileSync('supabase/migrations/20261015230000_comentarios_internos.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261016001000_avance_compartido.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261016004500_retroceso_desde_contratado.sql', 'utf8'));
   await db.exec(`insert into public.gth_colaboradores values('${user1}'),('${user2}');`);
 });
 test.afterEach(async () => { await queue; await db.close(); });
@@ -112,6 +113,38 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   expect(whatsapp.pathname).toBe('/51987654321'); expect(whatsapp.searchParams.get('text')).toContain('https://meet.example/entrevista');
   await a.getByRole('button', { name: 'Confirmar envío realizado (1)', exact: true }).click();
   await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
+  // Regresión: contratado puede retroceder, y las comunicaciones confirmadas no se liberan.
+  await a.getByRole('button', { name: 'Avanzar de etapa a Ana Prueba', exact: true }).click();
+  await expect(a.getByRole('region', { name: 'Candidatos en Contratado', exact: true }).getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await b.getByRole('button', { name: 'Actualizar avance', exact: true }).click();
+  await expect(b.getByRole('region', { name: 'Candidatos en Contratado', exact: true }).getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await a.getByRole('button', { name: 'Volver de etapa a Ana Prueba', exact: true }).click();
+  await expect(a.getByRole('region', { name: 'Candidatos en En entrevista', exact: true }).getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await b.getByRole('button', { name: 'Actualizar avance', exact: true }).click();
+  await expect(b.getByRole('region', { name: 'Candidatos en En entrevista', exact: true }).getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  for (const target of ['preseleccionado', 'postulado']) {
+    await a.getByRole('button', { name: 'Volver de etapa a Ana Prueba', exact: true }).click();
+    await expect.poll(async () => (await db.query("select etapa from public.gth_avance where id_postulante='qa-external-0'")).rows[0].etapa).toBe(target);
+  }
+  await a.reload();
+  await expect(a.getByRole('region', { name: 'Candidatos en Postulado', exact: true }).getByRole('heading', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  for (const target of ['preseleccionado', 'en_entrevista']) {
+    await a.getByRole('button', { name: 'Avanzar de etapa a Ana Prueba', exact: true }).click();
+    await expect.poll(async () => (await db.query("select etapa from public.gth_avance where id_postulante='qa-external-0'")).rows[0].etapa).toBe(target);
+    if (target === 'preseleccionado') {
+      await banner(a, 'Preseleccionado').click();
+      await a.getByRole('button', { name: 'Enviar Multitest', exact: true }).click();
+      await expect(a.getByRole('checkbox', { name: 'Incluir a Ana Prueba', exact: true })).toBeDisabled();
+      await expect(a.getByText('Envío confirmado', { exact: true })).toBeVisible();
+      await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
+    }
+  }
+  await banner(a, 'Preseleccionado').click();
+  // El registro mantiene ambos envíos aunque el candidato haya vuelto de etapa.
+  expect((await db.query("select accion,estado from public.gth_acciones where id_postulante='qa-external-0' order by accion")).rows).toEqual([
+    { accion: 'entrevista', estado: 'confirmado' }, { accion: 'multitest', estado: 'confirmado' },
+  ]);
+  await banner(a, 'En entrevista').click();
   await a.getByRole('button', { name: 'Agradecer a no seleccionados', exact: true }).click();
   await a.getByRole('button', { name: 'Preparar correo (4)', exact: true }).click();
   await a.getByRole('button', { name: 'Abrir Gmail', exact: true }).click();

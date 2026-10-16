@@ -30,7 +30,7 @@ export function releaseSelectedApplications(state: AppStateData, jobId: string, 
 export function validateStageTransition(app: Application, target: Stage, method: EvaluationMethod): string | null {
   const currentIndex = STAGE_ORDER.indexOf(pipelineStage(app.stage));
   const targetIndex = STAGE_ORDER.indexOf(target);
-  if (currentIndex < 0 || targetIndex < 0 || app.stage === 'contratado') return 'La postulación está cerrada.';
+  if (currentIndex < 0 || targetIndex < 0) return 'La postulación está cerrada.';
   if (Math.abs(currentIndex - targetIndex) !== 1) return 'Mueva el expediente a la etapa anterior o siguiente, sin omitir etapas.';
   // El tablero es una decisión manual de GTHC con motivo registrado: con el ranking por embeddings ya no hay
   // verificación de requisitos ni puntaje LLM que exigir para avanzar.

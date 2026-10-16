@@ -138,7 +138,7 @@ export function AvanceCandidatosView() {
             </div>
             <div className="workflow-score"><strong>{score ? formatEmbeddingScore(score.score) : 'Pendiente'}</strong><small>· #{position.get(app.id)} del ranking</small></div>
             <div className="workflow-card-actions">
-              <Button size="sm" variant="ghost" aria-label={`Volver de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex > 0 ? `Volver a ${PIPELINE_STAGES[columnIndex - 1].label}` : 'Primera etapa'} disabled={!canMove || !!moving || locked || columnIndex === 0 || stageItem.id === 'contratado'} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex - 1].id)} icon={<ChevronLeft size={15} />}>Atrás</Button>
+              <Button size="sm" variant="ghost" aria-label={`Volver de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex > 0 ? `Volver a ${PIPELINE_STAGES[columnIndex - 1].label}` : 'Primera etapa'} disabled={!canMove || !!moving || locked || columnIndex === 0} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex - 1].id)} icon={<ChevronLeft size={15} />}>Atrás</Button>
               <Button size="sm" variant="outline" aria-label={`Avanzar de etapa a ${candidate?.name}`} title={locked ? 'Primero confirma o libera la comunicación preparada' : columnIndex < 3 ? `Avanzar a ${PIPELINE_STAGES[columnIndex + 1].label}` : 'Etapa final'} disabled={!canMove || !!moving || locked || columnIndex === 3} onClick={() => void move(app.id, PIPELINE_STAGES[columnIndex + 1].id)} iconPosition="right" icon={<ChevronRight size={15} />}>{moving === app.id ? 'Guardando…' : 'Avanzar'}</Button>
             </div>
           </article>;
