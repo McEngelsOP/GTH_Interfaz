@@ -50,11 +50,6 @@ export function ComparadorView() {
   const [selectedCandidateToAdd, setSelectedCandidateToAdd] = useState('');
   const [soloTop, setSoloTop] = useState(true);
 
-  // Candidatos actualmente en la comparación
-  const comparedApplications = useMemo(() => {
-    return activeJobApplications.filter((a) => selectedApplicationIds.includes(a.id));
-  }, [activeJobApplications, selectedApplicationIds]);
-
   const candidateMap = useMemo(() => {
     const map = new Map<string, Candidate>();
     appState.candidates.forEach((c) => map.set(c.id, c));
@@ -64,8 +59,15 @@ export function ComparadorView() {
   // Top-N del ranking por Score Embeddings y la posición de cada uno.
   const topIds = useMemo(() => idsTopN(activeJobApplications, appState.candidates, activeJob, appState.topN),
     [activeJobApplications, appState.candidates, activeJob, appState.topN]);
-  const posicion = useMemo(() => new Map(ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob).map((app, i) => [app.id, i + 1])),
+  const rankingOrdenado = useMemo(() => ordenarPorEmbeddings(activeJobApplications, appState.candidates, activeJob),
     [activeJobApplications, appState.candidates, activeJob]);
+  const posicion = useMemo(() => new Map(rankingOrdenado.map((app, i) => [app.id, i + 1])), [rankingOrdenado]);
+
+  // Mantiene las fichas y las columnas de detalle en el mismo orden: mayor puntaje a la izquierda.
+  const comparedApplications = useMemo(() => {
+    const seleccionados = new Set(selectedApplicationIds);
+    return rankingOrdenado.filter((app) => seleccionados.has(app.id));
+  }, [rankingOrdenado, selectedApplicationIds]);
 
   // Con «Solo del Top-N», el selector muestra solo a los del Top-N en el orden del ranking; si no, a todos de la A a la Z.
   const availableToAdd = useMemo(() => {
