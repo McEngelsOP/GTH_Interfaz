@@ -1,110 +1,87 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import type { Application, Candidate, JobPosting } from '../../types/index.ts';
+import { Check, Info, Minus, X } from 'lucide-react';
 import { argumentosPorRequisito } from '../../services/perfilBumeran.ts';
 import { embeddingVigente } from '../../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
+import { StageBadge } from './StageBadge.tsx';
+import { Button } from '../common/Button.tsx';
 import '../../styles/comparisonChart.css';
 
-const COLORS = ['#2563EB', '#0D9488', '#8B5CF6', '#B45309', '#DB2777', '#475569'];
+const LEVELS = [
+  { label: 'Alta', range: '70 % o más', className: 'strong', Icon: Check },
+  { label: 'Media', range: '40 a 69 %', className: 'medium', Icon: Info },
+  { label: 'Baja', range: 'menos de 40 %', className: 'low', Icon: X },
+  { label: 'Sin datos', range: '', className: 'missing', Icon: Minus },
+];
+const levelOf = (pct: number | null) => pct === null ? 3 : pct >= 70 ? 0 : pct >= 40 ? 1 : 2;
 
-export function ComparisonChart({ applications, candidates, job }: { applications: Application[]; candidates: Map<string, Candidate>; job: JobPosting }) {
-  const ids = applications.map((app) => app.candidateId).join('|');
-  const [colors, setColors] = useState(() => new Map(applications.map((app, i) => [app.candidateId, COLORS[i % COLORS.length]])));
-  useEffect(() => {
-    setColors((previous) => {
-      const active = new Set(applications.map((app) => app.candidateId));
-      const next = new Map([...previous].filter(([id]) => active.has(id)));
-      for (const app of applications) {
-        if (!next.has(app.candidateId)) next.set(app.candidateId, COLORS.find((color) => ![...next.values()].includes(color)) || COLORS[next.size % COLORS.length]);
-      }
-      return next;
-    });
-  }, [ids]);
-  const series = useMemo(() => applications.map((app) => ({
-    app, name: candidates.get(app.candidateId)?.name || 'Candidato',
-    requisitos: argumentosPorRequisito(app, candidates.get(app.candidateId), job).requisitos,
-    total: embeddingVigente(app, job)?.score ?? null,
-  })), [applications, candidates, job]);
+interface ComparisonChartProps {
+  applications: Application[];
+  candidates: Map<string, Candidate>;
+  job: JobPosting;
+  positions: Map<string, number>;
+  onRemove: (id: string) => void;
+  onViewProfile: (application: Application) => void;
+}
 
+export function ComparisonChart({ applications, candidates, job, positions, onRemove, onViewProfile }: ComparisonChartProps) {
   return <section className="comparison-chart" aria-labelledby="comparison-chart-title">
-    <h3 id="comparison-chart-title">Comparación visual de candidatos</h3>
-    <p>Compara el score del aviso y detecta qué requisitos conviene revisar en la entrevista.</p>
-    <ul className="comparison-chart-legend" aria-label="Leyenda de candidatos">
-      {series.map(({ app, name }) => <li key={app.id}><span aria-hidden="true" style={{ backgroundColor: colors.get(app.candidateId) }} />{name}</li>)}
-    </ul>
-    <section aria-labelledby="comparison-score-title" className="comparison-overview">
-      <h4 id="comparison-score-title">Score general</h4>
-      <p>Escala de 0 a 1 dentro de esta convocatoria. Un score mayor indica mayor similitud relativa.</p>
-      <div className="comparison-score-axis" aria-hidden="true"><span>0</span><span>0,5</span><span>1</span></div>
-      {series.map(({ app, name, total }) => <div key={app.id} className="comparison-chart-bar-row">
-        <span className="comparison-chart-name" title={name}>{name}</span>
-        <div className="comparison-chart-track" role="img" aria-label={`${name}: score ${total === null ? 'pendiente' : formatEmbeddingScore(total)}`}>
-          {total !== null && <div className="comparison-chart-fill" style={{ width: `${Math.max(0, Math.min(1, total)) * 100}%`, background: colors.get(app.candidateId) }} />}
-        </div>
-        <strong className="comparison-chart-value tabular-nums">{total === null ? 'Pendiente' : formatEmbeddingScore(total)}</strong>
-      </div>)}
-    </section>
-    <section aria-labelledby="comparison-coverage-title" className="comparison-overview">
-      <h4 id="comparison-coverage-title">Requisitos para orientar la entrevista</h4>
-      <p>Cantidad de requisitos según su similitud con el perfil. Cada requisito cuenta una vez, sin aplicar pesos.</p>
-      <ul className="comparison-chart-legend comparison-coverage-legend" aria-label="Niveles de similitud">
-        <li><span className="coverage-strong" />Alta (≥ 70 %)</li>
-        <li><span className="coverage-medium" />Media (40–69 %)</li>
-        <li><span className="coverage-low" />Baja (&lt; 40 %)</li>
-        <li><span className="coverage-missing" />Sin datos</li>
+    <div className="comparison-visual-heading">
+      <h3 id="comparison-chart-title">Comparación visual de candidatos</h3>
+      <ul className="comparison-level-legend" aria-label="Niveles de similitud">
+        {LEVELS.map(({ label, range, className, Icon }) => <li key={label} className={`comparison-level-${className}`}>
+          <Icon size={16} aria-hidden="true" />{label}{range && ` · ${range}`}
+        </li>)}
       </ul>
-      {job.criteria.length === 0 ? <p>No hay requisitos configurados para comparar.</p> : <div className="comparison-donuts">
-        {series.map(({ app, name, requisitos }) => {
-          const counts = [requisitos.filter(r => r.pct !== null && r.pct >= 70).length,
-            requisitos.filter(r => r.pct !== null && r.pct >= 40 && r.pct < 70).length,
-            requisitos.filter(r => r.pct !== null && r.pct < 40).length,
-            requisitos.filter(r => r.pct === null).length];
-          const levels = ['Alta', 'Media', 'Baja', 'Sin datos'];
-          const classes = ['coverage-strong', 'coverage-medium', 'coverage-low', 'coverage-missing'];
-          const label = `${name}: ${counts[0]} de similitud alta, ${counts[1]} media, ${counts[2]} baja y ${counts[3]} sin datos`;
-          let offset = 0;
-          return <figure key={app.id} className="comparison-donut">
-            <figcaption>{name}</figcaption>
-            <svg viewBox="0 0 120 120" role="img" aria-label={label}>
-              <circle cx="60" cy="60" r="44" fill="none" stroke="var(--bg-muted)" strokeWidth="16" />
-              {counts.map((count, index) => {
-                const percent = count / requisitos.length * 100;
-                const position = offset; offset += percent;
-                return count > 0 ? <circle key={index} className={classes[index]} cx="60" cy="60" r="44" fill="none" strokeWidth="16"
-                  pathLength="100" strokeDasharray={`${percent} ${100 - percent}`} strokeDashoffset={-position} transform="rotate(-90 60 60)" /> : null;
-              })}
-              <text x="60" y="59" textAnchor="middle" className="comparison-donut-total">{requisitos.length}</text>
-              <text x="60" y="75" textAnchor="middle" className="comparison-donut-caption">requisitos</text>
+    </div>
+    <div className="comparison-cards">
+      {applications.map(app => {
+        const candidate = candidates.get(app.candidateId);
+        const name = candidate?.name || 'Candidato';
+        const requisitos = argumentosPorRequisito(app, candidate, job).requisitos;
+        const total = embeddingVigente(app, job)?.score ?? null;
+        const groups = LEVELS.map((_, index) => requisitos.filter(r => levelOf(r.pct) === index));
+        const segments = groups.flat();
+        const segmentLength = requisitos.length ? 100 / requisitos.length : 0;
+        const gap = requisitos.length > 1 ? Math.min(1.2, segmentLength * .18) : 0;
+        const summary = groups.map((items, i) => `${LEVELS[i].label}: ${items.length}`).join(', ');
+        return <article key={app.id} className="comparison-card" aria-label={`Ficha de ${name}`}>
+          <header className="comparison-card-heading">
+            <span className="comparison-avatar" aria-hidden="true">{name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('')}</span>
+            <div className="comparison-identity"><h4 title={name}>{name}</h4><p title={[candidate?.currentTitle, candidate?.currentCompany].filter(Boolean).join(' · ')}>{[candidate?.currentTitle, candidate?.currentCompany].filter(Boolean).join(' · ') || 'Sin información profesional'}</p></div>
+            {positions.has(app.id) && <span className="comparison-rank" title="Puesto en el ranking">#{positions.get(app.id)}</span>}
+            <button type="button" className="comparison-remove focus-ring" aria-label={`Quitar ${name} de la comparación`} onClick={() => onRemove(app.id)}><X size={16} /></button>
+          </header>
+          <div className={`comparison-score comparison-level-${LEVELS[levelOf(total === null ? null : total * 100)].className}`}>
+            <div><span>Puntaje</span><strong className="tabular-nums">{total === null ? '—' : formatEmbeddingScore(total)}</strong></div>
+            <div className="comparison-score-track" role="img" aria-label={`Puntaje de ${name}: ${total === null ? 'sin datos' : `${formatEmbeddingScore(total)} de 1`}. Marca de referencia en 0.70.`}>
+              {total !== null && <span style={{ width: `${Math.max(0, Math.min(1, total)) * 100}%` }} />}
+              <i aria-hidden="true" />
+            </div>
+          </div>
+          {requisitos.length ? <div className="comparison-requirements">
+            <svg className="comparison-ring" viewBox="0 0 100 100" role="img" aria-label={`Requisitos de ${name}: ${summary}`}>
+              <g transform="rotate(-90 50 50)">
+                <circle className="comparison-ring-base" cx="50" cy="50" r="38" />
+                {segments.map((r, index) => <circle key={r.id} className={`comparison-ring-arc comparison-level-${LEVELS[levelOf(r.pct)].className}`} cx="50" cy="50" r="38" pathLength="100"
+                  strokeDasharray={`${segmentLength - gap} ${100 - segmentLength + gap}`} strokeDashoffset={-index * segmentLength} />)}
+              </g>
+              <text className="comparison-ring-value" x="50" y="53">{groups[0].length}/{requisitos.length}</text>
+              <text className="comparison-ring-caption" x="50" y="65">en Alta</text>
             </svg>
-            <ul aria-label={`Distribución de ${name}`}>
-              {counts.map((count, index) => <li key={levels[index]}><span className={classes[index]} aria-hidden="true" />{levels[index]}<strong className="tabular-nums">{count}</strong></li>)}
+            <ul className="comparison-requirement-levels" aria-label={`Requisitos por nivel de ${name}`}>
+              {LEVELS.map(({ label, className, Icon }, index) => <li key={label} className={`comparison-level-${className}`}>
+                <Icon size={16} aria-hidden="true" /><span>{label}</span>
+                <div className="comparison-chips">{groups[index].length ? groups[index].map(r => <span key={r.id} className="comparison-chip" tabIndex={0} aria-label={`${r.codigo}: ${r.label}, ${r.pct === null ? 'sin datos' : `${r.pct} %`}`} title={`${r.label} · ${r.pct === null ? 'Sin datos' : `${r.pct} %`}`}>
+                  <b>{r.codigo}</b>{r.pct !== null && <span className="tabular-nums">{r.pct}%</span>}
+                </span>) : <span className="comparison-no-requirements">—</span>}</div>
+              </li>)}
             </ul>
-          </figure>;
-        })}
-      </div>}
-    </section>
-    <section aria-labelledby="comparison-heatmap-title" className="comparison-heatmap">
-      <h4 id="comparison-heatmap-title">Mapa de similitud por requisito</h4>
-      <p>Cada columna es un candidato. Compara los porcentajes de una misma fila para ver quién tiene mayor similitud con ese requisito.</p>
-      {job.criteria.length > 0 && <p className="comparison-heatmap-hint">Desliza la tabla para ver todos los candidatos.</p>}
-      {job.criteria.length > 0 && <div className="comparison-heatmap-scroll focus-ring" tabIndex={0} role="region" aria-label="Mapa de similitud, desplazamiento horizontal">
-        <table aria-label="Similitud por requisito y candidato, de 0 a 100 por ciento">
-          <thead><tr><th scope="col">Requisito del puesto</th>{series.map(({ app, name }) => <th scope="col" key={app.id}>{name}</th>)}</tr></thead>
-          <tbody>{job.criteria.map((criterion, index) => <tr key={criterion.id}>
-            <th scope="row"><span>R{index + 1}</span> {criterion.label}<small>Peso: {criterion.weightPct} %</small></th>
-            {series.map(({ app, name, requisitos }) => {
-              const pct = requisitos.find(r => r.id === criterion.id)?.pct ?? null;
-              const level = pct === null ? 'missing' : pct >= 70 ? 'strong' : pct >= 40 ? 'medium' : 'low';
-              const value = pct === null ? 'Sin datos' : `${pct} %`;
-              return <td key={app.id} className={`heatmap-${level}`} aria-label={`R${index + 1} · ${criterion.label}: ${name}, ${value}`}>
-                <strong className="tabular-nums">{value}</strong>
-                {pct !== null && <small>{pct >= 70 ? 'Alta' : pct >= 40 ? 'Media' : 'Baja'}</small>}
-              </td>;
-            })}
-          </tr>)}</tbody>
-        </table>
-      </div>}
-    </section>
-    <p>Los colores representan similitud, no cumplimiento acreditado. «Sin datos» no equivale a cero. Revisa el CV y la evidencia en la matriz inferior antes de decidir.</p>
+          </div> : <p className="comparison-no-criteria">No hay requisitos configurados para comparar.</p>}
+          <footer className="comparison-card-footer"><StageBadge stage={app.stage} size="sm" /><Button variant="secondary" size="sm" onClick={() => onViewProfile(app)}>Ver perfil</Button></footer>
+        </article>;
+      })}
+    </div>
+    <p className="comparison-visual-note">Cada tramo del anillo representa un requisito. Los colores indican similitud, no cumplimiento acreditado. «Sin datos» no equivale a cero. Revisa la evidencia en las columnas de detalle antes de decidir.</p>
   </section>;
 }

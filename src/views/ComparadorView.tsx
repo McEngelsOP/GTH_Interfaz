@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowLeft,
+  RotateCcw,
   ShieldCheck,
   Info,
   AlertCircle,
@@ -91,6 +92,8 @@ export function ComparadorView() {
   };
 
   const handleQuickAddTop3 = () => {
+    setSelectedCandidateToAdd('');
+    setSoloTop(true);
     const eligibleApps = primeros3;
     if (eligibleApps.length < 2) return;
     selectAllApplications(eligibleApps);
@@ -119,11 +122,12 @@ export function ComparadorView() {
           marginBottom: '1.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: '1 1 300px', minWidth: 0 }}>
           <div
             style={{
               width: '42px',
               height: '42px',
+              flexShrink: 0,
               borderRadius: 'var(--radius-md)',
               backgroundColor: 'var(--primary-red-subtle)',
               color: 'var(--primary-red)',
@@ -145,7 +149,7 @@ export function ComparadorView() {
         </div>
 
         {/* Acciones del Comparador */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.65rem', flexWrap: 'wrap', flex: '0 1 480px' }}>
           <Button
             variant="ghost"
             size="sm"
@@ -153,6 +157,10 @@ export function ComparadorView() {
             onClick={() => setCurrentView('mejores_candidatos')}
           >
             Volver a lista
+          </Button>
+
+          <Button variant="ghost" size="sm" icon={<RotateCcw size={15} />} onClick={handleQuickAddTop3} disabled={!canQuickAdd} title={quickAddHint}>
+            Reiniciar
           </Button>
 
           {comparedApplications.length > 0 && (
@@ -195,7 +203,7 @@ export function ComparadorView() {
           aria-label="Candidato para comparar"
           value={selectedCandidateToAdd}
           onChange={(e) => setSelectedCandidateToAdd(e.target.value)}
-          className="focus-ring"
+          className="focus-ring comparison-selector"
           style={{
             padding: '0.45rem 0.75rem',
             fontSize: '0.84rem',
@@ -269,7 +277,8 @@ export function ComparadorView() {
         </div>
       ) : (
         <>
-        <ComparisonChart key={activeJob.id} applications={comparedApplications} candidates={candidateMap} job={activeJob} />
+        <ComparisonChart applications={comparedApplications} candidates={candidateMap} job={activeJob} positions={posicion}
+          onRemove={toggleApplicationSelection} onViewProfile={openCandidateDrawer} />
         {/* Matriz de Comparación con Desplazamiento Horizontal Controlado (Sección 12) */}
         <div
           style={{
