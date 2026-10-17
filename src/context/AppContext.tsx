@@ -30,6 +30,7 @@ import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
 import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
 import { mergeBumeranJobs } from '../services/bumeranSync.ts';
+import { quitarAvisosNoVisibles } from '../services/permisos.ts';
 import { embeddingVigente, enProceso, idsTopN } from '../services/rankingEmbeddings.ts';
 
 export type ViewType =
@@ -58,7 +59,8 @@ export type ViewType =
   | 'resumen_general'
   | 'resumen-general'
   | 'ajustes_generales'
-  | 'ajustes';
+  | 'ajustes'
+  | 'usuarios_permisos';
 
 export interface ToastNotification {
   id: string;
@@ -134,7 +136,7 @@ interface AppContextValue {
   handleImportCandidates: (jobId: string, rows: ImportRow[]) => ImportSummary;
   handleApplyEmbeddingRanking: (results: Record<string, EmbeddingMatch>) => void;
   handleToggleTopNExtra: (applicationId: string) => void;
-  handleSyncBumeranJobs: (jobs: JobPosting[]) => void;
+  handleSyncBumeranJobs: (jobs: JobPosting[], visibles?: Set<string>) => void;
   handleSyncBumeranCandidates: (jobId: string, rows: ImportRow[]) => void;
   handleLinkCandidateToJob: (candidateId: string, targetJobId: string) => void;
   handleQuickAdvanceToBest: (applicationId: string) => void;
@@ -627,9 +629,10 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     });
   };
 
-  // Avisos de Bumeran (Supabase): se agregan como convocatorias sin tocar las existentes.
-  const handleSyncBumeranJobs = (jobs: JobPosting[]) => {
-    setAppState((prev) => mergeBumeranJobs(prev, jobs));
+  // Avisos de Bumeran (Supabase): se agregan como convocatorias sin tocar las existentes. Con `visibles` (todos los
+  // avisos que el usuario puede ver), se quitan de la copia local los que dejó de ver (p. ej. marcados confidenciales).
+  const handleSyncBumeranJobs = (jobs: JobPosting[], visibles?: Set<string>) => {
+    setAppState((prev) => mergeBumeranJobs(visibles ? quitarAvisosNoVisibles(prev, visibles) : prev, jobs));
   };
 
   // Postulantes de un aviso de Bumeran: mismo importador que "Cargar CV" (sin duplicar fichas).

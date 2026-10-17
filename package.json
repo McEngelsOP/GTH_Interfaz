@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "test:e2e:local": "node scripts/e2e-local.mjs",
     "test:workflow:sql": "node scripts/test-shared-workflow.mjs",
+    "test:niveles:sql": "node scripts/test-niveles-acceso.mjs",
     "test:workflow:browser": "playwright test --config=playwright.workflow.config.ts"
   },
   "dependencies": {

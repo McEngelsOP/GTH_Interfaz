@@ -20,9 +20,11 @@ import {
   GraduationCap,
   RefreshCw,
   Library,
+  UserCog,
 } from 'lucide-react';
 import type { useBumeranSync } from '../../services/useBumeranSync.ts';
 import { resumirRevisiones, timeAgo } from '../../services/bumeranSync.ts';
+import { puedeVerSeccion, usePerfil, VISTA_ADMIN } from '../../services/permisos.ts';
 
 interface SidebarProps {
   sync?: ReturnType<typeof useBumeranSync>;
@@ -46,6 +48,7 @@ interface NavGroup {
 
 export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const { currentView, setCurrentView, activeJobApplications, appState } = useApp();
+  const perfil = usePerfil();
   const [collapsed, setCollapsed] = useState(false);
 
   // Contadores vivos calculados a partir de los datos
@@ -111,11 +114,15 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
       ],
     },
     { title: 'Datos', items: [datosItem] },
+    { title: 'Administración', items: [{ id: VISTA_ADMIN, label: 'Usuarios y permisos', icon: <UserCog size={18} /> }] },
   ];
 
-  const navGroups = IS_STAGE_ONE
-    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento', 'Datos'].includes(group.title))]
-    : allNavGroups;
+  // Solo las secciones que permite el perfil; «Administración» solo la ven las cuentas maestras.
+  const navGroups = (IS_STAGE_ONE
+    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento', 'Datos', 'Administración'].includes(group.title))]
+    : allNavGroups)
+    .map((group) => ({ ...group, items: group.items.filter((item) => puedeVerSeccion(perfil, item.id)) }))
+    .filter((group) => group.items.length);
 
   const handleSelectView = (view: ViewType) => {
     setCurrentView(view);

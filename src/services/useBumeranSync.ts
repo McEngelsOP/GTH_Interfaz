@@ -4,6 +4,7 @@ import { analyzeCandidateTables } from './candidateImport.ts';
 import { avisoToJob, fetchAvisos, fetchCorridas, fetchPostulantes, fetchRanking, postulantesToTable, rankingToMatches } from './bumeranSync.ts';
 import type { CorridaRow } from './bumeranSync.ts';
 import { supabase } from './supabase.ts';
+import { fetchAvisosVisibles } from './permisos.ts';
 
 type LoadState = { loading: boolean; error: string; checkedAt: string | null };
 const initial: LoadState = { loading: false, error: '', checkedAt: null };
@@ -31,9 +32,9 @@ export function useBumeranSync() {
     if (!supabase) return;
     let alive = true;
     setPostings((prev) => ({ ...prev, loading: true, error: '' }));
-    fetchAvisos(supabase).then((rows) => {
+    Promise.all([fetchAvisos(supabase), fetchAvisosVisibles(supabase)]).then(([rows, visibles]) => {
       if (!alive) return;
-      latest.current.handleSyncBumeranJobs(rows.map(avisoToJob));
+      latest.current.handleSyncBumeranJobs(rows.map(avisoToJob), visibles);
       setPostings({ loading: false, error: '', checkedAt: new Date().toISOString() });
     }).catch(() => {
       if (alive) setPostings((prev) => ({ ...prev, loading: false, error: 'No se pudieron leer las convocatorias. Reintenta; si persiste, revisa los permisos de acceso.' }));

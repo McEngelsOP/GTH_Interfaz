@@ -38,15 +38,24 @@ async function operar<T>(modo: IDBTransactionMode, accion: (almacen: IDBObjectSt
 }
 
 let disponible = true;
+// Con sesión de Supabase cada usuario tiene su propia copia: en una PC compartida, quien entra después no ve los
+// avisos que solo podía ver el anterior (p. ej. los confidenciales de una cuenta maestra).
+let clave = STORAGE_KEY;
 
-/** Estado guardado. La primera vez migra lo que había en localStorage y libera ese espacio. */
-export async function cargarEstado(): Promise<AppStateData> {
+/**
+ * Estado guardado del usuario. La primera vez toma la copia anterior sin usuario (IndexedDB o localStorage),
+ * la pasa a su clave y la borra de donde estaba.
+ */
+export async function cargarEstado(usuario?: string): Promise<AppStateData> {
+  clave = usuario ? `${STORAGE_KEY}:${usuario}` : STORAGE_KEY;
   try {
-    const raw = await operar<string | undefined>('readonly', (a) => a.get(STORAGE_KEY));
+    const raw = await operar<string | undefined>('readonly', (a) => a.get(clave));
     const guardado = raw ? parseStoredState(raw) : null;
     if (guardado) return guardado;
-    const anterior = loadAppState();
-    await operar('readwrite', (a) => a.put(JSON.stringify(anterior), STORAGE_KEY));
+    const comun = clave === STORAGE_KEY ? undefined : await operar<string | undefined>('readonly', (a) => a.get(STORAGE_KEY));
+    const anterior = (comun && parseStoredState(comun)) || loadAppState();
+    await operar('readwrite', (a) => a.put(JSON.stringify(anterior), clave));
+    if (comun) await operar('readwrite', (a) => a.delete(STORAGE_KEY));
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* sin acceso a localStorage */ }
     return anterior;
   } catch (error) {
@@ -70,7 +79,7 @@ export function guardarEstado(state: AppStateData): Promise<{ success: boolean; 
       pendiente = null;
       if (!actual) { resolve({ success: true }); return; }
       try {
-        await operar('readwrite', (a) => a.put(JSON.stringify(actual), STORAGE_KEY));
+        await operar('readwrite', (a) => a.put(JSON.stringify(actual), clave));
         resolve({ success: true });
       } catch (error: any) {
         console.warn('[TalentAI] No se pudo guardar en IndexedDB:', error);
@@ -86,6 +95,6 @@ export function guardarEstado(state: AppStateData): Promise<{ success: boolean; 
 export function borrarEstado(): AppStateData {
   clearTimeout(temporizador);
   pendiente = null;
-  if (disponible) operar('readwrite', (a) => a.delete(STORAGE_KEY)).catch(() => undefined);
+  if (disponible) operar('readwrite', (a) => a.delete(clave)).catch(() => undefined);
   return resetAppState();
 }
