@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CvPersonal, vistaPreviaDrive } from './bumeranSync.ts';
+import { faltaConsultaPostulaciones } from './supabaseQueries.ts';
 
 // Base centralizada: todos los postulantes de todos los avisos (vista v_base_postulantes). No tiene score porque no
 // se compara contra un aviso. Se lee de Supabase cada vez y no se guarda en el navegador.
@@ -26,11 +27,13 @@ export const ORDEN_NIVEL = ['Doctorado', 'Master', 'Posgrado', 'Universitario', 
 export const NIVELES_IDIOMA = ['Básico', 'Intermedio', 'Avanzado', 'Nativo'];
 const rangoNivel = (n: string | null) => { const i = ORDEN_NIVEL.indexOf(n || ''); return i < 0 ? ORDEN_NIVEL.length : i; };
 
-export async function fetchBase(client: SupabaseClient): Promise<FilaBase[]> {
+export async function fetchBase(client: SupabaseClient, signal?: AbortSignal): Promise<FilaBase[]> {
   const filas: FilaBase[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await client.from('v_base_postulantes').select('*')
+    let request = client.from('v_base_postulantes').select('*')
       .order('persona_id').order('aviso_id').range(from, from + 999);
+    if (signal) request = request.abortSignal(signal);
+    const { data, error } = await request;
     if (error) throw new Error(error.message);
     filas.push(...((data || []) as FilaBase[]));
     if (!data || data.length < 1000) return filas;
@@ -81,6 +84,55 @@ export type FiltrosBase = {
 };
 export const SIN_FILTROS: FiltrosBase = { texto: '', aviso: '', area: '', nivel: '', estado: '', idioma: '', nivelIdioma: '',
   ciudad: '', desde: '', cv: '', varios: false };
+
+export interface ResumenBase { personas: number; postulaciones: number; recurrentes: number }
+export interface OpcionesBase { avisos: [string, string][]; areas: string[]; ciudades: string[]; idiomas: string[] }
+export interface PaginaBase {
+  personas: Persona[];
+  total: number;
+  resumen: ResumenBase | null;
+  opciones: OpcionesBase | null;
+  compatibilidad?: Persona[];
+}
+
+export function paginaLocal(personas: Persona[], filtros: FiltrosBase, pagina: number, tamano: number): PaginaBase {
+  const filtradas = filtrarPersonas(personas, filtros);
+  const avisos = new Map(personas.flatMap((p) => p.avisos.map((a) => [a.id, a.titulo] as [string, string])));
+  const unicos = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => Boolean(x)))].sort((a, b) => a.localeCompare(b, 'es'));
+  return {
+    personas: filtradas.slice((pagina - 1) * tamano, pagina * tamano), total: filtradas.length,
+    resumen: { personas: personas.length, postulaciones: personas.reduce((n, p) => n + p.avisos.length, 0), recurrentes: personas.filter((p) => p.avisos.length > 1).length },
+    opciones: { avisos: [...avisos].sort((a, b) => a[1].localeCompare(b[1], 'es')), areas: unicos(personas.flatMap((p) => p.avisos.map((a) => a.area))),
+      ciudades: unicos(personas.map((p) => p.ciudad)), idiomas: unicos(personas.flatMap((p) => p.idiomas.map((i) => i.idioma))) },
+    compatibilidad: personas,
+  };
+}
+
+export async function fetchBasePagina(client: SupabaseClient, filtros: FiltrosBase, pagina: number, tamano = 50,
+  incluirResumen = true, signal?: AbortSignal, compatibilidad?: Persona[]): Promise<PaginaBase> {
+  if (compatibilidad) return paginaLocal(compatibilidad, filtros, pagina, tamano);
+  let request = client.rpc('gth_base_centralizada', { p_filtros: filtros, p_pagina: pagina, p_por_pagina: tamano, p_incluir_resumen: incluirResumen });
+  if (signal) request = request.abortSignal(signal);
+  const { data, error } = await request;
+  if (faltaConsultaPostulaciones(error)) {
+    // Permite desplegar la web antes de activar la migración sin perder la base existente.
+    return paginaLocal(agruparPersonas(await fetchBase(client, signal)), filtros, pagina, tamano);
+  }
+  if (error) throw new Error('No se pudo leer la base de postulantes. Revisa tu conexión y vuelve a intentarlo.');
+  if (!data || !Array.isArray(data.personas) || !Number.isFinite(data.total)) throw new Error('La base no devolvió los resultados esperados. Vuelve a intentarlo.');
+  return { ...data, personas: data.personas.map((p: Persona) => ({ ...p, cv: { ...p.cv, vista: vistaPreviaDrive(p.cv.enlace) } })) };
+}
+
+export async function fetchBaseExportacion(client: SupabaseClient, filtros: FiltrosBase, compatibilidad?: Persona[]): Promise<Persona[]> {
+  if (compatibilidad) return filtrarPersonas(compatibilidad, filtros);
+  const personas = new Map<string, Persona>();
+  for (let pagina = 1; ; pagina++) {
+    const result = await fetchBasePagina(client, filtros, pagina, 250, false);
+    if (result.compatibilidad) return filtrarPersonas(result.compatibilidad, filtros);
+    for (const persona of result.personas) personas.set(persona.id, persona);
+    if (result.personas.length < 250 || pagina * 250 >= result.total) return [...personas.values()];
+  }
+}
 
 const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
