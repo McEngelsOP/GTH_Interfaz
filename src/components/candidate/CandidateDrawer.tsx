@@ -1,5 +1,6 @@
 import { WhatsAppButton } from './WhatsAppButton.tsx';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { PostulacionesPanel } from './PostulacionesPanel.tsx';
 import { useApp } from '../../context/AppContext.tsx';
 import { Drawer } from '../common/Drawer.tsx';
 import { Button } from '../common/Button.tsx';
@@ -35,6 +36,7 @@ import { cvPersonal } from '../../services/bumeranSync.ts';
 export function CandidateDrawer() {
   const {
     selectedCandidateForDrawer,
+    candidateDrawerTab,
     openCandidateDrawer,
     activeJob,
     appState,
@@ -51,6 +53,7 @@ export function CandidateDrawer() {
   const [activeTab, setActiveTab] = useState('perfil');
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [verCv, setVerCv] = useState(false);
+  useEffect(() => { setActiveTab(candidateDrawerTab); }, [selectedCandidateForDrawer?.id, candidateDrawerTab]);
 
   const app = selectedCandidateForDrawer;
   if (!app) return null;
@@ -63,17 +66,6 @@ export function CandidateDrawer() {
   const appDecisions = appState.decisionLogs.filter((d) => d.applicationId === app.id);
   // Borradores de correo asociados
   const appDrafts = appState.emailDrafts.filter((d) => d.applicationId === app.id);
-
-  // Otras postulaciones reales de esta misma persona en el sistema (Sección 11 y 13)
-  const otherApplications = appState.applications
-    .filter((a) => a.candidateId === candidate.id && a.id !== app.id)
-    .map((otherApp) => {
-      const job = appState.jobPostings.find((j) => j.id === otherApp.jobPostingId);
-      return {
-        application: otherApp,
-        job,
-      };
-    });
 
   // Ranking por Score Embeddings: posición, Top-N y si puede pasar a Preselección
   const delPuesto = appState.applications.filter((a) => a.jobPostingId === currentJob.id);
@@ -98,6 +90,7 @@ export function CandidateDrawer() {
   const drawerTabs = [
     { id: 'perfil', label: 'Perfil' },
     { id: 'puntaje', label: 'Por qué este puntaje' },
+    { id: 'postulaciones', label: 'Postulaciones' },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
@@ -182,36 +175,7 @@ export function CandidateDrawer() {
               )}
             </div>
 
-            {/* Otras postulaciones reales de la misma persona */}
-            {otherApplications.length > 0 && (
-              <div
-                style={{
-                  marginTop: '0.4rem',
-                  padding: '0.45rem 0.65rem',
-                  backgroundColor: 'var(--bg-base)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-subtle)',
-                  fontSize: '0.75rem',
-                }}
-              >
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Otras postulaciones registradas de esta persona ({otherApplications.length}):
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.25rem' }}>
-                  {otherApplications.map((item) => (
-                    <div
-                      key={item.application.id}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                    >
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        {item.job?.code} · {item.job?.title}
-                      </span>
-                      <StageBadge stage={item.application.stage} size="sm" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
         }
         footer={
@@ -260,9 +224,10 @@ export function CandidateDrawer() {
         </div>
 
         {/* Pestañas de detalle */}
-        <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} />
+        <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} className="candidate-drawer-tabs" />
 
         <div style={{ marginTop: '1.25rem' }}>
+          {activeTab === 'postulaciones' && <PostulacionesPanel key={app.id} candidate={candidate} job={currentJob} />}
           {/* 1. Por qué este puntaje: similitud y evidencia por requisito */}
           {activeTab === 'puntaje' && (
             emb ? <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>

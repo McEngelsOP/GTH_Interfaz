@@ -75,6 +75,7 @@ interface AppContextValue {
   activeJobApplications: Application[];
   selectedApplicationIds: string[];
   selectedCandidateForDrawer: Application | null;
+  candidateDrawerTab: 'perfil' | 'postulaciones';
   isAssistantOpen: boolean;
   toasts: ToastNotification[];
   // Navegación y vista
@@ -88,7 +89,7 @@ interface AppContextValue {
   selectAllApplications: (appIds: string[]) => void;
   clearApplicationSelection: () => void;
   // Ficha drawer y asistente
-  openCandidateDrawer: (app: Application | null) => void;
+  openCandidateDrawer: (app: Application | null, tab?: 'perfil' | 'postulaciones') => void;
   selectedCandidateId: string | null;
   setSelectedCandidateId: (id: string | null) => void;
   isCandidateDrawerOpen: boolean;
@@ -162,6 +163,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
   const [selectedApplicationIds, setSelectedApplicationIds] = useState<string[]>([]);
   const [drawerApplicationId, setDrawerApplicationId] = useState<string | null>(null);
+  const [candidateDrawerTab, setCandidateDrawerTab] = useState<'perfil' | 'postulaciones'>('perfil');
   const selectedCandidateForDrawer = appState.applications.find((app) => app.id === drawerApplicationId) || null;
   const setSelectedCandidateForDrawer = (app: Application | null) => setDrawerApplicationId(app?.id || null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -260,7 +262,8 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     setSelectedApplicationIds([]);
   };
 
-  const openCandidateDrawer = (app: Application | null) => {
+  const openCandidateDrawer = (app: Application | null, tab: 'perfil' | 'postulaciones' = 'perfil') => {
+    setCandidateDrawerTab(tab);
     setSelectedCandidateForDrawer(app);
   };
 
@@ -706,6 +709,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     activeJobApplications,
     selectedApplicationIds,
     selectedCandidateForDrawer,
+    candidateDrawerTab,
     isAssistantOpen,
     toasts,
     setCurrentView,

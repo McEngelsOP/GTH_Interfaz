@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ChevronLeft, ChevronRight, Database, FileSpreadsheet, FileUser, RefreshCw, Search, Users, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { Input } from '../components/common/Input.tsx';
 import { Select } from '../components/common/Select.tsx';
@@ -8,11 +8,11 @@ import { VisorCV } from '../components/candidate/VisorCV.tsx';
 import { supabase } from '../services/supabase.ts';
 import { fechaHora } from '../services/bumeranSync.ts';
 import {
-  agruparPersonas, fetchBase, filtrarPersonas, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS,
+  fetchBasePagina, fetchBaseExportacion, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS, OpcionesBase, ResumenBase,
 } from '../services/baseCentralizada.ts';
 
 const POR_PAGINA = 50;
-const unicos = (xs: (string | null | undefined)[]) => Array.from(new Set(xs.filter((x): x is string => Boolean(x)))).sort((a, b) => a.localeCompare(b, 'es'));
+const OPCIONES_VACIAS: OpcionesBase = { avisos: [], areas: [], ciudades: [], idiomas: [] };
 
 /** Todos los postulantes de todos los avisos, sin score (no se comparan contra un aviso), con filtros. */
 export function BaseCentralizadaView() {
@@ -24,35 +24,52 @@ export function BaseCentralizadaView() {
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [exportando, setExportando] = useState(false);
 
-  const cargar = () => {
-    if (!supabase) return;
+  const [revision, setRevision] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [resumen, setResumen] = useState<ResumenBase>({ personas: 0, postulaciones: 0, recurrentes: 0 });
+  const [opciones, setOpciones] = useState<OpcionesBase>(OPCIONES_VACIAS);
+  const [errorExportacion, setErrorExportacion] = useState('');
+  const compatibilidad = useRef<Persona[] | undefined>(undefined);
+  const tieneResumen = useRef(false);
+  useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+    const controller = new AbortController();
+    setPersonas([]);
     setEstado((e) => ({ ...e, cargando: true, error: '' }));
-    fetchBase(supabase).then((filas) => {
-      setPersonas(agruparPersonas(filas));
-      setEstado({ cargando: false, error: '', leidoEn: new Date().toISOString() });
-    }).catch(() => setEstado((e) => ({ ...e, cargando: false, error: 'No se pudo leer la base de postulantes. Reintenta en unos segundos.' })));
-  };
-  useEffect(cargar, []);
+    const timer = window.setTimeout(() => {
+      fetchBasePagina(client, filtros, pagina, POR_PAGINA, !tieneResumen.current, controller.signal, compatibilidad.current)
+        .then((result) => {
+          if (controller.signal.aborted) return;
+          compatibilidad.current = result.compatibilidad;
+          setPersonas(result.personas);
+          setTotal(result.total);
+          if (result.resumen) { setResumen(result.resumen); tieneResumen.current = true; }
+          if (result.opciones) setOpciones(result.opciones);
+          setEstado({ cargando: false, error: '', leidoEn: new Date().toISOString() });
+          const ultima = Math.max(1, Math.ceil(result.total / POR_PAGINA));
+          if (pagina > ultima) setPagina(ultima);
+        }).catch((error: Error) => {
+          if (!controller.signal.aborted) { setTotal(0); setEstado((e) => ({ ...e, cargando: false, error: error.message })); }
+        });
+    }, 180);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [filtros, pagina, revision]);
 
+  const cargar = () => { compatibilidad.current = undefined; tieneResumen.current = false; setRevision((r) => r + 1); };
   const poner = (cambio: Partial<FiltrosBase>) => { setFiltros((f) => ({ ...f, ...cambio })); setPagina(1); };
-  const filtradas = useMemo(() => filtrarPersonas(personas, filtros), [personas, filtros]);
-  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
-  const visibles = filtradas.slice((Math.min(pagina, totalPaginas) - 1) * POR_PAGINA, Math.min(pagina, totalPaginas) * POR_PAGINA);
-
-  const avisos = useMemo(() => {
-    const m = new Map<string, string>();
-    personas.forEach((p) => p.avisos.forEach((a) => m.set(a.id, a.titulo)));
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
-  }, [personas]);
-  const areas = useMemo(() => unicos(personas.flatMap((p) => p.avisos.map((a) => a.area))), [personas]);
-  const ciudades = useMemo(() => unicos(personas.map((p) => p.ciudad)), [personas]);
-  const idiomas = useMemo(() => unicos(personas.flatMap((p) => p.idiomas.map((i) => i.idioma))), [personas]);
-  const postulaciones = personas.reduce((s, p) => s + p.avisos.length, 0);
+  const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const visibles = personas;
+  const { avisos, areas, ciudades, idiomas } = opciones;
+  const postulaciones = resumen.postulaciones;
   const hayFiltros = JSON.stringify(filtros) !== JSON.stringify(SIN_FILTROS);
 
   const exportar = async () => {
+    if (!supabase) return;
     setExportando(true);
+    setErrorExportacion('');
     try {
+      const filtradas = await fetchBaseExportacion(supabase, filtros, compatibilidad.current);
       const { default: writeExcelFile } = await import('write-excel-file/browser');
       const enc = (value: string) => ({ value, fontWeight: 'bold' as const, backgroundColor: '#F3F4F6' });
       const data = [
@@ -64,6 +81,8 @@ export function BaseCentralizadaView() {
       ];
       await writeExcelFile(data as any, { columns: [30, 30, 14, 20, 28, 24, 30, 16, 12, 28, 26, 50, 14, 40].map((width) => ({ width })) })
         .toFile(`Base_centralizada_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch {
+      setErrorExportacion('No se pudo preparar el Excel. Vuelve a intentarlo.');
     } finally {
       setExportando(false);
     }
@@ -106,8 +125,8 @@ export function BaseCentralizadaView() {
           <Button variant="secondary" icon={<RefreshCw size={15} className={estado.cargando ? 'spin' : ''} />} disabled={estado.cargando || !supabase} onClick={cargar}>
             {estado.cargando ? 'Cargando…' : 'Actualizar'}
           </Button>
-          <Button variant="primary" icon={<FileSpreadsheet size={15} />} disabled={!filtradas.length || exportando} onClick={exportar}>
-            Exportar a Excel ({filtradas.length})
+          <Button variant="primary" icon={<FileSpreadsheet size={15} />} disabled={!total || exportando || estado.cargando || Boolean(estado.error)} onClick={exportar}>
+            {exportando ? 'Preparando Excel…' : `Exportar a Excel (${total})`}
           </Button>
         </div>
       </div>
@@ -116,11 +135,13 @@ export function BaseCentralizadaView() {
       {estado.error && <div role="alert" className="import-card" style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
         <AlertCircle size={18} style={{ color: 'var(--status-failed-text)' }} /> {estado.error}</div>}
 
+      {errorExportacion && <p role="alert" style={{ color: 'var(--status-failed-text)' }}>{errorExportacion}</p>}
+
       {/* Resumen */}
       <div className="base-resumen">
-        <span><Users size={15} /> <strong className="tabular-nums">{personas.length.toLocaleString('es-PE')}</strong> personas</span>
+        <span><Users size={15} /> <strong className="tabular-nums">{resumen.personas.toLocaleString('es-PE')}</strong> personas</span>
         <span><strong className="tabular-nums">{postulaciones.toLocaleString('es-PE')}</strong> postulaciones en {avisos.length} avisos</span>
-        <span><strong className="tabular-nums">{personas.filter((p) => p.avisos.length > 1).length.toLocaleString('es-PE')}</strong> postularon a más de un aviso</span>
+        <span><strong className="tabular-nums">{resumen.recurrentes.toLocaleString('es-PE')}</strong> postularon a más de un aviso</span>
         {estado.leidoEn && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Leído {fechaHora(estado.leidoEn)}</span>}
       </div>
 
@@ -170,13 +191,13 @@ export function BaseCentralizadaView() {
           </Button>)}
         </div>}
         <p className="base-filtros-resultado" role="status">
-          Mostrando <strong>{filtradas.length.toLocaleString('es-PE')}</strong> de {personas.length.toLocaleString('es-PE')} personas
+          {estado.cargando ? 'Cargando resultados…' : <>Mostrando <strong>{total.toLocaleString('es-PE')}</strong> de {resumen.personas.toLocaleString('es-PE')} personas</>}
         </p>
       </section>
 
       {/* Tabla */}
       <div style={{ overflowX: 'auto', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
-        <table className="base-tabla">
+        <table className="base-tabla" aria-label="Postulantes de la base centralizada" aria-busy={estado.cargando}>
           <thead>
             <tr>{['Postulante', 'Experiencia reciente', 'Estudios', 'Idiomas', 'Ciudad', 'Avisos a los que postuló', 'Última postulación', ''].map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
@@ -208,7 +229,7 @@ export function BaseCentralizadaView() {
               </tr>
             ))}
             {!visibles.length && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-              {estado.cargando ? 'Cargando la base de postulantes…' : personas.length ? 'Ningún postulante coincide con los filtros.' : 'Todavía no hay postulantes.'}
+              {estado.cargando ? 'Cargando la base de postulantes…' : estado.error ? 'No se pudieron cargar los resultados. Usa Actualizar para reintentar.' : resumen.personas ? 'Ningún postulante coincide con los filtros.' : 'Todavía no hay postulantes.'}
             </td></tr>}
           </tbody>
         </table>
@@ -216,8 +237,8 @@ export function BaseCentralizadaView() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '.5rem', padding: '.75rem 0', fontSize: '.84rem', color: 'var(--text-secondary)' }}>
         <span>Página <strong className="tabular-nums">{Math.min(pagina, totalPaginas)}</strong> de <strong className="tabular-nums">{totalPaginas}</strong></span>
-        <Button variant="secondary" size="sm" icon={<ChevronLeft size={16} />} disabled={pagina <= 1} onClick={() => setPagina((x) => Math.max(1, x - 1))} title="Página anterior" />
-        <Button variant="secondary" size="sm" icon={<ChevronRight size={16} />} disabled={pagina >= totalPaginas} onClick={() => setPagina((x) => Math.min(totalPaginas, x + 1))} title="Página siguiente" />
+        <Button variant="secondary" size="sm" icon={<ChevronLeft size={16} />} disabled={pagina <= 1 || estado.cargando} onClick={() => setPagina((x) => Math.max(1, x - 1))} title="Página anterior" />
+        <Button variant="secondary" size="sm" icon={<ChevronRight size={16} />} disabled={pagina >= totalPaginas || estado.cargando} onClick={() => setPagina((x) => Math.min(totalPaginas, x + 1))} title="Página siguiente" />
       </div>
 
       <VisorCV nombre={cvDe?.nombre || null} cv={cvDe?.cv || null} onClose={() => setCvDe(null)} />

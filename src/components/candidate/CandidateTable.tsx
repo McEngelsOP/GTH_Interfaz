@@ -11,6 +11,8 @@ import { StageBadge } from './StageBadge.tsx';
 import { ExplicacionEmbeddings } from './ExplicacionEmbeddings.tsx';
 import { VisorCV } from './VisorCV.tsx';
 import { cvPersonal, timeAgo } from '../../services/bumeranSync.ts';
+import { useResumenPostulaciones } from '../../services/postulaciones.ts';
+import '../../styles/postulaciones.css';
 import type { useEnRevision } from '../../services/enRevision.ts';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
@@ -29,6 +31,7 @@ import {
   MessageSquareText,
   FileUser,
   Pencil,
+  History,
 } from 'lucide-react';
 import { isEligibleForTopN, puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
@@ -136,6 +139,7 @@ export function CandidateTable({
     const start = (validPage - 1) * pageSize;
     return sortedApplications.slice(start, start + pageSize);
   }, [sortedApplications, validPage, pageSize]);
+  const recurrence = useResumenPostulaciones(activeJob, paginatedApplications, candidateMap);
 
   // Selección en la página actual
   const allCurrentPageSelected =
@@ -177,6 +181,9 @@ export function CandidateTable({
         }} onClose={() => setCommentFor(null)} />}
       {sharedComments.error && <div role="alert" style={{ color: 'var(--status-failed-text)', fontSize: '.8125rem' }}>
         No se pudieron cargar los comentarios compartidos. {sharedComments.error} <Button variant="ghost" size="sm" onClick={() => void sharedComments.reload()}>Reintentar</Button>
+      </div>}
+      {recurrence.error && <div role="alert" style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>
+        {recurrence.error} <Button variant="ghost" size="sm" onClick={recurrence.reload}>Reintentar</Button>
       </div>}
       {/* Barra de Filtros, Búsqueda y Densidad */}
       <div
@@ -401,6 +408,11 @@ export function CandidateTable({
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
+                        {(recurrence.totals[cand?.importedProfile?.externalId || ''] || 0) > 1 && <button
+                          type="button" className="candidate-recurrence focus-ring" onClick={() => openCandidateDrawer(app, 'postulaciones')}
+                          aria-label={`Ver ${recurrence.totals[cand?.importedProfile?.externalId || '']} postulaciones de ${cand?.name}`}>
+                          <History size={12} aria-hidden="true" />Postuló en {recurrence.totals[cand?.importedProfile?.externalId || '']} procesos
+                        </button>}
                       </div>
                     </td>
 

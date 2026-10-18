@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { instalarSupabaseFicticio, responderBaseFicticia } from '../fixtures/supabaseMock.ts';
 import type { FilaBase } from '../../src/services/baseCentralizada.ts';
 
 const fila = (extra: Partial<FilaBase>): FilaBase => ({
@@ -14,19 +15,8 @@ const rows = [fila({}), fila({ aviso_id: 'qa-aviso-2', aviso_titulo: 'Analista d
 
 test('base centralizada organiza filtros sin estrecharlos y conserva búsqueda y selección', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
-  // Cliente real con una sesión y endpoints ficticios; no consulta datos de producción.
-  await page.route('**/src/services/supabase.ts', async (route) => {
-    const response = await route.fetch();
-    const body = (await response.text()).replaceAll('import.meta.env.VITE_SUPABASE_URL', JSON.stringify('https://gth-test.supabase.co'))
-      .replaceAll('import.meta.env.VITE_SUPABASE_ANON_KEY', JSON.stringify('test-public-key'));
-    await route.fulfill({ response, body });
-  });
-  await page.addInitScript(() => localStorage.setItem('sb-gth-test-auth-token', JSON.stringify({ access_token: 'test-access-token', refresh_token: 'test-refresh-token',
-    expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user: { id: '00000000-0000-0000-0000-000000000001', email: 'qa@example.test' } })));
-  await page.route('https://gth-test.supabase.co/rest/v1/**', async (route) => {
-    const table = new URL(route.request().url()).pathname.split('/').at(-1);
-    await route.fulfill({ json: table === 'v_base_postulantes' ? rows : [] });
-  });
+  await instalarSupabaseFicticio(page);
+  await responderBaseFicticia(page, rows);
   await page.goto('/#view=base_centralizada');
   const panel = page.getByRole('region', { name: 'Búsqueda y filtros de postulantes', exact: true });
   await expect(panel.getByRole('status')).toHaveText('Mostrando 3 de 3 personas');
