@@ -32,7 +32,7 @@ Los servicios `src/services/postulaciones.ts` y `src/services/baseCentralizada.t
 2. En el proyecto confirmado, comprobar que está aplicada `20261017120000_niveles_acceso.sql` y ejecutar después la migración aditiva `20261018023948_historial_recurrencia_base_paginada.sql`. Mantener `gth_interno` fuera de los esquemas expuestos por la Data API. La migración solicita recargar la caché de esquema de PostgREST.
 3. Verificar con cuentas maestra y general el historial, la recurrencia, los avisos confidenciales, los conteos y las opciones de filtros; revisar los asesores de Supabase en ese proyecto y comprobar filtros, cambio de página y Excel en ETAPA-I.
 
-En esta sesión **no se aplicó la migración ni se ejecutaron asesores sobre el GTH real**. Tampoco se confirmó publicación o despliegue: la inspección del proyecto Vercel devolvió 403 y la CLI no tenía credenciales. La activación de base de datos y el estado final del despliegue requieren verificación en los entornos correctos.
+En esta sesión **no se aplicó la migración ni se ejecutaron asesores sobre el GTH real**. La inspección directa del proyecto Vercel devolvió 403 y la CLI no tenía credenciales. Los checks del commit en GitHub permiten consultar el resultado del despliegue; la activación de base de datos requiere acceso al proyecto GTH confirmado.
 
 ## Evidencia de verificación
 
