@@ -34,6 +34,11 @@ describe('consultas de postulaciones', () => {
     expect(rpc).toHaveBeenCalledTimes(2);
     expect(rpc.mock.calls.every(([, args]) => (args.p_filtros as typeof SIN_FILTROS).texto === 'selección' && args.p_por_pagina === 250 && args.p_incluir_resumen === false)).toBe(true);
   });
+  it('identifica la cancelación por tiempo de espera sin atribuirla a la conexión', async () => {
+    const { client, rpc } = clientFor(() => ({ data: null, error: { code: '57014' } }));
+    await expect(fetchBasePagina(client,SIN_FILTROS,1)).rejects.toThrow('tardó demasiado');
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
   it('no disfraza un error de permisos de base vacía ni inicia la descarga antigua', async () => {
     const { client, rpc } = clientFor(() => ({ data: null, error: { code: '42501' } }));
     await expect(fetchBasePagina(client,SIN_FILTROS,1)).rejects.toThrow('No se pudo leer');
