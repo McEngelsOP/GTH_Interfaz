@@ -1,14 +1,46 @@
 import { test, expect } from '@playwright/test';
 import { estadoConConvocatoriaDePrueba } from '../fixtures/convocatoriaDePrueba.ts';
 
-function fixture(criteriaCount = 4) {
+function fixture(criteriaCount = 4, candidateCount = 3) {
   const state = estadoConConvocatoriaDePrueba();
   const job = state.jobPostings[0];
   job.criteria = Array.from({ length: criteriaCount }, (_, i) => ({ id: `r${i}`, label: `Requisito de prueba ${i + 1}`, weightPct: 100 / (criteriaCount || 1), type: 'LLM' as const }));
-  state.candidates = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba'].map((name, i) => ({ id: `comparison-person-${i}`, name, email: null, phone: null, currentTitle: 'Analista de prueba', currentCompany: 'Empresa ficticia', source: 'Prueba', summary: '', rawCvText: '', savedInTalentPool: false }));
+  state.candidates = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba', 'Diego Prueba', 'Elena Prueba'].slice(0, candidateCount).map((name, i) => ({ id: `comparison-person-${i}`, name, email: null, phone: null, currentTitle: 'Analista de prueba', currentCompany: 'Empresa ficticia', source: 'Prueba', summary: '', rawCvText: '', savedInTalentPool: false }));
   state.applications = state.candidates.map((candidate, i) => ({ id: `comparison-app-${i}`, candidateId: candidate.id, jobPostingId: job.id, stage: 'postulado', llmScore: null, mandatoryRequirementStatus: 'sin_verificar', whyScoreNotes: { explanation: '', strengths: [], evidenceSummary: '' }, criteriaBreakdown: {}, createdAt: '', updatedAt: '', embeddingMatch: { score: 1 - i * .2, ranking: i + 1, requirementSims: Object.fromEntries(job.criteria.map((r, k) => [r.id, [.88, .58, 0, null][k % 4]])), requirementEvidence: {}, explanation: '', backend: 'e5', criteriaVersion: job.criteriaVersion, evaluatedAt: '' } }));
   return state;
 }
+
+test('cinco perfiles permanecen en una fila desplazable en escritorio y móvil', async ({ page }) => {
+  await page.addInitScript(state => localStorage.setItem('GTH_ESAN_STAGE_I_STATE_V2', JSON.stringify(state)), fixture(4, 5));
+  await page.goto('/#view=comparador');
+  await page.getByRole('button', { name: 'Comparar los 3 mejores perfiles', exact: true }).click();
+  await page.getByLabel('Solo del Top-N').uncheck();
+  for (const id of ['comparison-app-3', 'comparison-app-4']) {
+    await page.getByLabel('Candidato para comparar').selectOption(id);
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  }
+  await expect(page.locator('.comparison-card')).toHaveCount(5);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+      const layout = await page.locator('.comparison-cards').evaluate(element => {
+        element.scrollLeft = 0;
+        const cards = [...element.children].map(card => card.getBoundingClientRect());
+        return { tops: cards.map(card => card.top), overflow: element.scrollWidth > element.clientWidth,
+          pageFits: document.documentElement.scrollWidth <= innerWidth };
+      });
+      expect(new Set(layout.tops).size).toBe(1);
+      expect(layout.overflow).toBe(true);
+      expect(layout.pageFits).toBe(true);
+      const medium = page.locator('.comparison-card').first().locator('.comparison-ring-arc.comparison-level-medium');
+      await expect(medium).toHaveCSS('stroke', theme === 'light' ? 'rgb(234, 179, 8)' : 'rgb(250, 204, 21)');
+      await page.locator('.comparison-cards').evaluate(element => element.scrollLeft = element.scrollWidth);
+      await expect(page.getByRole('article', { name: 'Ficha de Elena Prueba', exact: true })).toBeInViewport();
+      await page.locator('.comparison-chart').screenshot({ path: `test-results/comparison-five-${width}-${theme}.png` });
+    }
+  }
+});
 
 for (const count of [4, 0, 1, 16]) {
   test(`referencia compacta con ${count} requisitos conserva detalle y acciones`, async ({ page }) => {

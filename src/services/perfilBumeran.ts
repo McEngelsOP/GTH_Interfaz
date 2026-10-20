@@ -56,4 +56,4 @@ export function argumentosPorRequisito(app: Application, candidate: Candidate | 
 }
 
 export const colorPct = (pct: number | null) => pct === null ? 'var(--text-muted)'
-  : pct >= 70 ? 'var(--status-verified-text)' : pct >= 40 ? 'var(--status-partial-text)' : 'var(--status-failed-text)';
+  : pct >= 70 ? 'var(--status-verified-text)' : pct >= 40 ? 'var(--comparison-medium-text, var(--status-partial-text))' : 'var(--status-failed-text)';

@@ -11,7 +11,7 @@ const LEVELS = [
   { label: 'Alta', range: '70 % o más', className: 'strong', Icon: Check },
   { label: 'Media', range: '40 a 69 %', className: 'medium', Icon: Info },
   { label: 'Baja', range: 'menos de 40 %', className: 'low', Icon: X },
-  { label: 'Sin datos', range: '', className: 'missing', Icon: Minus },
+  { label: 'Sin datos', range: 'sin evidencia en el perfil', className: 'missing', Icon: Minus },
 ];
 const levelOf = (pct: number | null) => pct === null ? 3 : pct >= 70 ? 0 : pct >= 40 ? 1 : 2;
 
@@ -34,7 +34,7 @@ export function ComparisonChart({ applications, candidates, job, positions, onRe
         </li>)}
       </ul>
     </div>
-    <div className="comparison-cards">
+    <div className="comparison-cards" role="region" aria-label="Candidatos ordenados por puntaje; desplaza horizontalmente para ver más" tabIndex={0}>
       {applications.map(app => {
         const candidate = candidates.get(app.candidateId);
         const name = candidate?.name || 'Candidato';
@@ -82,6 +82,6 @@ export function ComparisonChart({ applications, candidates, job, positions, onRe
         </article>;
       })}
     </div>
-    <p className="comparison-visual-note">Cada tramo del anillo representa un requisito. Los colores indican similitud, no cumplimiento acreditado. «Sin datos» no equivale a cero. Revisa la evidencia en las columnas de detalle antes de decidir.</p>
+    <p className="comparison-visual-note">Desliza hacia la derecha para ver más candidatos. Cada tramo del anillo representa un requisito. Los colores indican similitud, no cumplimiento acreditado. «Sin datos» indica que no hay evidencia disponible en el perfil y no equivale a cero. Revisa la evidencia en las columnas de detalle antes de decidir.</p>
   </section>;
 }

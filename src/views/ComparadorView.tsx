@@ -105,7 +105,7 @@ export function ComparadorView() {
   if (!activeJob) return null;
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+    <div className="comparison-view" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', minWidth: 0 }}>
       <ActiveJobBanner />
 
       {/* Cabecera del Comparador */}
