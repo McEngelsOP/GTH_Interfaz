@@ -3,6 +3,7 @@ import { supabase } from '../../services/supabase.ts';
 import { Button } from '../common/Button.tsx';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
+import { usePerfil } from '../../services/permisos.ts';
 import {
   Briefcase,
   ChevronDown,
@@ -28,6 +29,13 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     setTheme,
     showToast,
   } = useApp();
+
+  // Perfil de la cuenta con sesión iniciada; sin Supabase (modo local) se muestra el equipo
+  const perfil = usePerfil();
+  const nombreUsuario = perfil?.nombre?.trim() || perfil?.email?.split('@')[0] || 'Equipo de GTHC';
+  const iniciales = perfil
+    ? nombreUsuario.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('')
+    : 'ES';
 
   const [signingOut, setSigningOut] = useState(false);
   const signOut = async () => {
@@ -216,14 +224,14 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
               letterSpacing: '0.5px',
             }}
           >
-            ES
+            {iniciales}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }} className="hide-on-mobile">
+          <div style={{ display: 'flex', flexDirection: 'column' }} className="hide-on-mobile" title={perfil?.email}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Equipo de GTHC
+              {nombreUsuario}
             </span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-              Universidad ESAN
+              {perfil ? 'Equipo de GTHC' : 'Universidad ESAN'}
             </span>
           </div>
         </div>
