@@ -176,6 +176,29 @@ def subir_a_drive(bd: BD, carpeta_externa=None):
     return subidos
 
 
+MAX_CERRADOS_POR_LECTURA = 5    # más avisos «cerrados» de golpe que esto = lectura incompleta de la lista
+
+
+def leer_lista(driver, bd: BD, marcar_ausentes=True) -> list[dict]:
+    """Lee la lista de avisos y la guarda. Si de una lectura a otra desaparecen muchos avisos, la página
+    probablemente no cargó entera: se lee otra vez y, si sigue igual, no se marca ninguno como cerrado."""
+    from .bumeran import leer_avisos
+    from .navegador import reintentar
+    activos = {f["aviso_id"] for f in bd.consultar("SELECT aviso_id FROM avisos WHERE en_ultima_lista=1")}
+    avisos = []
+    for intento in (1, 2):
+        avisos = reintentar(leer_avisos, driver, nombre="leer lista de avisos", driver=driver)
+        faltan = len(activos - {a["aviso_id"] for a in avisos})
+        if faltan < MAX_CERRADOS_POR_LECTURA:
+            break
+        log.warning("La lista trajo %d avisos y faltan %d de los activos (lectura %d/2)", len(avisos), faltan, intento)
+    else:
+        log.warning("No se marca ningún aviso como cerrado: la lista parece incompleta")
+        marcar_ausentes = False
+    bd.upsert_lista(avisos, marcar_ausentes=marcar_ausentes)
+    return avisos
+
+
 def paso_csv(driver, bd: BD, aviso: dict, forzar=False) -> bool:
     """Descarga e importa el CSV del aviso si cambió 'Recibidos' (o siempre con forzar). True si lo bajó."""
     from .bumeran import exportar_csv
@@ -325,8 +348,8 @@ def main(argv=None):
             paso_ranking_seguro(bd, a, forzar=args.forzar)
         return
 
-    from .bumeran import asegurar_sesion, leer_avisos
-    from .navegador import crear_driver, pausa, reintentar, volcar_debug
+    from .bumeran import asegurar_sesion
+    from .navegador import crear_driver, pausa, volcar_debug
 
     corrida = bd.iniciar_run("corrida", args.aviso)
     estado_final, mensaje = "ok", ""
@@ -334,8 +357,7 @@ def main(argv=None):
     try:
         asegurar_sesion(driver)
         run = bd.iniciar_run("lista")
-        avisos = reintentar(leer_avisos, driver, nombre="leer lista de avisos", driver=driver)
-        bd.upsert_lista(avisos)
+        avisos = leer_lista(driver, bd, marcar_ausentes=not args.aviso)   # con un solo aviso no se cierra ningún otro
         bd.cerrar_run(run, "ok", total=len(avisos))
 
         if not args.solo_lista:

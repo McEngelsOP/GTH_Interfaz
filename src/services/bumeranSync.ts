@@ -152,10 +152,11 @@ export function postulantesToTable(avisoId: string, rows: PostulanteRow[]): Impo
   return { fileName: `Bumeran · aviso ${avisoId}`, rows: [headers, ...rows.map((row) => headers.map((h, i) => celda(row, h, i)))] };
 }
 
+/** Todos los avisos guardados: también los que ya no figuran en Bumeran (cerrados), con su último registro. */
 export async function fetchAvisos(client: SupabaseClient): Promise<AvisoRow[]> {
   const { data, error } = await client.from('avisos')
     .select('aviso_id, titulo, publicado_el, recibidos, detalle_texto, detalle_json, url_publica, ultimo_csv_at, ranking_at')
-    .eq('en_ultima_lista', 1).order('publicado_el', { ascending: false });
+    .order('publicado_el', { ascending: false });
   if (error) throw new Error(error.message);
   return (data || []) as AvisoRow[];
 }

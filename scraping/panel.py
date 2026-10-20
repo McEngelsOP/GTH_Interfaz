@@ -21,7 +21,7 @@ from tkinter import messagebox, ttk
 
 from . import config
 from .db import BD
-from .run import configurar_log, paso_csv, paso_cvs, paso_detalle
+from .run import configurar_log, leer_lista, paso_csv, paso_cvs, paso_detalle
 
 log = logging.getLogger("scraper")
 REFRESCAR = object()
@@ -280,10 +280,7 @@ class Panel:
     # ------------------------------------------------------------------ pasos
     def _leer_lista(self, driver, bd):
         """Lista de avisos Publicados con contadores frescos de Bumeran."""
-        from .bumeran import leer_avisos
-        from .navegador import reintentar
-        avisos = reintentar(leer_avisos, driver, nombre="leer lista de avisos", driver=driver)
-        bd.upsert_lista(avisos)
+        avisos = leer_lista(driver, bd)
         self.cola.put(REFRESCAR)
         return avisos
 

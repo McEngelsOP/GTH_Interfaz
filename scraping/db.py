@@ -233,10 +233,12 @@ class BD:
                       (ahora(), estado, nuevos, total, (mensaje or "")[:2000], run_id))
 
     # ------------------------------------------------------------------ avisos
-    def upsert_lista(self, avisos: list[dict]):
-        """Guarda lo leído en la lista de avisos. Marca en_ultima_lista=0 a los que ya no aparecen."""
+    def upsert_lista(self, avisos: list[dict], marcar_ausentes=True):
+        """Guarda lo leído en la lista de avisos. Marca en_ultima_lista=0 a los que ya no aparecen
+        (salvo marcar_ausentes=False, cuando la lectura pudo quedar incompleta)."""
         t = ahora()
-        self.cx.execute("UPDATE avisos SET en_ultima_lista = 0")
+        if marcar_ausentes:
+            self.cx.execute("UPDATE avisos SET en_ultima_lista = 0")
         self.cx.cursor().executemany(self._sql(
                 """INSERT INTO avisos(aviso_id, titulo, estado, publicado_el, creado_por, visitas,
                                       recibidos, no_leidos, ultima_revision_at, primera_vez_at, en_ultima_lista)
