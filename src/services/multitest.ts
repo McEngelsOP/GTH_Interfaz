@@ -1,8 +1,9 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Candidate } from '../types/index.ts';
 
-// Registro de preseleccionados en Multitest (apps.multitestresources.com). La web arma la lista y la automatización
-// local (scripts/multitest-envio.mjs, con Playwright) entra al proceso elegido y agrega a cada uno; Multitest le envía
-// el correo con la prueba.
+// Registro de preseleccionados en Multitest (apps.multitestresources.com). La web arma la lista y la deja en la cola
+// (tabla multitest_envios); el servidor de la laptop de GTH (scraping/multitest_servidor.py) corre la automatización
+// (scripts/multitest-envio.mjs, con Playwright): agrega a todos al proceso elegido y Multitest les envía el correo.
 
 /** Procesos abiertos en el «Panel de Procesos» de Multitest. El nombre debe coincidir con el enlace del panel. */
 export const PROCESOS_MULTITEST = [
@@ -75,15 +76,36 @@ export function guardarAsignacion(clave: string, asignacion: AsignacionMultitest
 export type EnvioMultitest = RegistroMultitest & { id: string };
 export type ResultadoMultitest = { id: string; ok: boolean; error?: string };
 
-/** Corre la automatización en la PC (servidor local de Vite) y espera a que termine: Multitest envía el correo al
- *  agregar a cada candidato. En la web publicada no existe ese servicio. */
-export async function enviarMultitest(registros: EnvioMultitest[]): Promise<ResultadoMultitest[]> {
-  let res: Response;
-  try {
-    res = await fetch('/api/multitest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ registros }) });
-  } catch { throw new Error('No se pudo contactar al servicio local de Multitest.'); }
-  if (res.status === 404) throw new Error('El envío a Multitest solo funciona en la PC del equipo, abriendo la web con «npm run dev».');
-  const datos = await res.json().catch(() => ({}));
-  if (!res.ok || !Array.isArray(datos.resultados)) throw new Error(datos.error || 'No se pudo completar el envío a Multitest.');
-  return datos.resultados;
+export const SERVIDOR_APAGADO_TRAS_MS = 90_000;   // el servidor marca su latido cada 15 s
+
+/** El servidor de Multitest (laptop de GTH, python -m scraping.multitest_servidor) está prendido si marcó su latido
+ *  hace menos de 90 s. */
+export async function servidorEncendido(client: SupabaseClient, ahora = Date.now()): Promise<boolean> {
+  const { data, error } = await client.from('servidor_latido').select('visto_at').eq('servicio', 'multitest').maybeSingle();
+  if (error) throw new Error('No se pudo consultar el servidor de Multitest.');
+  return !!data?.visto_at && ahora - Date.parse(data.visto_at) < SERVIDOR_APAGADO_TRAS_MS;
+}
+
+export type EstadoEnvio = 'pendiente' | 'en_curso' | 'ok' | 'error';
+
+/** Deja el pedido en la cola; el servidor lo toma, agrega a todos en Multitest y confirma en el avance compartido
+ *  a los agregados (aunque esta página se cierre). Devuelve el id del pedido. */
+export async function encolarEnvio(client: SupabaseClient, avisoId: string, registros: EnvioMultitest[]): Promise<number> {
+  const { data, error } = await client.from('multitest_envios').insert({ aviso_id: avisoId, registros }).select('id').single();
+  if (error || !data) throw new Error('No se pudo dejar el envío en la cola del servidor de Multitest.');
+  return data.id as number;
+}
+
+/** Espera a que el servidor termine el pedido; avisa cada cambio de estado (en cola → enviando). */
+export async function esperarEnvio(client: SupabaseClient, id: number, alCambiar: (estado: EstadoEnvio) => void,
+  intervaloMs = 4000, limiteMs = 35 * 60_000): Promise<{ resultados: ResultadoMultitest[]; mensaje: string | null }> {
+  const inicio = Date.now();
+  let anterior = '';
+  while (Date.now() - inicio < limiteMs) {
+    const { data } = await client.from('multitest_envios').select('estado, resultados, mensaje').eq('id', id).maybeSingle();
+    if (data && data.estado !== anterior) { anterior = data.estado; alCambiar(data.estado as EstadoEnvio); }
+    if (data?.estado === 'ok' || data?.estado === 'error') return { resultados: data.resultados || [], mensaje: data.mensaje };
+    await new Promise((resolve) => setTimeout(resolve, intervaloMs));
+  }
+  throw new Error('El servidor de Multitest no terminó a tiempo. Revisa más tarde en Avance de candidatos.');
 }

@@ -12,7 +12,7 @@ create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::
 grant usage on schema auth to authenticated; grant usage on schema public to authenticated;
 insert into auth.users values('${id('1')}','maestra@x.pe');`);
 await db.exec(readFileSync(root + '/scraping/supabase_esquema.sql', 'utf8'));
-for (const m of ['20261015230000_comentarios_internos', '20261016001000_avance_compartido', '20261016004500_retroceso_desde_contratado', '20261017120000_niveles_acceso'])
+for (const m of ['20261015230000_comentarios_internos', '20261016001000_avance_compartido', '20261016004500_retroceso_desde_contratado', '20261017120000_niveles_acceso', '20261020120000_agradecimiento_preseleccionados', '20261020180000_multitest_servidor'])
   await db.exec(readFileSync(`${root}/supabase/migrations/${m}.sql`, 'utf8'));
 // Usuario 1 existía antes de la migración (queda maestro). Después se crean 2 (general) y 3 (general con lista).
 await db.exec(`insert into auth.users values('${id('2')}','general@x.pe'),('${id('3')}','lista@x.pe'),('${id('4')}','sinperfil@x.pe');
@@ -45,10 +45,20 @@ await db.query("insert into public.comentarios_internos(aviso_id,id_postulante,t
 await assert.rejects(db.query(`select public.gth_iniciar_avance('C','[{"id_postulante":"p3","etapa":"postulado"}]'::jsonb)`), 'no inicia avance en confidencial');
 assert.equal((await db.query('select debe_cambiar_clave from public.gth_perfiles where user_id=auth.uid()')).rows[0].debe_cambiar_clave, true);
 await db.query('select public.gth_clave_cambiada()');
+// Cola de envíos a Multitest: el general pide envíos de sus avisos visibles y solo ve los suyos; lee el latido
+const pedido = (aviso) => db.query("insert into public.multitest_envios(aviso_id,registros) values($1,'[]'::jsonb) returning id", [aviso]);
+await pedido('A');
+await assert.rejects(pedido('C'), 'no pide envíos en confidencial');
+await assert.rejects(db.query("insert into public.multitest_envios(aviso_id,registros,estado) values('A','[]'::jsonb,'ok')"), 'solo pedidos pendientes');
+assert.equal((await db.query('select * from public.multitest_envios')).rows.length, 1, 've su pedido');
+await assert.rejects(db.query("update public.multitest_envios set estado='ok'"), 'no cierra pedidos (lo hace el servidor)');
+assert.equal((await db.query('select * from public.servidor_latido')).rows.length, 0, 'lee el latido (vacío)');
+await assert.rejects(db.query("insert into public.servidor_latido(servicio) values('multitest')"), 'no finge el latido');
 assert.equal((await db.query('select debe_cambiar_clave from public.gth_perfiles where user_id=auth.uid()')).rows[0].debe_cambiar_clave, false);
 
 await user('3');
 assert.equal(await avisos(), 'B', 'general con lista solo ve sus avisos');
+assert.equal((await db.query('select * from public.multitest_envios')).rows.length, 0, 'no ve pedidos ajenos');
 await user('4');
 assert.equal(await avisos(), '', 'sin perfil no ve nada');
 
@@ -58,5 +68,6 @@ await user('2');
 assert.equal(await avisos(), 'ABC', 'al desmarcar vuelve a ser visible');
 await db.exec('reset role; set role anon;');
 await assert.rejects(db.query('select * from public.gth_perfiles'));
+await assert.rejects(db.query('select * from public.multitest_envios'));
 console.log('PASS: niveles de acceso — maestro, general, lista de avisos, confidenciales, base centralizada y escrituras.');
 await db.close();

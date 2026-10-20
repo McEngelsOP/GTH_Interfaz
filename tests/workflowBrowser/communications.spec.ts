@@ -8,6 +8,14 @@ const user2 = '22222222-2222-2222-2222-222222222222';
 let db: PGlite;
 let queue = Promise.resolve();
 let multitestEnviados: string[][] = [];
+let latido = new Date(0).toISOString();          // servidor de Multitest (laptop de GTH): apagado al empezar
+const pedidos = new Map<number, { resultados: { id: string; ok: boolean }[] }>();
+// Lo que hace el servidor con la conexión directa a la base (sin RLS)
+const serverQuery = (query: string, values: unknown[]) => {
+  const result = queue.then(() => db.query(query, values));
+  queue = result.then(() => undefined, () => undefined);
+  return result;
+};
 const localQuery = (userId: string, query: string, values: unknown[]) => {
   const result = queue.then(() => db.transaction(async tx => {
     await tx.exec('set local role authenticated');
@@ -26,12 +34,6 @@ async function wire(context: BrowserContext, userId: string) {
     (window as any).__opened = [];
     window.open = (url) => { (window as any).__opened.push(String(url)); return { opener: null } as any; };
   }, { state: meetingState, userId });
-  // Automatización local de Multitest (Vite + Playwright): aquí se simula que agregó a todos
-  await context.route('**/api/multitest', async route => {
-    const ids = (route.request().postDataJSON().registros as { id: string }[]).map(r => r.id);
-    multitestEnviados.push(ids);
-    return route.fulfill({ status: 200, json: { resultados: ids.map(id => ({ id, ok: true })) } });
-  });
   await context.route('https://workflow-test.supabase.co/**', async route => {
     const url = new URL(route.request().url());
     const fulfill = (body: unknown, status = 200) => route.fulfill({ status, json: body, headers: { 'access-control-allow-origin': '*' } });
@@ -53,6 +55,20 @@ async function wire(context: BrowserContext, userId: string) {
         return fulfill(result.rows);
       }
       if (table === 'gth_colaboradores') return fulfill({ user_id: userId });
+      if (table === 'servidor_latido') return fulfill({ visto_at: latido });
+      if (table === 'multitest_envios' && route.request().method() === 'POST') {
+        // Simula al servidor: agrega a todos en Multitest y confirma su envío en el avance compartido
+        const ids = (body.registros as { id: string }[]).map(r => r.id);
+        multitestEnviados.push(ids);
+        await serverQuery("update public.gth_acciones set estado='confirmado',confirmado_at=now() where aviso_id=$1 and accion='multitest' and estado='preparado' and id_postulante = any($2)", [body.aviso_id, ids]);
+        const id = pedidos.size + 1;
+        pedidos.set(id, { resultados: ids.map(i => ({ id: i, ok: true })) });
+        return fulfill({ id });
+      }
+      if (table === 'multitest_envios') {
+        const pedido = pedidos.get(Number(url.searchParams.get('id')?.replace(/^eq\./, '')));
+        return fulfill(pedido ? { estado: 'ok', resultados: pedido.resultados, mensaje: null } : null);
+      }
       if (table === 'gth_perfiles') return fulfill({ user_id: userId, email: 'test@example.com', nombre: 'QA', nivel: 'maestro',
         activo: true, debe_cambiar_clave: false, secciones: null, avisos: null });
       return fulfill([]);
@@ -62,7 +78,7 @@ async function wire(context: BrowserContext, userId: string) {
 const banner = (page: Page, name: string) => page.getByRole('navigation', { name: 'Etapas del proceso' }).getByRole('button', { name: new RegExp(`^${name}`) });
 
 test.beforeEach(async () => {
-  multitestEnviados = [];
+  multitestEnviados = []; pedidos.clear(); latido = new Date(0).toISOString();
   db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -87,6 +103,14 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
     await page.getByRole('button', { name: 'Configurar Multitest', exact: true }).click();
     await page.getByRole('combobox', { name: 'Proceso de Multitest para Ana Prueba' }).selectOption('532');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    if (page === a) {
+      // Con la laptop apagada no se puede enviar; al prenderla, la vista lo detecta al volver a la etapa
+      await expect(page.getByText(/^Servidor apagado/)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
+      latido = new Date().toISOString();
+      await banner(page, 'Postulado').click(); await banner(page, 'Preseleccionado').click();
+    }
+    await expect(page.getByText(/^Servidor apagado/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeEnabled();
   }
   // Ambos tienen el mismo estado: el primero envía y el segundo, con la vista desactualizada, no puede repetirlo.

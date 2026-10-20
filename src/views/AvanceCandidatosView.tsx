@@ -7,8 +7,8 @@ import { WorkflowCommunicationModal } from '../components/modals/WorkflowCommuni
 import { MultitestConfigModal } from '../components/modals/MultitestConfigModal.tsx';
 import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
-import { finishCommunication, pipelineStage, PIPELINE_STAGES, reserveCommunication, type WorkflowAction, workflowCandidateId } from '../services/sharedWorkflow.ts';
-import { cargarAsignacion, enviarMultitest, faltantesRegistro, guardarAsignacion, procesoSugerido, registroMultitest, type AsignacionMultitest } from '../services/multitest.ts';
+import { finishCommunication, pipelineStage, PIPELINE_STAGES, reserveCommunication, type WorkflowAction, workflowCandidateId, workflowJobId } from '../services/sharedWorkflow.ts';
+import { cargarAsignacion, encolarEnvio, esperarEnvio, faltantesRegistro, guardarAsignacion, procesoSugerido, registroMultitest, servidorEncendido, type AsignacionMultitest, type EstadoEnvio } from '../services/multitest.ts';
 import { supabase } from '../services/supabase.ts';
 import type { Stage } from '../types/index.ts';
 import '../styles/workflow.css';
@@ -21,7 +21,10 @@ export function AvanceCandidatosView() {
   const search = useRef<HTMLInputElement>(null);
   const [action, setAction] = useState<WorkflowAction | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
-  const [sending, setSending] = useState(false);
+  // Envío a Multitest: lo hace el servidor (laptop de GTH); aquí se sigue su avance y si está prendido
+  const [envio, setEnvio] = useState<EstadoEnvio | 'verificando' | null>(null);
+  const sending = envio !== null;
+  const [servidor, setServidor] = useState<'encendido' | 'apagado' | 'desconocido'>('desconocido');
   const [asignacion, setAsignacion] = useState<AsignacionMultitest>({});
   const [moving, setMoving] = useState<string | null>(null);
   const movingRef = useRef(false);
@@ -30,6 +33,16 @@ export function AvanceCandidatosView() {
     setAsignacion(cargarAsignacion(asignacionKey));
     setStage('postulado'); setQuery(''); setOnlyTop(false); setAction(null); setConfigOpen(false);
   }, [asignacionKey]);
+  useEffect(() => {
+    if (!supabase || stage !== 'preseleccionado') return;
+    const client = supabase;
+    let vivo = true;
+    const revisar = () => servidorEncendido(client).then(
+      (on) => { if (vivo) setServidor(on ? 'encendido' : 'apagado'); }, () => { if (vivo) setServidor('desconocido'); });
+    void revisar();
+    const timer = window.setInterval(revisar, 30_000);
+    return () => { vivo = false; window.clearInterval(timer); };
+  }, [stage]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k' || document.querySelector('[role="dialog"]')) return;
@@ -68,25 +81,29 @@ export function AvanceCandidatosView() {
   }) : [];
   const enviar = async () => {
     if (!activeJob || sending || !porEnviar.length || porEnviar.some(p => !p.completo)) return;
+    if (!supabase) return;
     if (!window.confirm(`Se agregará a ${porEnviar.length} candidato${porEnviar.length === 1 ? '' : 's'} en Multitest y Multitest les enviará el correo con la prueba. ¿Continuar?`)) return;
-    setSending(true);
+    const client = supabase;
+    setEnvio('verificando');
     const ids = porEnviar.map(p => workflowCandidateId(p.candidate));
     try {
-      // Se reserva en el avance compartido: otro colaborador no puede enviarlo a la vez ni repetirlo después
+      if (!(await servidorEncendido(client))) { setServidor('apagado'); throw new Error('Servidor apagado: enciende la laptop de GTH con el servidor de Multitest y vuelve a intentarlo.'); }
+      // Se reserva en el avance compartido: otro colaborador no puede enviarlo a la vez ni repetirlo después.
+      // El servidor confirma a los agregados y libera a los que fallen, aunque esta página se cierre.
       await reserveCommunication(activeJob, 'multitest', porEnviar.map(({ candidate, registro }) => ({ candidate, detail: {
         asunto: `Multitest · ${registro.proceso}`, mensaje: `Agregado al proceso «${registro.proceso}» de Multitest, que envía el correo con la prueba.`,
         canal: 'correo', destinatario: registro.correo } })));
-      let resultados;
-      try { resultados = await enviarMultitest(porEnviar.map(({ candidate, registro }) => ({ id: workflowCandidateId(candidate), ...registro }))); }
+      let pedido: number;
+      try { pedido = await encolarEnvio(client, workflowJobId(activeJob), porEnviar.map(({ candidate, registro }) => ({ id: workflowCandidateId(candidate), ...registro }))); }
       catch (e) { await finishCommunication(activeJob, 'multitest', ids, true).catch(() => {}); throw e; }
-      const ok = resultados.filter(r => r.ok).map(r => r.id);
-      const fallidos = ids.filter(id => !ok.includes(id));
-      if (ok.length) await finishCommunication(activeJob, 'multitest', ok);
-      if (fallidos.length) await finishCommunication(activeJob, 'multitest', fallidos, true);
-      showToast(fallidos.length ? `Multitest: ${ok.length} enviados, ${fallidos.length} con error (${resultados.find(r => !r.ok)?.error || 'revisa el registro'}).`
-        : `Multitest: ${ok.length} candidato${ok.length === 1 ? '' : 's'} agregado${ok.length === 1 ? '' : 's'}; Multitest envía el correo.`, fallidos.length ? 'warning' : 'success');
+      setEnvio('pendiente');
+      const { resultados, mensaje } = await esperarEnvio(client, pedido, setEnvio);
+      const ok = resultados.filter(r => r.ok).length;
+      const fallidos = resultados.length - ok;
+      showToast(fallidos ? `Multitest: ${ok} enviados, ${fallidos} con error (${mensaje || resultados.find(r => !r.ok)?.error || 'revisa el registro'}).`
+        : `Multitest: ${ok} candidato${ok === 1 ? '' : 's'} agregado${ok === 1 ? '' : 's'}; Multitest envía el correo.`, fallidos ? 'warning' : 'success');
     } catch (e) { showToast(e instanceof Error ? e.message : 'No se pudo enviar a Multitest.', 'warning'); }
-    finally { await workflow.reload(); setSending(false); }
+    finally { await workflow.reload(); setEnvio(null); }
   };
   if (!activeJob) return null;
   const communicationAllowed = workflow.ready && activeJob.status === 'activa';
@@ -105,14 +122,16 @@ export function AvanceCandidatosView() {
         </div>}
         {stage === 'preseleccionado' && <div className="workflow-buttons">
           <Button size="sm" variant="ghost" icon={<Settings size={15} />} onClick={() => setConfigOpen(true)}>Configurar Multitest</Button>
-          <Button size="sm" icon={<Mail size={15} />} disabled={!communicationAllowed || sending || !porEnviar.length || porEnviar.some(p => !p.completo)} onClick={() => void enviar()}>{sending ? 'Enviando…' : 'Enviar Multitest'}</Button>
+          <Button size="sm" icon={<Mail size={15} />} disabled={!communicationAllowed || sending || servidor === 'apagado' || !porEnviar.length || porEnviar.some(p => !p.completo)} onClick={() => void enviar()}>{sending ? 'Enviando…' : 'Enviar Multitest'}</Button>
         </div>}
         {stage === 'en_entrevista' && <div className="workflow-buttons">
           <Button size="sm" variant="outline" icon={<Mail size={15} />} disabled={!communicationAllowed || !rejected.length} onClick={() => setAction('agradecimiento')}>Agradecer a no seleccionados</Button>
           <Button size="sm" icon={<Calendar size={15} />} disabled={!communicationAllowed || !inStage.length} onClick={() => setAction('entrevista')}>Agendar entrevista</Button>
         </div>}
       {stage === 'preseleccionado' && porEnviar.some(p => !p.completo) && <p className="workflow-banner-help">Configura el proceso de Multitest de cada preseleccionado para habilitar el envío.</p>}
-      {stage === 'preseleccionado' && sending && <p className="workflow-banner-help" role="status">Agregando candidatos en Multitest desde Chrome. No cierres esa ventana.</p>}
+      {stage === 'preseleccionado' && supabase && !sending && servidor === 'apagado' && <p className="workflow-banner-help" role="status">Servidor apagado: el envío a Multitest corre en la laptop de GTH y no está prendida.</p>}
+      {stage === 'preseleccionado' && sending && <p className="workflow-banner-help" role="status">{envio === 'en_curso' ? 'El servidor está agregando a los candidatos en Multitest…'
+        : envio === 'pendiente' ? 'Envío en cola: el servidor de Multitest lo tomará en unos segundos.' : 'Verificando el servidor de Multitest…'} Puedes cerrar esta página: el servidor termina el envío.</p>}
     </div>} />
     <header className="workflow-header">
       <div><h2><Kanban size={22} />Avance de candidatos</h2><p>Selecciona una columna para cambiar las acciones del banner. Arrastra tarjetas o usa los botones para avanzar.</p></div>

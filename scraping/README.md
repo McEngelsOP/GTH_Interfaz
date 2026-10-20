@@ -62,6 +62,19 @@ poner la ruta del chromedriver en la variable de entorno `CHROMEDRIVER`.
 Si seleccionas filas (Ctrl+clic), los botones 2-4 se aplican solo a esos avisos. *Detener* para al terminar
 el paso actual. Las filas amarillas tienen postulantes nuevos; las rojas, errores en PDFs.
 
+## Servidor de Multitest
+
+«Enviar Multitest» (Avance de candidatos, en la web publicada o local) deja el pedido en Supabase (`multitest_envios`).
+Lo ejecuta esta laptop con `scraping\iniciar_servidor_multitest.bat` (o `python -m scraping.multitest_servidor`):
+agrega a los candidatos en Multitest con Playwright (`scripts/multitest-envio.mjs`), presiona Continuar → Enviar por
+proceso y confirma los envíos en el avance compartido, aunque la página ya esté cerrada. Cada 15 s marca su latido en
+`servidor_latido`; si pasan 90 s sin latido, la web muestra «Servidor apagado» y no deja enviar.
+
+- Requiere `SUPABASE_DB_URL` en `scraping\.env`, `MULTITEST_USUARIO` y `MULTITEST_CLAVE` en `.env.local` y la
+  migración `supabase/migrations/20261020180000_multitest_servidor.sql`.
+- Chrome trabaja sin ventana; con `--ventana` se ve lo que hace. El detalle queda en `data\multitest_servidor.log` y
+  en `automatizacion\multitest\ultima-corrida.log`.
+
 ## Uso por consola
 
 Desde la raíz del repo (o doble clic en `scraping\iniciar_scraper.bat`):
