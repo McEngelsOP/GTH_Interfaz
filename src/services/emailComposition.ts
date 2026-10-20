@@ -10,9 +10,21 @@ export function dividirTandas(correos: string[], size = 50): string[][] {
 }
 
 /** Solo prepara una redacción. Abrir Gmail no acredita que se haya enviado. */
-export function gmailComposeUrl(correos: string[], asunto: string, mensaje: string): string {
+/** `cuenta`: correo con el que se envía; Gmail abre el borrador en esa cuenta si tiene sesión iniciada en el navegador. */
+export function gmailComposeUrl(correos: string[], asunto: string, mensaje: string, cuenta?: string): string {
   const params = new URLSearchParams({ view: 'cm', fs: '1', bcc: correos.join(','), su: asunto, body: mensaje });
+  if (cuenta?.trim()) params.set('authuser', cuenta.trim());
   return `https://mail.google.com/mail/?${params}`;
+}
+
+/** Cuenta emisora elegida en este navegador (se recuerda entre envíos). */
+const CLAVE_CUENTA = 'GTH_CUENTA_EMISORA';
+export const cuentaEmisoraValida = (correo: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+export function cargarCuentaEmisora(): string {
+  try { return localStorage.getItem(CLAVE_CUENTA) || ''; } catch { return ''; }
+}
+export function guardarCuentaEmisora(correo: string) {
+  try { localStorage.setItem(CLAVE_CUENTA, correo.trim()); } catch { /* sin almacenamiento: solo para este envío */ }
 }
 
 /** Base para Multitest. No selecciona etapas ni asume enlaces comunes o individuales. */

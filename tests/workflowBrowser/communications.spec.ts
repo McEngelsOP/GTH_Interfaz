@@ -7,6 +7,7 @@ const user1 = '11111111-1111-1111-1111-111111111111';
 const user2 = '22222222-2222-2222-2222-222222222222';
 let db: PGlite;
 let queue = Promise.resolve();
+let multitestEnviados: string[][] = [];
 const localQuery = (userId: string, query: string, values: unknown[]) => {
   const result = queue.then(() => db.transaction(async tx => {
     await tx.exec('set local role authenticated');
@@ -25,6 +26,12 @@ async function wire(context: BrowserContext, userId: string) {
     (window as any).__opened = [];
     window.open = (url) => { (window as any).__opened.push(String(url)); return { opener: null } as any; };
   }, { state: meetingState, userId });
+  // Automatización local de Multitest (Vite + Playwright): aquí se simula que agregó a todos
+  await context.route('**/api/multitest', async route => {
+    const ids = (route.request().postDataJSON().registros as { id: string }[]).map(r => r.id);
+    multitestEnviados.push(ids);
+    return route.fulfill({ status: 200, json: { resultados: ids.map(id => ({ id, ok: true })) } });
+  });
   await context.route('https://workflow-test.supabase.co/**', async route => {
     const url = new URL(route.request().url());
     const fulfill = (body: unknown, status = 200) => route.fulfill({ status, json: body, headers: { 'access-control-allow-origin': '*' } });
@@ -46,6 +53,8 @@ async function wire(context: BrowserContext, userId: string) {
         return fulfill(result.rows);
       }
       if (table === 'gth_colaboradores') return fulfill({ user_id: userId });
+      if (table === 'gth_perfiles') return fulfill({ user_id: userId, email: 'test@example.com', nombre: 'QA', nivel: 'maestro',
+        activo: true, debe_cambiar_clave: false, secciones: null, avisos: null });
       return fulfill([]);
     } catch (error) { return fulfill({ message: String(error), code: 'P0001' }, 409); }
   });
@@ -53,6 +62,7 @@ async function wire(context: BrowserContext, userId: string) {
 const banner = (page: Page, name: string) => page.getByRole('navigation', { name: 'Etapas del proceso' }).getByRole('button', { name: new RegExp(`^${name}`) });
 
 test.beforeEach(async () => {
+  multitestEnviados = [];
   db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -60,6 +70,7 @@ test.beforeEach(async () => {
   await db.exec(readFileSync('supabase/migrations/20261015230000_comentarios_internos.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261016001000_avance_compartido.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261016004500_retroceso_desde_contratado.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261020120000_agradecimiento_preseleccionados.sql', 'utf8'));
   await db.exec(`insert into public.gth_colaboradores values('${user1}'),('${user2}');`);
 });
 test.afterEach(async () => { await queue; await db.close(); });
@@ -71,34 +82,24 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   const errors: string[] = []; a.on('pageerror', e => errors.push(e.message)); b.on('pageerror', e => errors.push(e.message));
   await a.goto('/#view=avance_candidatos'); await b.goto('/#view=avance_candidatos');
   for (const page of [a, b]) {
+    page.on('dialog', dialog => void dialog.accept());   // confirmación antes de enviar correos reales
     await banner(page, 'Preseleccionado').click();
     await page.getByRole('button', { name: 'Configurar Multitest', exact: true }).click();
-    await page.getByLabel('Enlace de Multitest', { exact: true }).fill('https://example.com/multitest');
-    await page.getByLabel('Plazo para rendir las pruebas', { exact: true }).fill('48 horas');
-    await page.getByRole('button', { name: 'Guardar configuración', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Proceso de Multitest para Ana Prueba' }).selectOption('532');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: 'Enviar Multitest', exact: true }).click();
   }
-  // Ambos abrieron con el mismo estado: el segundo conserva una selección obsoleta.
-  await a.getByRole('button', { name: 'Preparar correo (1)', exact: true }).click();
-  await expect(a.getByRole('region', { name: 'Comunicaciones preparadas' })).toBeVisible();
-  await b.getByRole('button', { name: 'Preparar correo (1)', exact: true }).click();
-  await expect(b.getByRole('dialog').getByRole('alert')).toContainText('otro colaborador');
-  await expect(b.getByRole('checkbox', { name: 'Incluir a Ana Prueba' })).toBeDisabled();
-  await expect(a.getByRole('button', { name: 'Confirmar envío realizado (1)', exact: true })).toBeDisabled();
-  await a.getByRole('button', { name: 'Abrir Gmail', exact: true }).click();
-  const url = new URL(await a.evaluate(() => (window as any).__opened[0]));
-  expect(url.searchParams.get('bcc')).toBe('persona0@example.com');
-  expect(url.searchParams.get('body')).toContain('https://example.com/multitest');
-  expect((await db.query("select estado from public.gth_acciones where accion='multitest'")).rows[0].estado).toBe('preparado');
-  await a.getByRole('button', { name: 'Confirmar envío realizado (1)', exact: true }).click();
-  await expect(a.getByText('Envío confirmado', { exact: true })).toBeVisible();
-  await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
-  await b.getByRole('button', { name: 'Cerrar', exact: true }).click();
-  await b.getByRole('button', { name: 'Actualizar avance', exact: true }).click();
+  // Ambos tienen el mismo estado: el primero envía y el segundo, con la vista desactualizada, no puede repetirlo.
+  await a.getByRole('button', { name: 'Enviar Multitest', exact: true }).click();
+  await expect.poll(async () => (await db.query("select estado from public.gth_acciones where accion='multitest'")).rows[0]?.estado).toBe('confirmado');
+  expect(multitestEnviados).toEqual([['qa-external-0']]);
+  await expect(a.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
   await b.getByRole('button', { name: 'Enviar Multitest', exact: true }).click();
-  await expect(b.getByRole('checkbox', { name: 'Incluir a Ana Prueba' })).toBeDisabled();
-  await expect(b.getByText('Envío confirmado', { exact: true })).toBeVisible();
+  await expect(b.getByText(/otro colaborador/)).toBeVisible();
+  expect(multitestEnviados).toHaveLength(1);
+  await expect(b.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
+  await b.getByRole('button', { name: 'Configurar Multitest', exact: true }).click();
+  await expect(b.getByText('Multitest ya enviado', { exact: true })).toBeVisible();
   await b.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await a.getByRole('button', { name: 'Avanzar de etapa a Ana Prueba', exact: true }).click();
   await banner(a, 'En entrevista').click();
@@ -109,7 +110,7 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   await a.getByRole('radio', { name: 'Incluir a Ana Prueba' }).check();
   await a.getByRole('button', { name: 'Preparar WhatsApp (1)', exact: true }).click();
   await a.getByRole('button', { name: 'Abrir WhatsApp', exact: true }).click();
-  const whatsapp = new URL(await a.evaluate(() => (window as any).__opened[1]));
+  const whatsapp = new URL(await a.evaluate(() => (window as any).__opened[0]));
   expect(whatsapp.pathname).toBe('/51987654321'); expect(whatsapp.searchParams.get('text')).toContain('https://meet.example/entrevista');
   await a.getByRole('button', { name: 'Confirmar envío realizado (1)', exact: true }).click();
   await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
@@ -133,10 +134,7 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
     await expect.poll(async () => (await db.query("select etapa from public.gth_avance where id_postulante='qa-external-0'")).rows[0].etapa).toBe(target);
     if (target === 'preseleccionado') {
       await banner(a, 'Preseleccionado').click();
-      await a.getByRole('button', { name: 'Enviar Multitest', exact: true }).click();
-      await expect(a.getByRole('checkbox', { name: 'Incluir a Ana Prueba', exact: true })).toBeDisabled();
-      await expect(a.getByText('Envío confirmado', { exact: true })).toBeVisible();
-      await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
+      await expect(a.getByRole('button', { name: 'Enviar Multitest', exact: true })).toBeDisabled();
     }
   }
   await banner(a, 'Preseleccionado').click();
@@ -144,11 +142,22 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   expect((await db.query("select accion,estado from public.gth_acciones where id_postulante='qa-external-0' order by accion")).rows).toEqual([
     { accion: 'entrevista', estado: 'confirmado' }, { accion: 'multitest', estado: 'confirmado' },
   ]);
+  // No seleccionados = preseleccionados que no pasaron a Entrevista
+  await banner(a, 'Postulado').click();
+  await a.getByRole('button', { name: 'Avanzar de etapa a Bruno Prueba', exact: true }).click();
+  await expect.poll(async () => (await db.query("select etapa from public.gth_avance where id_postulante='qa-external-1'")).rows[0].etapa).toBe('preseleccionado');
   await banner(a, 'En entrevista').click();
   await a.getByRole('button', { name: 'Agradecer a no seleccionados', exact: true }).click();
-  await a.getByRole('button', { name: 'Preparar correo (4)', exact: true }).click();
+  await expect(a.getByRole('checkbox', { name: 'Incluir a Ana Prueba' })).toHaveCount(0);
+  await a.getByRole('button', { name: 'Preparar correo (1)', exact: true }).click();
   await a.getByRole('button', { name: 'Abrir Gmail', exact: true }).click();
-  await a.getByRole('button', { name: 'Confirmar envío realizado (4)', exact: true }).click();
+  await expect(a.getByRole('dialog').getByRole('alert')).toContainText('cuenta emisora');
+  await a.getByLabel('Cuenta emisora', { exact: true }).fill('gth@example.com');
+  await a.getByRole('button', { name: 'Abrir Gmail', exact: true }).click();
+  const gmail = new URL(await a.evaluate(() => (window as any).__opened.at(-1)));
+  expect(gmail.searchParams.get('authuser')).toBe('gth@example.com');
+  expect(gmail.searchParams.get('bcc')).toBe('persona1@example.com');
+  await a.getByRole('button', { name: 'Confirmar envío realizado (1)', exact: true }).click();
   await expect(a.getByRole('checkbox', { name: 'Incluir a Bruno Prueba' })).toBeDisabled();
   await a.screenshot({ path: '/tmp/gth-workflow-communication-desktop.png', fullPage: true });
   await a.setViewportSize({ width: 390, height: 844 });
@@ -156,9 +165,10 @@ test('dos colaboradores comparten reservas, envíos y descartes sin repetir acci
   await a.screenshot({ path: '/tmp/gth-workflow-communication-mobile.png', fullPage: true });
   await a.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await b.getByRole('button', { name: 'Actualizar avance', exact: true }).click();
-  await banner(b, 'Postulado').click();
-  await expect(b.getByRole('heading', { name: 'Bruno Prueba', exact: true })).toHaveCount(0);
-  expect((await db.query("select etapa from public.gth_avance where id_postulante='qa-external-1'")).rows[0].etapa).toBe('no_continua');
+  await banner(b, 'Preseleccionado').click();
+  await expect(b.getByRole('region', { name: 'Candidatos en Preseleccionado', exact: true }).getByRole('heading', { name: 'Bruno Prueba', exact: true })).toBeVisible();
+  expect((await db.query("select etapa from public.gth_avance where id_postulante='qa-external-1'")).rows[0].etapa).toBe('preseleccionado');
+  expect((await db.query("select estado from public.gth_acciones where id_postulante='qa-external-1' and accion='agradecimiento'")).rows[0].estado).toBe('confirmado');
   expect(errors).toEqual([]);
   await first.close(); await second.close();
 });

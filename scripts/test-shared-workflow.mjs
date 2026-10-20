@@ -12,6 +12,7 @@ insert into auth.users values('11111111-1111-1111-1111-111111111111'),('22222222
 await db.exec(readFileSync(root+'/supabase/migrations/20261015230000_comentarios_internos.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261016001000_avance_compartido.sql','utf8'));
 await db.exec(readFileSync(root+'/supabase/migrations/20261016004500_retroceso_desde_contratado.sql','utf8'));
+await db.exec(readFileSync(root+'/supabase/migrations/20261020120000_agradecimiento_preseleccionados.sql','utf8'));
 await db.exec(`insert into public.gth_colaboradores values('11111111-1111-1111-1111-111111111111'),('22222222-2222-2222-2222-222222222222'); set role authenticated;`);
 const user=async(n)=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[`${n.repeat(8)}-${n.repeat(4)}-${n.repeat(4)}-${n.repeat(4)}-${n.repeat(12)}`]);
 const seed=async(aviso,rows)=>db.query('select public.gth_iniciar_avance($1,$2::jsonb)',[aviso,JSON.stringify(rows)]);
@@ -59,6 +60,11 @@ await assert.rejects(move('A',[{id_postulante:'dos',anterior:'no_continua',nueva
 await seed('B',[{id_postulante:'dos',etapa:'preseleccionado'}]); await reserve('B','multitest',['dos']);
 await seed('A',[{id_postulante:'dos',etapa:'postulado'}]);
 assert.equal((await db.query("select etapa from public.gth_avance where aviso_id='A' and id_postulante='dos'")).rows[0].etapa,'no_continua','seed never overwrites team decision');
+// Agradecimiento a un preseleccionado que no pasó a Entrevista: se permite y no cambia su etapa
+await seed('E',[{id_postulante:'cuatro',etapa:'preseleccionado'}]);
+await reserve('E','agradecimiento',['cuatro']); await finish('E','agradecimiento',['cuatro']);
+assert.equal((await db.query("select etapa from public.gth_avance where aviso_id='E' and id_postulante='cuatro'")).rows[0].etapa,'preseleccionado');
+await assert.rejects(reserve('E','agradecimiento',['cuatro']));
 await user('3');
 assert.equal((await db.query('select * from public.gth_acciones')).rows.length,0);
 await assert.rejects(seed('C',[{id_postulante:'uno',etapa:'postulado'}]));

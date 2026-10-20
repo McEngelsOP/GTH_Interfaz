@@ -97,3 +97,13 @@
 .workflow-config { padding: 1.25rem; background: var(--bg-base); display: grid; gap: 1rem; }
 
 .workflow-stage[aria-pressed='true'] { border-color: var(--border-default); border-bottom-color: var(--primary-red); background: var(--primary-red-subtle); }
+
+/* Configurar Multitest: proceso por preseleccionado (mismo estilo que la lista de destinatarios). */
+.multitest-asignacion { list-style: none; margin: .75rem 0 0; padding: 0; max-height: 320px; overflow-y: auto; border-block: 1px solid var(--border-subtle); }
+.multitest-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); align-items: center; gap: .75rem; padding: .75rem .25rem; border-bottom: 1px solid var(--border-subtle); }
+.multitest-fila:last-child { border-bottom: 0; }
+.multitest-candidato { display: grid; gap: .25rem; font-size: .84rem; overflow-wrap: anywhere; }
+.multitest-candidato small { color: var(--text-secondary); font-size: .75rem; }
+.multitest-candidato .multitest-falta { color: var(--primary-red); }
+
+@media (max-width: 640px) { .multitest-fila { grid-template-columns: 1fr; } }

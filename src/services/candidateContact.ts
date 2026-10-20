@@ -20,3 +20,10 @@ export function candidateWhatsappUrl(candidate: Pick<Candidate, 'name' | 'phone'
   const message = `Hola, ${candidate.name}. Le escribimos del equipo de Gestión del Talento Humano de la Universidad ESAN por su postulación a la convocatoria «${jobTitle}». ¿Tiene unos minutos para conversar?`;
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
+
+/** Correo vigente: el de la fila más reciente del CSV de Bumeran (si cambió en una sincronización posterior, la ficha
+ *  conserva el anterior en `email`) y, si no hay CSV, el de la ficha. */
+export function correoVigente(candidate: Pick<Candidate, 'email' | 'importedProfile'>): string {
+  const ultima = (candidate.importedProfile?.records?.at(-1) || {}) as Record<string, string>;
+  return (ultima['E-Mail'] || candidate.email || '').trim();
+}

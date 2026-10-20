@@ -13,6 +13,8 @@
     "test:workflow:sql": "node scripts/test-shared-workflow.mjs",
     "test:niveles:sql": "node scripts/test-niveles-acceso.mjs",
     "test:postulaciones:sql": "node scripts/test-postulaciones.mjs",
+    "multitest:grabar": "node scripts/multitest.mjs grabar",
+    "multitest:reproducir": "node scripts/multitest.mjs reproducir",
     "test:workflow:browser": "playwright test --config=playwright.workflow.config.ts"
   },
   "dependencies": {

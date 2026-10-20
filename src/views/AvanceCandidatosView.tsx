@@ -4,20 +4,15 @@ import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Button } from '../components/common/Button.tsx';
 import { WorkflowCommunicationModal } from '../components/modals/WorkflowCommunicationModal.tsx';
+import { MultitestConfigModal } from '../components/modals/MultitestConfigModal.tsx';
 import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
-import { pipelineStage, PIPELINE_STAGES, type WorkflowAction, workflowCandidateId } from '../services/sharedWorkflow.ts';
-import { prepararCorreoMultitest } from '../services/emailComposition.ts';
+import { finishCommunication, pipelineStage, PIPELINE_STAGES, reserveCommunication, type WorkflowAction, workflowCandidateId } from '../services/sharedWorkflow.ts';
+import { cargarAsignacion, enviarMultitest, faltantesRegistro, guardarAsignacion, procesoSugerido, registroMultitest, type AsignacionMultitest } from '../services/multitest.ts';
 import { supabase } from '../services/supabase.ts';
 import type { Stage } from '../types/index.ts';
 import '../styles/workflow.css';
 
-type MultitestConfig = { enlace: string; plazo: string };
-const EMPTY_CONFIG = { enlace: '', plazo: '' };
-function loadMultitest(key: string): MultitestConfig {
-  try { const value = JSON.parse(localStorage.getItem(key) || 'null'); return typeof value?.enlace === 'string' && typeof value?.plazo === 'string' ? value : EMPTY_CONFIG; }
-  catch { return EMPTY_CONFIG; }
-}
 export function AvanceCandidatosView() {
   const { activeJob, activeJobApplications, appState, workflow, handleMoveStage, showToast, setTopN } = useApp();
   const [stage, setStage] = useState<Stage>('postulado');
@@ -26,16 +21,15 @@ export function AvanceCandidatosView() {
   const search = useRef<HTMLInputElement>(null);
   const [action, setAction] = useState<WorkflowAction | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
-  const [config, setConfig] = useState<MultitestConfig>(EMPTY_CONFIG);
-  const [draft, setDraft] = useState<MultitestConfig>(EMPTY_CONFIG);
-  const [configError, setConfigError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [asignacion, setAsignacion] = useState<AsignacionMultitest>({});
   const [moving, setMoving] = useState<string | null>(null);
   const movingRef = useRef(false);
-  const configKey = `GTH_MULTITEST_${activeJob?.bumeran?.avisoId || activeJob?.id}`;
+  const asignacionKey = `GTH_MULTITEST_PROCESOS_${activeJob?.bumeran?.avisoId || activeJob?.id}`;
   useEffect(() => {
-    const stored = loadMultitest(configKey); setConfig(stored); setDraft(stored);
-    setStage('postulado'); setQuery(''); setOnlyTop(false); setAction(null); setConfigOpen(false); setConfigError('');
-  }, [configKey]);
+    setAsignacion(cargarAsignacion(asignacionKey));
+    setStage('postulado'); setQuery(''); setOnlyTop(false); setAction(null); setConfigOpen(false);
+  }, [asignacionKey]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k' || document.querySelector('[role="dialog"]')) return;
@@ -50,7 +44,8 @@ export function AvanceCandidatosView() {
   const position = new Map(ranked.map((a, i) => [a.id, i + 1]));
   const inStage = ranked.filter(a => pipelineStage(a.stage) === stage);
 
-  const rejected = ranked.filter(a => a.stage === 'postulado' || a.stage === 'no_continua');
+  // No seleccionados: rindieron Multitest (Preseleccionado) y no pasaron a Entrevista
+  const rejected = ranked.filter(a => pipelineStage(a.stage) === 'preseleccionado');
   const currentIndex = PIPELINE_STAGES.findIndex(s => s.id === stage);
   const canMove = activeJob?.status === 'activa' && (!supabase || workflow.ready);
   const move = async (id: string, target: Stage) => {
@@ -59,13 +54,39 @@ export function AvanceCandidatosView() {
     try { await handleMoveStage(id, target, 'Movido desde el tablero de avance'); }
     finally { movingRef.current = false; setMoving(null); }
   };
-  const saveConfig = () => {
+  const saveConfig = (procesos: AsignacionMultitest) => {
+    guardarAsignacion(asignacionKey, procesos); setAsignacion(procesos);
+    showToast('Procesos de Multitest guardados para esta convocatoria en este navegador.', 'success');
+  };
+  // Multitest: preseleccionados sin envío previo ni comunicación en preparación, con su registro para el formulario
+  const yaMultitest = new Set(workflow.actions.filter(a => a.accion === 'multitest' || a.estado === 'preparado').map(a => a.id_postulante));
+  const porEnviar = stage === 'preseleccionado' && activeJob ? inStage.flatMap(app => {
+    const candidate = candidates.get(app.candidateId);
+    if (!candidate || yaMultitest.has(workflowCandidateId(candidate))) return [];
+    const registro = registroMultitest(candidate, asignacion[app.id] || procesoSugerido(activeJob.title));
+    return [{ candidate, registro, completo: !faltantesRegistro(registro).length }];
+  }) : [];
+  const enviar = async () => {
+    if (!activeJob || sending || !porEnviar.length || porEnviar.some(p => !p.completo)) return;
+    if (!window.confirm(`Se agregará a ${porEnviar.length} candidato${porEnviar.length === 1 ? '' : 's'} en Multitest y Multitest les enviará el correo con la prueba. ¿Continuar?`)) return;
+    setSending(true);
+    const ids = porEnviar.map(p => workflowCandidateId(p.candidate));
     try {
-      prepararCorreoMultitest({ puesto: activeJob!.title, ...draft });
-      localStorage.setItem(configKey, JSON.stringify({ enlace: draft.enlace.trim(), plazo: draft.plazo.trim() }));
-      setConfig({ enlace: draft.enlace.trim(), plazo: draft.plazo.trim() }); setConfigError(''); setConfigOpen(false);
-      showToast('Configuración de Multitest guardada para esta convocatoria en este navegador.', 'success');
-    } catch (e) { setConfigError(e instanceof Error ? e.message : 'No se pudo guardar la configuración.'); }
+      // Se reserva en el avance compartido: otro colaborador no puede enviarlo a la vez ni repetirlo después
+      await reserveCommunication(activeJob, 'multitest', porEnviar.map(({ candidate, registro }) => ({ candidate, detail: {
+        asunto: `Multitest · ${registro.proceso}`, mensaje: `Agregado al proceso «${registro.proceso}» de Multitest, que envía el correo con la prueba.`,
+        canal: 'correo', destinatario: registro.correo } })));
+      let resultados;
+      try { resultados = await enviarMultitest(porEnviar.map(({ candidate, registro }) => ({ id: workflowCandidateId(candidate), ...registro }))); }
+      catch (e) { await finishCommunication(activeJob, 'multitest', ids, true).catch(() => {}); throw e; }
+      const ok = resultados.filter(r => r.ok).map(r => r.id);
+      const fallidos = ids.filter(id => !ok.includes(id));
+      if (ok.length) await finishCommunication(activeJob, 'multitest', ok);
+      if (fallidos.length) await finishCommunication(activeJob, 'multitest', fallidos, true);
+      showToast(fallidos.length ? `Multitest: ${ok.length} enviados, ${fallidos.length} con error (${resultados.find(r => !r.ok)?.error || 'revisa el registro'}).`
+        : `Multitest: ${ok.length} candidato${ok.length === 1 ? '' : 's'} agregado${ok.length === 1 ? '' : 's'}; Multitest envía el correo.`, fallidos.length ? 'warning' : 'success');
+    } catch (e) { showToast(e instanceof Error ? e.message : 'No se pudo enviar a Multitest.', 'warning'); }
+    finally { await workflow.reload(); setSending(false); }
   };
   if (!activeJob) return null;
   const communicationAllowed = workflow.ready && activeJob.status === 'activa';
@@ -83,29 +104,21 @@ export function AvanceCandidatosView() {
           <label className="workflow-search"><Search size={16} aria-hidden="true" /><input ref={search} type="search" aria-label="Buscar candidato por nombre" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por nombre" /><kbd>Ctrl K</kbd></label>
         </div>}
         {stage === 'preseleccionado' && <div className="workflow-buttons">
-          <Button size="sm" variant="ghost" icon={<Settings size={15} />} onClick={() => { setDraft(config); setConfigOpen(!configOpen); }}>Configurar Multitest</Button>
-          <Button size="sm" icon={<Mail size={15} />} disabled={!communicationAllowed || !inStage.length || !config.enlace || !config.plazo} onClick={() => setAction('multitest')}>Enviar Multitest</Button>
+          <Button size="sm" variant="ghost" icon={<Settings size={15} />} onClick={() => setConfigOpen(true)}>Configurar Multitest</Button>
+          <Button size="sm" icon={<Mail size={15} />} disabled={!communicationAllowed || sending || !porEnviar.length || porEnviar.some(p => !p.completo)} onClick={() => void enviar()}>{sending ? 'Enviando…' : 'Enviar Multitest'}</Button>
         </div>}
         {stage === 'en_entrevista' && <div className="workflow-buttons">
           <Button size="sm" variant="outline" icon={<Mail size={15} />} disabled={!communicationAllowed || !rejected.length} onClick={() => setAction('agradecimiento')}>Agradecer a no seleccionados</Button>
           <Button size="sm" icon={<Calendar size={15} />} disabled={!communicationAllowed || !inStage.length} onClick={() => setAction('entrevista')}>Agendar entrevista</Button>
         </div>}
-      {stage === 'preseleccionado' && !config.enlace && !configOpen && <p className="workflow-banner-help">Configura el enlace y plazo de Multitest para habilitar la invitación.</p>}
+      {stage === 'preseleccionado' && porEnviar.some(p => !p.completo) && <p className="workflow-banner-help">Configura el proceso de Multitest de cada preseleccionado para habilitar el envío.</p>}
+      {stage === 'preseleccionado' && sending && <p className="workflow-banner-help" role="status">Agregando candidatos en Multitest desde Chrome. No cierres esa ventana.</p>}
     </div>} />
     <header className="workflow-header">
       <div><h2><Kanban size={22} />Avance de candidatos</h2><p>Selecciona una columna para cambiar las acciones del banner. Arrastra tarjetas o usa los botones para avanzar.</p></div>
     </header>
     {supabase && !workflow.ready && <div className="workflow-notice" role="status">{workflow.error || 'Sincronizando las decisiones del equipo…'} Las acciones compartidas estarán disponibles al sincronizar.</div>}
     {!supabase && <div className="workflow-notice">Vista local. Conecta Supabase y activa el SQL de avance compartido para habilitar comunicaciones con protección entre colaboradores.</div>}
-      {stage === 'preseleccionado' && configOpen && <section className="workflow-config" aria-label="Configuración de Multitest">
-        <h3>Configura tu invitación a Multitest</h3><p>Indica el enlace y el plazo reales. Se guardan por convocatoria en este navegador; podrás revisar el mensaje antes de enviarlo.</p>
-        <div className="workflow-form-grid">
-          <label>Enlace de Multitest<input type="url" value={draft.enlace} placeholder="https://" maxLength={2000} onChange={e => setDraft(prev => ({ ...prev, enlace: e.target.value }))} /></label>
-          <label>Plazo para rendir las pruebas<input value={draft.plazo} placeholder="Ej.: hasta el 25 de octubre, 18:00 (Perú)" maxLength={300} onChange={e => setDraft(prev => ({ ...prev, plazo: e.target.value }))} /></label>
-        </div>
-        {configError && <p role="alert">{configError}</p>}
-        <div className="workflow-buttons"><Button size="sm" onClick={saveConfig}>Guardar configuración</Button><Button size="sm" variant="ghost" onClick={() => setConfigOpen(false)}>Cancelar</Button></div>
-      </section>}
 
     <div className="workflow-board" role="region" aria-label="Tablero de avance de candidatos" tabIndex={0}>
       <div className="workflow-kanban">
@@ -150,6 +163,9 @@ export function AvanceCandidatosView() {
       </div>
     </div>
     {ranked.some(a => a.stage === 'no_continua') && <p className="workflow-inline-help">{ranked.filter(a => a.stage === 'no_continua').length} postulaciones no continúan. Sus perfiles se conservan en «Candidatos y ranking».</p>}
-    {action && <WorkflowCommunicationModal key={`${activeJob.id}-${action}`} action={action} job={activeJob} applications={action === 'agradecimiento' ? rejected : inStage} multitest={config} onClose={() => setAction(null)} />}
+    {stage === 'preseleccionado' && configOpen && <MultitestConfigModal key={activeJob.id} job={activeJob} applications={inStage} candidates={candidates}
+      asignacion={asignacion} onSave={saveConfig}
+      enviados={new Set(inStage.filter(app => { const c = candidates.get(app.candidateId); return !!c && workflow.actions.some(a => a.accion === 'multitest' && a.estado === 'confirmado' && a.id_postulante === workflowCandidateId(c)); }).map(app => app.id))} onClose={() => setConfigOpen(false)} />}
+    {action && <WorkflowCommunicationModal key={`${activeJob.id}-${action}`} action={action} job={activeJob} applications={action === 'agradecimiento' ? rejected : inStage} onClose={() => setAction(null)} />}
   </div>;
 }
