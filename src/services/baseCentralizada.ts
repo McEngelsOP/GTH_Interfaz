@@ -118,6 +118,7 @@ export async function fetchBasePagina(client: SupabaseClient, filtros: FiltrosBa
     // Permite desplegar la web antes de activar la migración sin perder la base existente.
     return paginaLocal(agruparPersonas(await fetchBase(client, signal)), filtros, pagina, tamano);
   }
+  if (error?.code === '57014') throw new Error('La consulta de postulantes tardó demasiado y la base de datos la canceló. Vuelve a intentarlo; si persiste, se debe revisar el rendimiento de la consulta.');
   if (error) throw new Error('No se pudo leer la base de postulantes. Revisa tu conexión y vuelve a intentarlo.');
   if (!data || !Array.isArray(data.personas) || !Number.isFinite(data.total)) throw new Error('La base no devolvió los resultados esperados. Vuelve a intentarlo.');
   return { ...data, personas: data.personas.map((p: Persona) => ({ ...p, cv: { ...p.cv, vista: vistaPreviaDrive(p.cv.enlace) } })) };
