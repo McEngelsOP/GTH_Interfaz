@@ -39,6 +39,17 @@ group by version, estado;
 
 Una fecha presente pero no reconocida se presenta con el valor original y el motivo «formato no reconocido», nunca como «no registrada». La interpretación no reemplaza los datos originales del CSV. Los cargos se muestran completos tal como llegaron: no se puede recuperar desde este módulo texto que la fuente ya exportó truncado.
 
+## Presentación en la ficha
+
+La pestaña Perfil contiene una única sección **Experiencia laboral**. El resumen **Cambios entre empleadores** aparece al inicio; los cargos, fechas y funciones del historial se muestran una sola vez debajo.
+
+- **Ver análisis** abre el criterio, los conteos, las ventanas detectadas o posibles y la información por aclarar. Solo se incluyen referencias breves a experiencias vinculadas a transiciones, incidencias o exclusiones; no se vuelven a copiar las funciones del puesto. Las fechas originales siguen disponibles al desplegarlas.
+- La modalidad contractual ausente se agrupa en una nota con la cantidad de experiencias afectadas. Los otros motivos se conservan sin repetirlos por cada experiencia.
+- **Registrar revisión** abre un formulario sin resultado preseleccionado. «Cambios justificados» solo se ofrece para patrones detectados o posibles; «Reportar dato incorrecto» y «Revisado por GTH» siguen disponibles. Cancelar elimina el borrador y devuelve el foco al botón. Un error al guardar mantiene el texto para reintentar.
+- La revisión guardada aparece en el resumen y el historial puede consultarse en el análisis. Los resultados pendientes, desactualizados o no disponibles mantienen su acción de actualización y no permiten guardar revisiones sobre evidencia no vigente.
+
+Este cambio de presentación solo requiere desplegar la web actualizada. **No agrega migraciones SQL ni requiere recalcular los análisis existentes.** No cambia los scores, las reglas de trayectoria ni la comparación salarial.
+
 ## Arquitectura
 
 - `scraping/trayectoria.py` y `trayectoria_reglas.py`: extracción y reglas deterministas sin dependencias nuevas.

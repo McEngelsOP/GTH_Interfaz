@@ -1,5 +1,16 @@
 # Validación de trayectoria laboral
 
+## Vista resumida de experiencia laboral
+
+Base: `2dc2be941830e421e0719b132cf336cc69e70c05` de ETAPA-I, que incluye la comparación salarial añadida por el equipo.
+
+- 153 pruebas de servicios aprobadas, incluidas las de comparación salarial. Compilación TypeScript/Vite aprobada; permanece el aviso previo de tamaño de bundle.
+- 11 pruebas de navegador relevantes aprobadas: cinco de trayectoria, cinco del comparador y una de Base Centralizada. Cubren resumen y detalles ocultos al abrir, una sola copia de las funciones del puesto, revisión sin opción preseleccionada, cancelación con devolución del foco, recuperación tras error de guardado, historial, estados pendientes/desactualizados, ausencia de migración, ranking y ausencia de llamadas a IA.
+- Se inspeccionaron capturas de escritorio y móvil con el resumen y el formulario desplegado.
+- La comparación salarial existente se conserva. No se cambian el detector, los análisis almacenados, los permisos ni el esquema SQL; no se necesita otra migración ni recalcular CV.
+- Las pruebas usan datos ficticios y respuestas simuladas del SDK de Supabase. La suite E2E histórica completa no se declara aprobada por los fallos anteriores documentados abajo.
+
+
 ## Corrección v2: fechas, diagnósticos y modalidad
 
 Base: entrega `54d126c27bff95818eac54ed41592008fafa6230` de ETAPA-I.
