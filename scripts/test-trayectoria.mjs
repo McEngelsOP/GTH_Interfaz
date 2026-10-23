@@ -26,8 +26,14 @@ try {
   for (const aviso of ['A', 'C']) {
     await db.query(`insert into public.postulaciones(aviso_id,clave,id_postulante,datos_json) values($1,'k','persona',$2)`, [aviso, fixture.datos]);
     await db.query(`insert into public.gth_trayectoria_analisis(id,aviso_id,clave,id_postulante,huella,version,estado,fecha_referencia,vigente_hasta,detalle)
-      values($1,$2,'k','persona',$3,'trayectoria-v1','patron_detectado',current_date,current_date+30,$4)`, [id(aviso === 'A' ? 'a' : 'c'), aviso, fixture.huella, fixture.resultado]);
+      values($1,$2,'k','persona',$3,'${fixture.resultado.version}','patron_detectado',current_date,current_date+30,$4)`, [id(aviso === 'A' ? 'a' : 'c'), aviso, fixture.huella, fixture.resultado]);
   }
+  await db.query(`insert into public.gth_trayectoria_analisis(id,aviso_id,clave,huella,version,estado,fecha_referencia,detalle)
+    values($1,'A','k',$2,'trayectoria-v1','patron_detectado',current_date+1,$3)`, [id('d'), fixture.huella, fixture.resultado]);
+  await db.query(`insert into public.gth_trayectoria_revisiones(analisis_id,estado,texto) values($1,'revisado','Revisión histórica v1')`, [id('d')]);
+  const upgrade = readdirSync('supabase/migrations').find((n) => n.endsWith('_trayectoria_fechas_v2.sql'));
+  await db.exec(readFileSync(`supabase/migrations/${upgrade}`, 'utf8'));
+  assert.equal((await db.query('select count(*)::int n from public.gth_trayectoria_revisiones')).rows[0].n, 1, 'la actualización conserva las revisiones previas');
   const hash = await db.query('select public.gth_trayectoria_huella($1) h', [fixture.datos]);
   assert.equal(hash.rows[0].h, fixture.huella, 'Python y Postgres comparten huella Unicode');
   const user = async (n) => { await db.exec('set role authenticated'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id(n)]); };
@@ -35,6 +41,7 @@ try {
   const revisar = (analysis = id('a')) => db.query(`insert into public.gth_trayectoria_revisiones(analisis_id,estado,texto) values($1,'justificado','Contrato revisado por el equipo') returning autor`, [analysis]);
   await user('2');
   assert.equal((await resumen())[0].estado, 'patron_detectado');
+  await assert.rejects(revisar(id('d')), 'v1 queda solo como historial y no admite nuevas revisiones');
   assert.deepEqual(await resumen('C'), [], 'no filtra confidenciales');
   assert.equal((await revisar()).rows[0].autor, id('2'), 'autor real de la sesión');
   assert.equal((await resumen())[0].revision, 'justificado');
@@ -57,7 +64,7 @@ try {
   await db.exec('reset role');
   await db.query(`update public.postulaciones set datos_json=$1 where aviso_id='A'`, [fixture.datos]);
   await db.query(`insert into public.gth_trayectoria_analisis(aviso_id,clave,huella,version,estado,fecha_referencia,detalle)
-    values('A','k',md5('otra fuente'),'trayectoria-v1','sin_patron',current_date+1,'{}')`);
+    values('A','k',md5('otra fuente'),'${fixture.resultado.version}','sin_patron',current_date+1,'{}')`);
   await user('2');
   assert.equal((await resumen())[0].estado, 'patron_detectado', 'reutiliza la fuente compatible aunque exista otro snapshot más reciente');
   await db.exec('reset role');

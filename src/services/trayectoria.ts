@@ -15,9 +15,15 @@ export interface DetalleTrayectoria {
   estado: EstadoTrayectoria; fecha_referencia: string;
   parametros: { transiciones: number; ventana_meses: number; horizonte_meses: number };
   experiencias: { indice: number; empresa: string; puesto: string; inicio: string; fin: string;
+    fecha_inicio?: FechaTrayectoria; fecha_fin?: FechaTrayectoria;
     modalidad: string; motivo: string; evidencia: string; excluida: boolean }[];
   ventana: { inicio: string; fin: string; transiciones: { desde: number; hasta: number; min: string; max: string }[] } | null;
-  incidencias: string[]; total_transiciones: number;
+  ventana_posible?: DetalleTrayectoria['ventana']; notas?: string[];
+  incidencias: string[]; total_transiciones: number; total_transiciones_posibles?: number;
+}
+export interface FechaTrayectoria {
+  original: string; estado: 'valida' | 'ausente' | 'no_reconocida';
+  precision: 'dia' | 'mes' | 'anio' | 'actualidad' | null; texto: string;
 }
 export const ESTADOS_TRAYECTORIA: Record<EstadoTrayectoria, string> = {
   patron_detectado: 'Revisar trayectoria', sin_patron: 'Sin patrón en los datos evaluables',
@@ -47,12 +53,25 @@ export async function cargarDetalleTrayectoria(client: SupabaseClient, id: strin
     || !Object.hasOwn(ESTADOS_TRAYECTORIA, d.estado) || typeof d.fecha_referencia !== 'string'
     || !d.parametros || !['transiciones','ventana_meses','horizonte_meses'].every((k) => Number.isFinite(d.parametros[k]))
     || !d.incidencias.every((i: unknown) => typeof i === 'string')
+    || !Number.isInteger(d.total_transiciones) || d.total_transiciones < 0
+    || !(d.total_transiciones_posibles === undefined || (Number.isInteger(d.total_transiciones_posibles) && d.total_transiciones_posibles >= 0))
+    || !(d.notas === undefined || (Array.isArray(d.notas) && d.notas.every((n: unknown) => typeof n === 'string')))
+    || !(d.ventana_posible === undefined || d.ventana_posible === null || (typeof d.ventana_posible.inicio === 'string'
+      && typeof d.ventana_posible.fin === 'string' && Array.isArray(d.ventana_posible.transiciones)))
     || !(d.ventana === null || (typeof d.ventana?.inicio === 'string' && typeof d.ventana?.fin === 'string' && Array.isArray(d.ventana?.transiciones)
       && d.ventana.transiciones.every((t: Record<string, unknown>) => t && Number.isInteger(t.desde) && Number.isInteger(t.hasta))))
     || !d.experiencias.every((e: Record<string, unknown>) => e && Number.isInteger(e.indice) && typeof e.excluida === 'boolean'
-      && ['empresa','puesto','inicio','fin','motivo','evidencia'].every((k) => typeof e[k] === 'string')))
+      && ['empresa','puesto','inicio','fin','motivo','evidencia'].every((k) => typeof e[k] === 'string')
+      && ['fecha_inicio','fecha_fin'].every((k) => e[k] === undefined || fechaValida(e[k]))))
     throw new Error('No se pudo cargar la evidencia. Vuelve a consultar la trayectoria.');
   return d as DetalleTrayectoria;
+}
+function fechaValida(value: unknown): value is FechaTrayectoria {
+  if (!value || typeof value !== 'object') return false;
+  const f = value as FechaTrayectoria;
+  return typeof f.original === 'string' && typeof f.texto === 'string'
+    && ['valida', 'ausente', 'no_reconocida'].includes(f.estado)
+    && (f.precision === null || ['dia', 'mes', 'anio', 'actualidad'].includes(f.precision));
 }
 export async function guardarRevisionTrayectoria(client: SupabaseClient, id: string, estado: RevisionTrayectoria, value: string) {
   const texto = value.trim();

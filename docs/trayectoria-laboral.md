@@ -4,26 +4,46 @@ El aviso identifica cambios documentados; no predice renuncias ni modifica score
 
 ## Activación en GTH_Bumeran
 
-1. Aplicar `supabase/migrations/20261023022909_trayectoria_laboral.sql` después de las migraciones previas, especialmente `niveles_acceso`. No ejecutar sobre Lyra.
+1. Aplicar `supabase/migrations/20261023022909_trayectoria_laboral.sql` después de las migraciones previas, especialmente `niveles_acceso`; luego aplicar `20261023041107_trayectoria_fechas_v2.sql`. No ejecutar sobre Lyra.
 2. Actualizar la copia del scraper a ETAPA-I y desplegar la web de esa rama.
 3. Con la conexión habitual del scraper configurada, ejecutar `python -m scraping.run --solo-trayectoria`. Se puede limitar con `--aviso ID`. No abre Chrome, no descarga PDF y no utiliza IA.
 4. Abrir Candidatos y ranking, actualizar los datos y comprobar una ficha con evidencia conocida. Repetir la ejecución: los perfiles sin cambios deben reutilizar su análisis.
 
 La migración no se aplica automáticamente desde la web. Si falta, el módulo muestra su indisponibilidad y mantiene accesibles el ranking y la importación. El scraper conserva el CSV aunque falle el análisis; el comando explícito devuelve el error para diagnosticar la activación.
 
-## Fuentes, cobertura y reglas v1
+## Fuentes, cobertura y reglas v2
 
-Se leen Empresa, Puesto, Fecha Inicio, Fecha Fin, Descripción, Modalidad, Tipo de contrato y Tipo de empleo de todos los índices Exp[n] disponibles. No se infiere empleo dependiente por el nombre del puesto. Si Bumeran no exporta modalidad suficiente, la cobertura será menor: se muestra información insuficiente y se conserva la evidencia. Evaluar cobertura antes de flexibilizar esta regla o añadir extracción de texto.
+Se leen Empresa, Puesto, Fecha Inicio, Fecha Fin, Descripción, Modalidad, Tipo de contrato y Tipo de empleo de todos los índices Exp[n] disponibles. No se infiere empleo dependiente por el nombre del puesto. La modalidad no especificada se muestra como nota informativa. Las transiciones con fechas válidas se separan entre acreditadas y posibles: solo las acreditadas pueden activar el aviso confirmado. Si un grupo de tres transiciones alcanza seis meses pero incluye modalidades desconocidas, el resultado es información insuficiente con el texto «Posibles cambios frecuentes: confirmar modalidad». Si ni siquiera las posibles alcanzan el umbral, la ausencia de modalidad por sí sola no bloquea el resultado sin patrón. Otros datos faltantes o incoherentes sí pueden impedir concluir.
 
-Tres transiciones entre empleadores en una ventana de seis meses, dentro de los últimos 24 meses. Se usan meses calendario. Las fechas parciales conservan su incertidumbre: solo se confirma un patrón si el intervalo completo cumple. Las fechas anuales, futuras, inválidas o ausentes no se completan. Fin vacío no equivale a actualidad.
+Tres transiciones entre empleadores en una ventana de seis meses, dentro de los últimos 24 meses. Se usan meses calendario. Las fechas parciales conservan su incertidumbre: solo se confirma un patrón si el intervalo completo cumple. Las fechas anuales, futuras, inválidas o ausentes no se completan. Fin vacío no equivale a actualidad. Se admiten ISO con/sin hora y zona, fechas numéricas día/mes/año y año/mes/día, mes/año y nombres de meses en español/inglés. El formato numérico local es día/mes/año; no se intenta interpretar como mes/día/año ni adivinar años de dos dígitos o números seriales de Excel. Una fecha ISO cuyo día es 01 conserva precisión de día: solo la fuente podría acreditar que se generó desde un mes.
 
 Las prácticas preprofesionales se excluyen. Las profesionales pueden contar, salvo término/duración contractual documentados. Freelance, proyectos y contratos de plazo fijo documentados se excluyen. Un practicante sin tipo queda como modalidad desconocida. Las exclusiones son por experiencia, no para todo el CV. No se unen artificialmente empleos separados por una experiencia excluida. Ascensos en la misma empresa, duplicados y periodos simultáneos no se cuentan automáticamente como cambios.
+
+## Actualizar una instalación v1 ya activa
+
+1. Actualizar la copia local de ETAPA-I (`git pull --ff-only`, con el árbol de trabajo limpio). No guardar credenciales en git.
+2. Aplicar **solo** `supabase/migrations/20261023041107_trayectoria_fechas_v2.sql` en GTH_Bumeran. Requiere la migración original ya instalada. No repetir la original. Esta actualización no borra datos ni revisiones: cambia la versión vigente de la consulta y de la política de revisión a v2. Los v1 quedan desactualizados hasta recalcular.
+3. Ejecutar primero `python -m scraping.run --solo-trayectoria --aviso 1118387829`. Los 11 candidatos se recalculan una vez por cambio de versión. Repetir: deben reutilizarse los 11 si no cambió la fuente ni venció el resultado.
+4. Confirmar que el despliegue de la web contiene este cambio y abrir Perfil → Trayectoria laboral. El criterio y el resultado son párrafos distintos. Las fechas leídas incluyen su valor original; solo se pide aclarar el dato realmente ausente, no reconocido, anual, futuro o invertido. La falta de fin se informa también en experiencias excluidas sin hacerlas participar del conteo.
+5. Validar el perfil de regresión: cero transiciones, sin patrón, solo fin no registrado en Exp[1], modalidades de Exp[2–4] como notas. No inferir desempleo ni motivo de salida.
+6. Tras verificar el aviso piloto, ejecutar `python -m scraping.run --solo-trayectoria` para el resto de avisos.
+
+Consulta de comprobación (separada del historial v1):
+
+```sql
+select version, estado, count(*) as cantidad
+from public.gth_trayectoria_analisis
+where aviso_id = '1118387829' and version = 'trayectoria-v2'
+group by version, estado;
+```
+
+Una fecha presente pero no reconocida se presenta con el valor original y el motivo «formato no reconocido», nunca como «no registrada». La interpretación no reemplaza los datos originales del CSV. Los cargos se muestran completos tal como llegaron: no se puede recuperar desde este módulo texto que la fuente ya exportó truncado.
 
 ## Arquitectura
 
 - `scraping/trayectoria.py` y `trayectoria_reglas.py`: extracción y reglas deterministas sin dependencias nuevas.
 - `trayectoria_worker.py`: compara la huella laboral y procesa lotes de 200. BD.importar_csv lo invoca después del commit; paso_csv también lo invoca al reutilizar un CSV. Esto cubre importación local y panel.
-- `gth_trayectoria_analisis`: snapshots por aviso, clave, huella, versión y fecha de referencia. Se conserva evidencia aunque se reemplace datos_json. La vigencia termina cuando una transición sale del horizonte.
+- `gth_trayectoria_analisis`: snapshots por aviso, clave, huella, versión y fecha de referencia. Se conserva evidencia aunque se reemplace datos_json. La vigencia termina cuando una transición sale del horizonte o una fecha futura requiere reevaluación. Los cambios de versión generan snapshots nuevos y mantienen los anteriores.
 - `gth_trayectoria_revisiones`: registro inmutable, atado al snapshot. Autor y fecha se asignan en la base; el cliente solo envía análisis, estado y texto. RLS valida acceso al aviso y vigencia del análisis.
 - `gth_trayectoria_resumen`: páginas de 500, sin cronologías completas. La ficha carga su detalle y las diez revisiones más recientes en paralelo. El historial completo permanece en la base.
 - El contexto transitorio se limpia al cambiar aviso/actualización o desmontar la sesión. No se persiste otro historial laboral en localStorage.

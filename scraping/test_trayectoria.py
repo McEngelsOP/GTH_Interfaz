@@ -156,6 +156,14 @@ class PersistenciaTests(unittest.TestCase):
         row = self.bd.uno("SELECT detalle FROM gth_trayectoria_analisis ORDER BY fecha_referencia DESC LIMIT 1")
         self.assertEqual(json.loads(row["detalle"])["estado"], "sin_patron")
 
+    def test_version_nueva_recalcula_sin_borrar_historial(self):
+        self.importar()
+        self.bd.cx.execute("UPDATE gth_trayectoria_analisis SET version='trayectoria-v1'")
+        self.bd.cx.commit()
+        self.assertEqual(ejecutar(self.bd, "A")["analizados"], 1)
+        self.assertEqual(ejecutar(self.bd, "A")["reutilizados"], 1)
+        self.assertEqual(self.bd.uno("SELECT count(*) n FROM gth_trayectoria_analisis")["n"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

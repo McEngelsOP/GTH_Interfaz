@@ -17,7 +17,7 @@
     "multitest:reproducir": "node scripts/multitest.mjs reproducir",
     "test:workflow:browser": "playwright test --config=playwright.workflow.config.ts",
     "test:trayectoria:sql": "node scripts/test-trayectoria.mjs",
-    "test:trayectoria:python": "python -m unittest scraping.test_trayectoria -v"
+    "test:trayectoria:python": "python -m unittest scraping.test_trayectoria scraping.test_fechas_trayectoria -v"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
