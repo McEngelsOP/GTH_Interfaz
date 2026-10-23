@@ -130,6 +130,8 @@ interface AppContextValue {
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
   handleActivateJobPosting: (jobId: string) => void;
   handleCreateJobPosting: (newJob: JobPosting) => void;
+  handleSetOfferedSalary: (id: string, salary: number | null) => void;
+  handleSetExpectedSalary: (id: string, salary: number | null) => void;
   handleApplyEvaluation: (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => void;
   handleEvaluationIssue: (applicationId: string, error: EvaluationError) => void;
   handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
@@ -572,6 +574,16 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     showToast(`Convocatoria "${newJob.title}" creada como ${newJob.status}.`, 'success');
   };
 
+  // Solo preferencias de la DEMO local: para compartir montos entre usuarios hace falta persistencia en servidor.
+  const handleSetOfferedSalary = (id: string, salary: number | null) => {
+    if (salary !== null && (!Number.isFinite(salary) || salary < 0)) return;
+    setAppState(prev => ({ ...prev, jobPostings: prev.jobPostings.map(j => j.id === id ? { ...j, offeredSalary: salary } : j) }));
+  };
+  const handleSetExpectedSalary = (id: string, salary: number | null) => {
+    if (salary !== null && (!Number.isFinite(salary) || salary < 0)) return;
+    setAppState(prev => ({ ...prev, applications: prev.applications.map(a => a.id === id ? { ...a, expectedSalary: salary } : a) }));
+  };
+
   const handleActivateJobPosting = (jobId: string) => {
     const job = appState.jobPostings.find((j) => j.id === jobId);
     if (!job || job.status !== 'borrador' || !hasValidCriteria(job.criteria) || !job.knockoutRule.trim()) return;
@@ -746,6 +758,8 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     handleSaveEmailDraft,
     handleUpdateJobCriteria,
     handleCreateJobPosting,
+    handleSetOfferedSalary,
+    handleSetExpectedSalary,
     handleActivateJobPosting,
     handleImportCandidates,
     handleApplyEmbeddingRanking,

@@ -33,6 +33,8 @@ import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { perfilBumeran } from '../../services/perfilBumeran.ts';
 import { cvPersonal } from '../../services/bumeranSync.ts';
+import { usePerfil } from '../../services/permisos.ts';
+import { extraerSueldoPretendido, compararSueldo } from '../../services/salarios.ts';
 
 export function CandidateDrawer() {
   const {
@@ -41,6 +43,8 @@ export function CandidateDrawer() {
     openCandidateDrawer,
     activeJob,
     appState,
+    handleSetOfferedSalary,
+    handleSetExpectedSalary,
     handleAdvanceApplications,
     handleReleaseApplication,
     handleSaveEmailDraft,
@@ -56,6 +60,8 @@ export function CandidateDrawer() {
   const [verCv, setVerCv] = useState(false);
   useEffect(() => { setActiveTab(candidateDrawerTab); }, [selectedCandidateForDrawer?.id, candidateDrawerTab]);
 
+  const usuario = usePerfil();
+  const maestro = usuario?.nivel === 'maestro';
   const app = selectedCandidateForDrawer;
   if (!app) return null;
   const currentJob = appState.jobPostings.find((j) => j.id === app.jobPostingId);
@@ -78,6 +84,10 @@ export function CandidateDrawer() {
   const avanzable = puedeAvanzar(app, appState.selectedMethod, topIds);
   const perfil = perfilBumeran(candidate);
   const cv = cvPersonal(candidate.importedProfile?.records);
+  const sueldoOriginal = extraerSueldoPretendido(candidate.importedProfile?.records || []);
+  const pretension = app.expectedSalary ?? sueldoOriginal;
+  const comparacion = compararSueldo(currentJob.offeredSalary, pretension);
+
 
   // Iniciales
   const initials = candidate.name
@@ -225,6 +235,21 @@ export function CandidateDrawer() {
         </div>
 
         {/* Pestañas de detalle */}
+        <section style={{padding:'1rem',margin:'1rem 0',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',background:'var(--bg-surface)'}}>
+          <strong style={{fontSize:'.9rem'}}>Comparación salarial mensual (PEN)</strong>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'.75rem',marginTop:'.75rem'}}>
+            <label style={{display:'grid',gap:'.35rem',fontSize:'.78rem'}}>Sueldo ofertado (S/)
+              <input aria-label="Sueldo ofertado" type="number" min="0" disabled={!maestro} value={currentJob.offeredSalary ?? ''} placeholder="No registrado" onChange={e => handleSetOfferedSalary(currentJob.id,e.target.value === ''?null:Number(e.target.value))} style={{width:'100%',padding:'.55rem',border:'1px solid var(--border-default)',borderRadius:'.4rem'}} />
+            </label>
+            <label style={{display:'grid',gap:'.35rem',fontSize:'.78rem'}}>Sueldo pretendido (S/)
+              <input aria-label="Sueldo pretendido" type="number" min="0" value={pretension ?? ''} placeholder="No registrado" onChange={e => handleSetExpectedSalary(app.id,e.target.value === ''?null:Number(e.target.value))} style={{width:'100%',padding:'.55rem',border:'1px solid var(--border-default)',borderRadius:'.4rem'}} />
+            </label>
+          </div>
+          <p style={{marginTop:'.65rem',fontSize:'.83rem',fontWeight:600,color:comparacion === 'dentro'?'var(--status-verified-text)':comparacion === 'supera'?'var(--status-failed-text)':'var(--text-muted)'}}>
+            {comparacion === 'dentro'?'● VERDE — Pretensión dentro del presupuesto':comparacion === 'supera'?'● ROJO — Pretensión superior al presupuesto':'Comparación pendiente: falta un sueldo.'}
+          </p>
+          <small style={{color:'var(--text-muted)'}}>Los importes se guardan en el navegador de esta demo. Para uso compartido deben conectarse al servidor.</small>
+        </section>
         <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} className="candidate-drawer-tabs" />
 
         <div style={{ marginTop: '1.25rem' }}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
+import { usePerfil } from '../services/permisos.ts';
 import { INITIAL_PROFILE_TEMPLATES } from '../data/initialData.ts';
 import { JobPosting, JobCategory, Criterion, EvaluationMethod } from '../types/index.ts';
 import { Button } from '../components/common/Button.tsx';
@@ -22,6 +23,9 @@ import {
 
 export function NuevaConvocatoriaView() {
   const { handleCreateJobPosting, setCurrentView, appState } = useApp();
+  const perfilActual = usePerfil();
+  const puedeFijarSueldo = perfilActual?.nivel === 'maestro';
+  const [offeredSalary, setOfferedSalary] = useState('');
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
@@ -128,6 +132,7 @@ export function NuevaConvocatoriaView() {
       status,
       phase: status === 'activa' ? 'Convocatoria Abierta' : 'Borrador en Configuración',
       vacancies: vacancies ? parseInt(vacancies, 10) : null,
+      offeredSalary: puedeFijarSueldo && offeredSalary.trim() !== '' && Number(offeredSalary) >= 0 ? Number(offeredSalary) : null,
       knockoutRule,
       criteria,
       criteriaVersion: 'v1.0',
@@ -346,6 +351,10 @@ export function NuevaConvocatoriaView() {
         {/* PASO 2: Datos del puesto */}
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {puedeFijarSueldo && <label style={{display:'grid',gap:'.35rem',maxWidth:'280px',fontSize:'.85rem',fontWeight:600}}>Sueldo ofertado mensual (S/)
+              <input type="number" min="0" value={offeredSalary} onChange={e => setOfferedSalary(e.target.value)} placeholder="Ej. 4000" style={{padding:'.65rem',border:'1px solid var(--border-default)',borderRadius:'.4rem'}} />
+            </label>}
+
             <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               2. Datos generales de la convocatoria
             </h2>

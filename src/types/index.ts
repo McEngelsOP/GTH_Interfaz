@@ -37,6 +37,7 @@ export interface JobPosting {
   status: JobStatus;
   phase: string;
   vacancies: number | null; // null if "No registrado"
+  offeredSalary?: number | null; // Monto mensual PEN, por convocatoria
   knockoutRule: string;
   criteria: Criterion[];
   criteriaVersion: string;
@@ -102,6 +103,7 @@ export interface EmbeddingMatch {
 }
 
 export interface Application {
+  expectedSalary?: number | null; // Pretensión mensual de esta postulación
   id: string; // stable applicationId e.g. "app-001"
   jobPostingId: string;
   candidateId: string;
