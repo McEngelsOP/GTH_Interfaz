@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Copy, KeyRound, Lock, Pencil, RefreshCw, Search, UserCog, UserPlus, UserX, UserCheck } from 'lucide-react';
+import { AlertCircle, Copy, KeyRound, Lock, Pencil, RefreshCw, Search, UserCog, UserPlus, UserX, UserCheck, Trash2 } from 'lucide-react';
 import { Button } from '../components/common/Button.tsx';
 import { Badge } from '../components/common/Badge.tsx';
 import { Input } from '../components/common/Input.tsx';
@@ -11,15 +11,16 @@ import { useApp } from '../context/AppContext.tsx';
 import { supabase } from '../services/supabase.ts';
 import { fechaHora } from '../services/bumeranSync.ts';
 import {
-  apiUsuarios, AvisoAdmin, guardarPerfil, listarAvisosAdmin, listarPerfiles, marcarConfidencial, Nivel, Perfil, SECCIONES, usePerfil,
+  apiUsuarios, AvisoAdmin, guardarPerfil, listarAvisosAdmin, listarPerfiles, marcarConfidencial, Nivel, Perfil, SECCIONES, usePerfil, esSuperadmin, esAdministrador, etiquetaNivel, puedeGestionarPerfil,
 } from '../services/permisos.ts';
 
-const NIVELES = [{ value: 'general', label: 'General (solo lo que se le habilite)' }, { value: 'maestro', label: 'Maestro (ve todo y administra)' }];
+const NIVELES = [{ value: 'general', label: 'General (solo lo que se le habilite)' }, { value: 'maestro', label: 'Administrador (todos los avisos)' }];
 const tituloAviso = (a: AvisoAdmin) => a.titulo?.trim() || `Aviso ${a.aviso_id}`;
 
 /** Solo cuentas maestras: cuentas del equipo, sus secciones y avisos, y qué avisos son confidenciales. */
 export function UsuariosPermisosView() {
   const yo = usePerfil();
+  const superadmin = esSuperadmin(yo);
   const { showToast } = useApp();
   const [tab, setTab] = useState<'usuarios' | 'confidenciales'>('usuarios');
   const [perfiles, setPerfiles] = useState<Perfil[]>([]);
@@ -29,6 +30,7 @@ export function UsuariosPermisosView() {
   const [estado, setEstado] = useState({ cargando: false, error: '' });
   const [editando, setEditando] = useState<Perfil | null>(null);
   const [creando, setCreando] = useState(false);
+  const [eliminando, setEliminando] = useState<Perfil | null>(null);
   const [clave, setClave] = useState<{ email: string; clave: string } | null>(null);
   const [ocupado, setOcupado] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -46,14 +48,14 @@ export function UsuariosPermisosView() {
   };
   useEffect(cargar, []);
 
-  const accionServidor = async (perfil: Perfil, accion: 'restablecer_clave' | 'activar' | 'desactivar') => {
+  const accionServidor = async (perfil: Perfil, accion: 'restablecer_clave' | 'activar' | 'desactivar' | 'eliminar') => {
     if (!supabase) return;
     setOcupado(perfil.user_id);
     try {
       const r = await apiUsuarios<{ clave?: string }>(supabase, accion, { user_id: perfil.user_id });
       if (r.clave) setClave({ email: perfil.email, clave: r.clave });
-      else showToast(accion === 'activar' ? `${perfil.email} vuelve a tener acceso.` : `${perfil.email} ya no puede ingresar.`, 'success');
-      cargar();
+      else showToast(accion === 'eliminar' ? `${perfil.email} fue eliminada. Su historial se conserva.` : accion === 'activar' ? `${perfil.email} vuelve a tener acceso.` : `${perfil.email} ya no puede ingresar.`, 'success');
+      setEliminando(null); cargar();
     } catch (e) { showToast((e as Error).message, 'error'); }
     finally { setOcupado(''); }
   };
@@ -64,7 +66,7 @@ export function UsuariosPermisosView() {
     try {
       await marcarConfidencial(supabase, aviso.aviso_id, valor);
       setConfidenciales((prev) => { const s = new Set(prev); if (valor) s.add(aviso.aviso_id); else s.delete(aviso.aviso_id); return s; });
-      showToast(valor ? `«${tituloAviso(aviso)}» ahora solo lo ven las cuentas maestras.` : `«${tituloAviso(aviso)}» vuelve a ser visible para el equipo.`, 'success');
+      showToast(valor ? `«${tituloAviso(aviso)}» ahora solo lo ven las cuentas administradoras.` : `«${tituloAviso(aviso)}» vuelve a ser visible para el equipo.`, 'success');
     } catch (e) { showToast((e as Error).message, 'error'); }
     finally { setOcupado(''); }
   };
@@ -74,9 +76,9 @@ export function UsuariosPermisosView() {
     return q ? avisos.filter((a) => `${tituloAviso(a)} ${a.creado_por || ''} ${a.aviso_id}`.toLowerCase().includes(q)) : avisos;
   }, [avisos, busqueda]);
 
-  const resumenSecciones = (p: Perfil) => p.nivel === 'maestro' || p.secciones === null ? 'Todas'
+  const resumenSecciones = (p: Perfil) => esAdministrador(p) || p.secciones === null ? 'Todas'
     : p.secciones.length ? SECCIONES.filter((s) => p.secciones!.includes(s.id)).map((s) => s.label).join(', ') : 'Ninguna';
-  const resumenAvisos = (p: Perfil) => p.nivel === 'maestro' ? 'Todos, también confidenciales'
+  const resumenAvisos = (p: Perfil) => esAdministrador(p) ? 'Todos, también confidenciales'
     : p.avisos === null ? 'Todos los no confidenciales' : `${p.avisos.length} aviso${p.avisos.length === 1 ? '' : 's'} elegido${p.avisos.length === 1 ? '' : 's'}`;
 
   return (
@@ -90,7 +92,7 @@ export function UsuariosPermisosView() {
           <div>
             <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>Usuarios y permisos</h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              Solo lo ven las cuentas maestras. Las maestras ven todos los avisos; las demás, solo las secciones y avisos que se les habiliten.
+              La superadministradora crea y elimina administradores. Los administradores gestionan cuentas generales y ven todos los avisos.
             </p>
           </div>
         </div>
@@ -120,7 +122,7 @@ export function UsuariosPermisosView() {
               {perfiles.map((p) => (
                 <tr key={p.user_id}>
                   <td><strong>{p.nombre || p.email}</strong>{p.nombre && <small>{p.email}</small>}{p.user_id === yo?.user_id && <small>Tu cuenta</small>}</td>
-                  <td><Badge variant={p.nivel === 'maestro' ? 'primary' : 'neutral'} size="sm">{p.nivel === 'maestro' ? 'Maestro' : 'General'}</Badge></td>
+                  <td><Badge variant={p.nivel !== 'general' ? 'primary' : 'neutral'} size="sm">{etiquetaNivel(p.nivel)}</Badge></td>
                   <td style={{ maxWidth: '260px' }}>{resumenSecciones(p)}</td>
                   <td>{resumenAvisos(p)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{ingresos[p.user_id] ? fechaHora(ingresos[p.user_id]!) : '—'}</td>
@@ -131,12 +133,14 @@ export function UsuariosPermisosView() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '.35rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                      <Button size="sm" variant="secondary" icon={<Pencil size={14} />} onClick={() => setEditando(p)}>Permisos</Button>
+                      {puedeGestionarPerfil(yo, p) && <><Button size="sm" variant="secondary" icon={<Pencil size={14} />} onClick={() => setEditando(p)}>Permisos</Button>
                       <Button size="sm" variant="ghost" icon={<KeyRound size={14} />} disabled={ocupado === p.user_id}
                         onClick={() => accionServidor(p, 'restablecer_clave')} title="Genera una contraseña temporal nueva">Contraseña</Button>
                       {p.user_id !== yo?.user_id && (p.activo
                         ? <Button size="sm" variant="ghost" icon={<UserX size={14} />} disabled={ocupado === p.user_id} onClick={() => accionServidor(p, 'desactivar')}>Desactivar</Button>
                         : <Button size="sm" variant="ghost" icon={<UserCheck size={14} />} disabled={ocupado === p.user_id} onClick={() => accionServidor(p, 'activar')}>Activar</Button>)}
+                      {superadmin && p.nivel !== 'superadmin' && p.user_id !== yo?.user_id && <Button size="sm" variant="danger" icon={<Trash2 size={14} />} disabled={!!ocupado} onClick={() => setEliminando(p)}>Eliminar</Button>}
+                      </>}
                     </div>
                   </td>
                 </tr>
@@ -149,7 +153,7 @@ export function UsuariosPermisosView() {
         <>
           <section className="base-filtros">
             <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)', marginBottom: '.85rem' }}>
-              Un aviso confidencial y sus postulantes solo los ven las cuentas maestras. Para el resto del equipo desaparece de la aplicación.
+              Un aviso confidencial y sus postulantes solo los ven las cuentas administradoras. Para el resto del equipo desaparece de la aplicación.
             </p>
             <div className="base-filtros-busqueda">
               <Input aria-label="Buscar aviso" placeholder="Buscar por título, «Creado por» o número de aviso" value={busqueda}
@@ -181,10 +185,14 @@ export function UsuariosPermisosView() {
         </>
       )}
 
+      {eliminando && <Modal isOpen onClose={() => { if (!ocupado) setEliminando(null); }} title="Eliminar cuenta" subtitle={eliminando.email}
+        footer={<><Button variant="secondary" disabled={!!ocupado} onClick={() => setEliminando(null)}>Cancelar</Button><Button variant="danger" disabled={!!ocupado} onClick={() => accionServidor(eliminando, 'eliminar')}>{ocupado ? 'Eliminando…' : 'Eliminar cuenta'}</Button></>}>
+        <p>Esta persona perderá el acceso. Sus decisiones y registros del proceso se conservarán.</p>
+      </Modal>}
       {editando && <EditarPermisos perfil={editando} propio={editando.user_id === yo?.user_id}
         avisos={avisos.filter((a) => !confidenciales.has(a.aviso_id))}
         onCerrar={() => setEditando(null)} onGuardado={() => { setEditando(null); cargar(); }} />}
-      {creando && <NuevaCuenta onCerrar={() => setCreando(false)}
+      {creando && <NuevaCuenta superadmin={superadmin} onCerrar={() => setCreando(false)}
         onCreada={(r) => { setCreando(false); setClave(r); cargar(); }} />}
       {clave && <ClaveTemporal {...clave} onCerrar={() => setClave(null)} />}
     </div>
@@ -195,6 +203,7 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
   perfil: Perfil; propio: boolean; avisos: AvisoAdmin[]; onCerrar: () => void; onGuardado: () => void;
 }) {
   const { showToast } = useApp();
+  const actor = usePerfil();
   const [nombre, setNombre] = useState(perfil.nombre);
   const [nivel, setNivel] = useState<Nivel>(perfil.nivel);
   const [secciones, setSecciones] = useState<string[] | null>(perfil.secciones);
@@ -221,10 +230,10 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
         <Button variant="primary" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <Input label="Nombre" value={nombre} maxLength={120} onChange={(e) => setNombre(e.target.value)} />
-        <Select label="Nivel" options={NIVELES} value={nivel} disabled={propio} onChange={(e) => setNivel(e.target.value as Nivel)}
+        <Select label="Nivel" options={perfil.nivel === 'superadmin' ? [{ value: 'superadmin', label: 'Superadministradora' }] : esSuperadmin(actor) ? NIVELES : NIVELES.slice(0, 1)} value={nivel} disabled={propio || !esSuperadmin(actor)} onChange={(e) => setNivel(e.target.value as Nivel)}
           helperText={propio ? 'No puedes cambiar el nivel de tu propia cuenta.' : undefined} />
-        {nivel === 'maestro' ? (
-          <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>Una cuenta maestra ve todas las secciones y todos los avisos, también los confidenciales, y administra esta página.</p>
+        {nivel !== 'general' ? (
+          <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>Las cuentas administradoras ven todas las secciones y los avisos confidenciales. Solo la superadministradora puede crear o eliminar administradores.</p>
         ) : (<>
           <fieldset className="base-filtros-grupo">
             <legend>Secciones del menú</legend>
@@ -261,7 +270,7 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
                 {!visibles.length && <span style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>No hay avisos que coincidan.</span>}
               </div>
             </>}
-            <p style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>Los avisos confidenciales no aparecen aquí: solo los ven las cuentas maestras.</p>
+            <p style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>Los avisos confidenciales no aparecen aquí: solo los ven las cuentas administradoras.</p>
           </fieldset>
         </>)}
       </div>
@@ -269,7 +278,7 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
   );
 }
 
-function NuevaCuenta({ onCerrar, onCreada }: { onCerrar: () => void; onCreada: (r: { email: string; clave: string }) => void }) {
+function NuevaCuenta({ superadmin, onCerrar, onCreada }: { superadmin: boolean; onCerrar: () => void; onCreada: (r: { email: string; clave: string }) => void }) {
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [nivel, setNivel] = useState<Nivel>('general');
@@ -294,7 +303,7 @@ function NuevaCuenta({ onCerrar, onCreada }: { onCerrar: () => void; onCreada: (
       <form onSubmit={crear} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <Input label="Correo" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input label="Nombre" value={nombre} maxLength={120} onChange={(e) => setNombre(e.target.value)} />
-        <Select label="Nivel" options={NIVELES} value={nivel} onChange={(e) => setNivel(e.target.value as Nivel)}
+        <Select label="Nivel" options={superadmin ? NIVELES : NIVELES.slice(0, 1)} value={nivel} onChange={(e) => setNivel(e.target.value as Nivel)}
           helperText={nivel === 'general' ? 'Empieza con todas las secciones y los avisos no confidenciales; puedes limitarlo después en «Permisos».' : undefined} />
         {error && <p role="alert" style={{ fontSize: '0.8125rem', color: '#DC2626', fontWeight: 500 }}>{error}</p>}
       </form>

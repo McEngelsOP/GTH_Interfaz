@@ -1,4 +1,5 @@
 import { AppStateData, Candidate, JobPosting } from '../types/index.ts';
+import { extraerSueldoPretendido } from './salarios.ts';
 import { parseCSV } from './csvService.ts';
 import { createPendingApplication } from './workflow.ts';
 
@@ -215,15 +216,19 @@ export function planCandidateImport(state: AppStateData, job: JobPosting, rows: 
       candidate = { ...incoming, id: `cand-import-${id()}` };
       candidates.push(candidate); summary.newCandidates++;
     }
+    const expectedSalary = extraerSueldoPretendido(identity.records);
     const alreadyLinked = applications.some((app) => app.candidateId === candidate.id && app.jobPostingId === job.id);
     if (!alreadyLinked) {
       const app = createPendingApplication(candidate.id, job);
-      applications.push({ ...app, id: `app-import-${id()}`,
+      applications.push({ ...app, expectedSalary, id: `app-import-${id()}`,
         whyScoreNotes: { explanation: 'Perfil importado. Evaluación LLM pendiente para esta convocatoria.', strengths: [], evidenceSummary: 'Información declarada en el archivo cargado; pendiente de evaluación y verificación.' },
       });
       summary.newApplications++;
       if (matches.length) action += ' · Nueva postulación';
-    } else if (!seen.has(candidate.id)) summary.existingApplications++;
+    } else {
+      applications = applications.map(app => app.candidateId === candidate.id && app.jobPostingId === job.id ? { ...app, expectedSalary } : app);
+      if (!seen.has(candidate.id)) summary.existingApplications++;
+    }
     if (!seen.has(candidate.id)) preview.push({ name: candidate.name, email: candidate.email, action, source: candidate.source });
     seen.add(candidate.id);
   }

@@ -103,7 +103,7 @@ export interface EmbeddingMatch {
 }
 
 export interface Application {
-  expectedSalary?: number | null; // Pretensión mensual de esta postulación
+  expectedSalary?: number | null; // Pretensión mensual PEN del CSV de esta postulación, sin inferirla del perfil consolidado
   id: string; // stable applicationId e.g. "app-001"
   jobPostingId: string;
   candidateId: string;

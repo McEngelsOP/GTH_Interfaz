@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
-import { usePerfil } from '../services/permisos.ts';
+import { sueldoValido } from '../services/salarios.ts';
+import { usePerfil, esSuperadmin } from '../services/permisos.ts';
 import { INITIAL_PROFILE_TEMPLATES } from '../data/initialData.ts';
 import { JobPosting, JobCategory, Criterion, EvaluationMethod } from '../types/index.ts';
 import { Button } from '../components/common/Button.tsx';
@@ -24,7 +25,7 @@ import {
 export function NuevaConvocatoriaView() {
   const { handleCreateJobPosting, setCurrentView, appState } = useApp();
   const perfilActual = usePerfil();
-  const puedeFijarSueldo = perfilActual?.nivel === 'maestro';
+  const puedeFijarSueldo = esSuperadmin(perfilActual);
   const [offeredSalary, setOfferedSalary] = useState('');
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -120,7 +121,12 @@ export function NuevaConvocatoriaView() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = (status: 'activa' | 'borrador') => {
+  const [guardando, setGuardando] = useState(false);
+  const handleSave = async (status: 'activa' | 'borrador') => {
+    if (guardando) return;
+    if (puedeFijarSueldo && offeredSalary.trim() && !sueldoValido(Number(offeredSalary))) {
+      setErrors(prev => ({ ...prev, offeredSalary: 'Ingresa un monto válido mayor que cero, con hasta dos decimales.' })); setStep(2); return;
+    }
     if (!validateStep2() || !validateStep3()) return;
     const newJob: JobPosting = {
       id: code.trim(),
@@ -132,7 +138,7 @@ export function NuevaConvocatoriaView() {
       status,
       phase: status === 'activa' ? 'Convocatoria Abierta' : 'Borrador en Configuración',
       vacancies: vacancies ? parseInt(vacancies, 10) : null,
-      offeredSalary: puedeFijarSueldo && offeredSalary.trim() !== '' && Number(offeredSalary) >= 0 ? Number(offeredSalary) : null,
+      offeredSalary: puedeFijarSueldo && offeredSalary.trim() !== '' && sueldoValido(Number(offeredSalary)) ? Number(offeredSalary) : null,
       knockoutRule,
       criteria,
       criteriaVersion: 'v1.0',
@@ -141,7 +147,8 @@ export function NuevaConvocatoriaView() {
       createdAt: new Date().toISOString(),
     };
 
-    handleCreateJobPosting(newJob);
+    setGuardando(true);
+    try { await handleCreateJobPosting(newJob); } finally { setGuardando(false); }
   };
 
   return (
@@ -351,9 +358,9 @@ export function NuevaConvocatoriaView() {
         {/* PASO 2: Datos del puesto */}
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {puedeFijarSueldo && <label style={{display:'grid',gap:'.35rem',maxWidth:'280px',fontSize:'.85rem',fontWeight:600}}>Sueldo ofertado mensual (S/)
-              <input type="number" min="0" value={offeredSalary} onChange={e => setOfferedSalary(e.target.value)} placeholder="Ej. 4000" style={{padding:'.65rem',border:'1px solid var(--border-default)',borderRadius:'.4rem'}} />
-            </label>}
+            {puedeFijarSueldo && <Input label="Sueldo ofertado mensual (S/)" type="number" min="0.01" max="1000000" step="0.01"
+              value={offeredSalary} onChange={e => setOfferedSalary(e.target.value)} placeholder="Ej. 4000" error={errors.offeredSalary} />}
+
 
             <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               2. Datos generales de la convocatoria
@@ -670,10 +677,10 @@ export function NuevaConvocatoriaView() {
               </Button>
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <Button variant="secondary" onClick={() => handleSave('borrador')}>
+                <Button variant="secondary" disabled={guardando} onClick={() => handleSave('borrador')}>
                   Guardar como borrador
                 </Button>
-                <Button variant="primary" icon={<FileCheck size={16} />} onClick={() => handleSave('activa')}>
+                <Button variant="primary" icon={<FileCheck size={16} />} disabled={guardando} onClick={() => handleSave('activa')}>
                   Activar convocatoria
                 </Button>
               </div>

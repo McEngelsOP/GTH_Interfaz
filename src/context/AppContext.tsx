@@ -30,7 +30,8 @@ import type { EvaluationReply } from '../services/evaluationContract.ts';
 import { reviewRequirement, updateEvaluationReference } from '../services/requirementReview.ts';
 import type { RequirementStatus, EmbeddingMatch } from '../types/index.ts';
 import { mergeBumeranJobs } from '../services/bumeranSync.ts';
-import { quitarAvisosNoVisibles } from '../services/permisos.ts';
+import { guardarSueldoOfertado } from '../services/salarios.ts';
+import { quitarAvisosNoVisibles, esSuperadmin, usePerfil } from '../services/permisos.ts';
 import { embeddingVigente, enProceso, idsTopN } from '../services/rankingEmbeddings.ts';
 
 export type ViewType =
@@ -129,9 +130,7 @@ interface AppContextValue {
   }) => void;
   handleUpdateJobCriteria: (jobId: string, criteria: Criterion[]) => void;
   handleActivateJobPosting: (jobId: string) => void;
-  handleCreateJobPosting: (newJob: JobPosting) => void;
-  handleSetOfferedSalary: (id: string, salary: number | null) => void;
-  handleSetExpectedSalary: (id: string, salary: number | null) => void;
+  handleCreateJobPosting: (newJob: JobPosting) => Promise<void>;
   handleApplyEvaluation: (prepared: PreparedEvaluation, reply: EvaluationReply, hash: string) => void;
   handleEvaluationIssue: (applicationId: string, error: EvaluationError) => void;
   handleUpdateEvaluationReference: (jobId: string, reference: string) => void;
@@ -151,6 +150,8 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children, initialState }: { children: ReactNode; initialState?: AppStateData }) {
+  const perfilActual = usePerfil();
+  const creandoConvocatoria = useRef(false);
   const [appState, setAppState] = useState<AppStateData>(() => {
     const state = initialState ?? loadAppState();
     const job = state.jobPostings.find((j) => j.id === readRoute(window.location.hash).jobId);
@@ -560,9 +561,17 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
 
   // Crear nueva convocatoria
-  const handleCreateJobPosting = (newJob: JobPosting) => {
+  const handleCreateJobPosting = async (newJob: JobPosting) => {
+    if (creandoConvocatoria.current) return;
     if (!newJob.code.trim() || !newJob.title.trim() || !hasValidCriteria(newJob.criteria) || appState.jobPostings.some((j) => j.id === newJob.id || j.code.toLowerCase() === newJob.code.toLowerCase())) {
       showToast('Revise los datos: el código debe ser único y los criterios válidos.', 'warning'); return;
+    }
+    if (newJob.offeredSalary != null) {
+      if (!esSuperadmin(perfilActual) || !supabase) { showToast('Solo la superadministradora puede guardar la oferta.', 'error'); return; }
+      creandoConvocatoria.current = true;
+      try { await guardarSueldoOfertado(supabase, newJob.id, newJob.offeredSalary); }
+      catch (error) { showToast((error as Error).message, 'error'); return; }
+      finally { creandoConvocatoria.current = false; }
     }
     clearApplicationSelection(); setSelectedCandidateForDrawer(null);
     setAppState((prev) => ({
@@ -572,16 +581,6 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     }));
     setCurrentView('convocatorias');
     showToast(`Convocatoria "${newJob.title}" creada como ${newJob.status}.`, 'success');
-  };
-
-  // Solo preferencias de la DEMO local: para compartir montos entre usuarios hace falta persistencia en servidor.
-  const handleSetOfferedSalary = (id: string, salary: number | null) => {
-    if (salary !== null && (!Number.isFinite(salary) || salary < 0)) return;
-    setAppState(prev => ({ ...prev, jobPostings: prev.jobPostings.map(j => j.id === id ? { ...j, offeredSalary: salary } : j) }));
-  };
-  const handleSetExpectedSalary = (id: string, salary: number | null) => {
-    if (salary !== null && (!Number.isFinite(salary) || salary < 0)) return;
-    setAppState(prev => ({ ...prev, applications: prev.applications.map(a => a.id === id ? { ...a, expectedSalary: salary } : a) }));
   };
 
   const handleActivateJobPosting = (jobId: string) => {
@@ -758,8 +757,6 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     handleSaveEmailDraft,
     handleUpdateJobCriteria,
     handleCreateJobPosting,
-    handleSetOfferedSalary,
-    handleSetExpectedSalary,
     handleActivateJobPosting,
     handleImportCandidates,
     handleApplyEmbeddingRanking,

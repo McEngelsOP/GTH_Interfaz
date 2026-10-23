@@ -6,7 +6,12 @@ import { BUMERAN_PREFIX } from './bumeranSync.ts';
 // Niveles de acceso (supabase/migrations/20261017120000_niveles_acceso.sql). Supabase filtra los avisos con RLS;
 // aquí solo se decide qué secciones del menú se muestran y se limpian de la copia local los avisos que ya no se ven.
 
-export type Nivel = 'maestro' | 'general';
+export type Nivel = 'superadmin' | 'maestro' | 'general';
+export const esAdministrador = (perfil: Perfil | null) => !!perfil?.activo && ['superadmin', 'maestro'].includes(perfil.nivel);
+export const esSuperadmin = (perfil: Perfil | null) => !!perfil?.activo && perfil.nivel === 'superadmin';
+export const etiquetaNivel = (nivel: Nivel) => nivel === 'superadmin' ? 'Superadministradora' : nivel === 'maestro' ? 'Administrador' : 'General';
+export const puedeGestionarPerfil = (actor: Perfil | null, destino: Perfil) => esAdministrador(actor) &&
+  (destino.user_id === actor?.user_id || (destino.nivel !== 'superadmin' && (esSuperadmin(actor) || destino.nivel === 'general')));
 export interface Perfil {
   user_id: string;
   email: string;
@@ -35,7 +40,8 @@ const DEPENDE_DE: Record<string, string> = { nueva_convocatoria: 'convocatorias'
 /** null = sin Supabase (instalación local): todo permitido. */
 export function puedeVerSeccion(perfil: Perfil | null, vista: string): boolean {
   if (!perfil) return vista !== VISTA_ADMIN;
-  if (perfil.nivel === 'maestro') return true;
+  if (!perfil.activo) return false;
+  if (esAdministrador(perfil)) return true;
   if (vista === VISTA_ADMIN) return false;
   const seccion = (DEPENDE_DE[vista] || vista).replaceAll('-', '_');
   return perfil.secciones === null || perfil.secciones.includes(seccion);
@@ -97,7 +103,7 @@ export async function listarPerfiles(client: SupabaseClient): Promise<Perfil[]> 
 }
 
 export async function guardarPerfil(client: SupabaseClient, userId: string, cambios: Partial<Pick<Perfil, 'nombre' | 'nivel' | 'secciones' | 'avisos'>>) {
-  const { error } = await client.from('gth_perfiles').update(cambios).eq('user_id', userId);
+  const { error } = await client.from('gth_perfiles').update(cambios).eq('user_id', userId).select('user_id').single();
   if (error) throw new Error(/propio nivel/.test(error.message) ? 'No puedes cambiar tu propio nivel.' : 'No se pudo guardar el cambio.');
 }
 
