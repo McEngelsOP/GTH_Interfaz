@@ -1,3 +1,4 @@
+import { useTrayectoria, ESTADOS_TRAYECTORIA } from '../services/trayectoria.ts';
 import { ComparisonChart } from '../components/candidate/ComparisonChart.tsx';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
@@ -32,6 +33,7 @@ import { argumentosPorRequisito, colorPct, perfilBumeran } from '../services/per
 import { Application, Candidate } from '../types/index.ts';
 
 export function ComparadorView() {
+  const trayectoria = useTrayectoria();
   const {
     activeJob,
     activeJobApplications,
@@ -448,6 +450,14 @@ export function ComparadorView() {
 
               {/* Perfil: experiencia reciente, estudios e idiomas */}
               {([
+                ['Trayectoria laboral', (app: Application) => {
+                  if (!activeJob?.bumeran?.avisoId) return 'Sin análisis compartido';
+                  if (trayectoria.loading) return 'Consultando trayectoria…';
+                  if (trayectoria.error) return 'Trayectoria no disponible';
+                  const id = candidateMap.get(app.candidateId)?.importedProfile?.externalId || '';
+                  const row = trayectoria.rows[id];
+                  return ESTADOS_TRAYECTORIA[row?.estado || 'pendiente'];
+                }],
                 ['Experiencia reciente', (app: Application) => {
                   const e = perfilBumeran(candidateMap.get(app.candidateId)).experiencias[0];
                   return e ? <><strong>{e.puesto}</strong><div style={{ color: 'var(--text-secondary)' }}>{[e.empresa, e.periodo].filter(Boolean).join(' · ')}</div></> : '—';

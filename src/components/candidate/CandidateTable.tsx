@@ -1,3 +1,5 @@
+import { useTrayectoria } from '../../services/trayectoria.ts';
+import '../../styles/trayectoria.css';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
@@ -125,6 +127,7 @@ export function CandidateTable({
   const embeddingOf = (app: Application) => embeddingVigente(app, activeJob);
 
   // El ranking se ordena por Score Embeddings; sin score al final y empates por nombre.
+  const trayectoria = useTrayectoria();
   const sortedApplications = useMemo(() => ordenarPorEmbeddings(filteredApplications, appState.candidates, activeJob),
     [filteredApplications, appState.candidates, activeJob]);
   const posicion = useMemo(() => new Map((ordenRanking || sortedApplications).map((app, i) => [app.id, i + 1])),
@@ -408,6 +411,9 @@ export function CandidateTable({
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
+                        {trayectoria.aviso === activeJob?.bumeran?.avisoId && trayectoria.rows[cand?.importedProfile?.externalId || '']?.estado === 'patron_detectado' && <button
+                          type="button" className="trayectoria-alert focus-ring" onClick={() => openCandidateDrawer(app)}
+                          aria-label={`Revisar trayectoria de ${cand?.name}`}>Revisar trayectoria</button>}
                         {(recurrence.totals[cand?.importedProfile?.externalId || ''] || 0) > 1 && <button
                           type="button" className="candidate-recurrence focus-ring" onClick={() => openCandidateDrawer(app, 'postulaciones')}
                           aria-label={`Ver ${recurrence.totals[cand?.importedProfile?.externalId || '']} postulaciones de ${cand?.name}`}>

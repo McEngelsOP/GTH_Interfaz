@@ -1,3 +1,4 @@
+import { TrayectoriaPanel } from './TrayectoriaPanel.tsx';
 import { WhatsAppButton } from './WhatsAppButton.tsx';
 import React, { useEffect, useState } from 'react';
 import { PostulacionesPanel } from './PostulacionesPanel.tsx';
@@ -242,6 +243,7 @@ export function CandidateDrawer() {
           {activeTab === 'perfil' && (
             <div className="perfil-bumeran">
               <section>
+                <TrayectoriaPanel aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
                 <h3>Experiencia</h3>
                 {perfil.experiencias.length ? perfil.experiencias.map((e, i) => (
                   <article key={i}>

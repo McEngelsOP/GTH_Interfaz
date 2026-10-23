@@ -321,6 +321,8 @@ class BD:
         if lote:
             self.cx.cursor().executemany(sql, lote)
         self.cx.commit()
+        from .trayectoria_worker import ejecutar_seguro
+        ejecutar_seguro(self, aviso_id)
         return nuevos, len(vistos)
 
     def buscar_postulacion(self, aviso_id, documento=None, email=None):

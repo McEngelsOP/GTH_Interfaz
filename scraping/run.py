@@ -206,6 +206,8 @@ def paso_csv(driver, bd: BD, aviso: dict, forzar=False) -> bool:
     aviso_id = aviso["aviso_id"]
     necesita, motivo = bd.necesita_csv(aviso_id, forzar=forzar)
     if not necesita:
+        from .trayectoria_worker import ejecutar_seguro
+        ejecutar_seguro(bd, aviso_id)
         log.info("CSV al día (%s)", motivo)
         return False
     log.info("Descargando CSV (%s)", motivo)
@@ -316,6 +318,7 @@ def main(argv=None):
     p.add_argument("--solo-pdfs", action="store_true",
                    help="solo los CVs en PDF de cada aviso (sin CSV ni oferta); el nombre sale del perfil")
     p.add_argument("--sin-ranking", action="store_true", help="no calcula el ranking por embeddings")
+    p.add_argument("--solo-trayectoria", action="store_true", help="analiza datos guardados sin Chrome ni IA")
     p.add_argument("--solo-ranking", action="store_true",
                    help="solo calcula el ranking de los avisos ya guardados (sin abrir Chrome); con --forzar, completo")
     p.add_argument("--max-cvs", type=int, default=None)
@@ -338,6 +341,15 @@ def main(argv=None):
         return
     if args.subir_drive is not None:
         subir_a_drive(bd, args.subir_drive or None)
+        return
+    if args.solo_trayectoria:
+        from .trayectoria_worker import ejecutar
+        try:
+            for aviso in bd.consultar("SELECT aviso_id FROM avisos ORDER BY aviso_id"):
+                if not args.aviso or aviso["aviso_id"] == args.aviso:
+                    ejecutar(bd, aviso["aviso_id"])
+        finally:
+            bd.cerrar()
         return
     if args.solo_ranking:
         avisos = bd.consultar("SELECT aviso_id, titulo FROM avisos WHERE en_ultima_lista=1 AND ultimo_csv_at IS NOT NULL "

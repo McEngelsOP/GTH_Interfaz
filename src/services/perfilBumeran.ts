@@ -11,7 +11,7 @@ export type Estudio = { titulo: string; institucion: string; nivel: string; esta
 
 function periodo(inicio: string, fin: string) {
   const i = limpiar(inicio), f = limpiar(fin);
-  return i || f ? `${i || '¿?'} – ${f || 'actualidad'}` : '';
+  return i || f ? `${i || '¿?'} – ${f || 'fin no registrado'}` : '';
 }
 
 export function perfilBumeran(candidate: Candidate | undefined) {

@@ -1,3 +1,4 @@
+import { TrayectoriaContext } from './services/trayectoria.ts';
 import React, { ReactNode, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext.tsx';
 import { Header } from './components/layout/Header.tsx';
@@ -82,7 +83,7 @@ function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
+    <TrayectoriaContext.Provider value={sync.trayectoria}><div style={{ display: 'flex', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
       <Sidebar sync={sync} isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
@@ -91,7 +92,7 @@ function AppLayout() {
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />
       <GTHAssistantDrawer />
       <ToastContainer />
-    </div>
+    </div></TrayectoriaContext.Provider>
   );
 }
 

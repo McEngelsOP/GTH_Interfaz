@@ -1,3 +1,4 @@
+import { useCargarTrayectoria } from './trayectoria.ts';
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeCandidateTables } from './candidateImport.ts';
@@ -92,5 +93,6 @@ export function useBumeranSync() {
     return () => { alive = false; };
   }, [avisoId, job?.criteriaVersion, job?.bumeran?.rankingAt, applicationIds, revision]);
 
-  return { configured: !!supabase, postings, applicants, ranking, runs, refresh };
+  const trayectoria = useCargarTrayectoria(avisoId, JSON.stringify([updatedAt, revision, applicants.checkedAt]));
+  return { trayectoria, configured: !!supabase, postings, applicants, ranking, runs, refresh };
 }

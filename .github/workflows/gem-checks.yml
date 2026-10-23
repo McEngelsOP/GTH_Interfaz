@@ -15,8 +15,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci
       - run: npm test
+      - run: npm run test:trayectoria:python
+      - run: npm run test:trayectoria:sql
+      - run: npm run test:workflow:sql
+      - run: npm run test:niveles:sql
+      - run: npm run test:postulaciones:sql
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
