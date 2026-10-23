@@ -268,8 +268,8 @@ export function CandidateDrawer() {
           {activeTab === 'perfil' && (
             <div className="perfil-bumeran">
               <section>
-                <TrayectoriaPanel aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
-                <h3>Experiencia</h3>
+                <h3>Experiencia laboral</h3>
+                <TrayectoriaPanel key={app.id} aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
                 {perfil.experiencias.length ? perfil.experiencias.map((e, i) => (
                   <article key={i}>
                     <strong>{e.puesto}</strong>

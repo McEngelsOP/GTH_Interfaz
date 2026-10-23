@@ -1,13 +1,20 @@
-.trayectoria-panel { margin: 1.25rem 0; padding-block: 1rem; border-block: 1px solid var(--border-subtle); font-size: .875rem; color: var(--text-primary); overflow-wrap: anywhere; }
-.trayectoria-panel h3 { margin: 0 0 .75rem; }
-.trayectoria-panel h4 { margin: 1rem 0 .5rem; }
-.trayectoria-panel p { line-height: 1.55; color: var(--text-secondary); }
-.trayectoria-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
-.trayectoria-panel details { padding-block: .7rem; border-bottom: 1px solid var(--border-subtle); }
+.trayectoria-panel { margin: 0 0 1rem; padding-block: .6rem .8rem; border-bottom: 1px solid var(--border-subtle); font-size: .875rem; color: var(--text-primary); overflow-wrap: anywhere; }
+.trayectoria-panel h4 { margin: 1rem 0 .5rem; font-size: .875rem; }
+.trayectoria-panel p { margin: .45rem 0; line-height: 1.55; color: var(--text-secondary); }
+.trayectoria-heading, .trayectoria-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.trayectoria-heading { gap: .65rem; }
+.trayectoria-actions { margin-top: .5rem; }
+.trayectoria-panel .trayectoria-resumen { margin-top: .5rem; }
+.trayectoria-revision { font-size: .8125rem; }
+.trayectoria-detalle { margin-top: .75rem; padding-top: .35rem; border-top: 1px solid var(--border-subtle); }
+.trayectoria-panel details { padding-block: .6rem; }
 .trayectoria-panel summary { cursor: pointer; line-height: 1.5; font-weight: 600; }
-.trayectoria-panel blockquote { margin: .5rem 0; padding: .5rem .75rem; background: var(--bg-muted); border-radius: var(--radius-md); }
-.trayectoria-panel form { display: grid; gap: .5rem; margin-top: 1rem; }
-.trayectoria-panel select, .trayectoria-panel textarea { width: 100%; min-width: 0; padding: .65rem; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary); font: inherit; }
+.trayectoria-panel ul { padding-inline-start: 1.25rem; }
+.trayectoria-panel .trayectoria-evidencias { list-style: none; padding: 0; margin: .5rem 0; }
+.trayectoria-evidencias > li { padding-block: .65rem; border-bottom: 1px solid var(--border-subtle); }
+.trayectoria-evidencias > li:last-child { border-bottom: 0; }
+.trayectoria-panel form { display: grid; gap: .5rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px solid var(--border-subtle); }
+.trayectoria-panel select, .trayectoria-panel textarea { width: 100%; min-width: 0; padding: .65rem; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary); font: inherit; caret-color: var(--primary-red); }
 .trayectoria-panel textarea { resize: vertical; }
 .trayectoria-panel :is(select,textarea,summary):focus-visible { outline: 2px solid var(--primary-red); outline-offset: 3px; }
 .trayectoria-alert { align-self: flex-start; margin-top: .35rem; border: 1px solid var(--status-partial-border); border-radius: var(--radius-sm); background: var(--status-partial-bg); color: var(--status-partial-text); padding: .25rem .4rem; font: inherit; font-size: .75rem; cursor: pointer; }
