@@ -117,9 +117,21 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
     { title: 'Administración', items: [{ id: VISTA_ADMIN, label: 'Usuarios y permisos', icon: <UserCog size={18} /> }] },
   ];
 
-  // Solo las secciones que permite el perfil; «Administración» solo la ven las cuentas maestras.
+  const stageOneLayout: { title: string; views: ViewType[] }[] = [
+    { title: '', views: ['convocatorias'] },
+    { title: 'Proceso de selección', views: ['mejores_candidatos', 'comparador', 'avance_candidatos'] },
+    { title: 'Datos', views: ['base_centralizada', 'actualizacion_datos'] },
+    { title: 'Administración', views: [VISTA_ADMIN] },
+  ];
+  const navItems = allNavGroups.flatMap((group) => group.items);
+  const stageOneNavGroups = stageOneLayout.map(({ title, views }) => ({
+    title,
+    items: views.flatMap((view) => navItems.filter((item) => item.id === view)),
+  }));
+
+  // Se conservan los iconos y datos de cada función, filtrados por los permisos del perfil.
   const navGroups = (IS_STAGE_ONE
-    ? [{ title: 'Convocatorias', items: [allNavGroups[0].items[0]] }, ...allNavGroups.filter((group) => ['Candidatos', 'Seguimiento', 'Datos', 'Administración'].includes(group.title))]
+    ? stageOneNavGroups
     : allNavGroups)
     .map((group) => ({ ...group, items: group.items.filter((item) => puedeVerSeccion(perfil, item.id)) }))
     .filter((group) => group.items.length);
@@ -237,9 +249,11 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
         </div>
 
         {/* Lista de navegación con scroll */}
-        <div
+        <nav
+          aria-label="Navegación principal"
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             padding: '0.75rem 0.5rem',
             display: 'flex',
@@ -248,15 +262,13 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
           }}
         >
           {navGroups.map((group) => (
-            <div key={group.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              {!collapsed && (
+            <div key={group.title} role="group" aria-label={group.title || 'Convocatorias'} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              {!collapsed && group.title && (
                 <div
                   style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'var(--text-muted)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
                     padding: '0.25rem 0.75rem',
                   }}
                 >
@@ -270,6 +282,7 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
                     key={item.id}
                     onClick={() => handleSelectView(item.id)}
                     className="focus-ring"
+                    aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}
                     title={collapsed ? item.label : undefined}
                     style={{
@@ -308,6 +321,7 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
                     <span
                       style={{
                         display: 'flex',
+                        flexShrink: 0,
                         alignItems: 'center',
                         color: isActive ? 'var(--primary-red)' : 'var(--text-secondary)',
                         position: 'relative',
@@ -354,7 +368,7 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
               })}
             </div>
           ))}
-        </div>
+        </nav>
 
         {/* Botón inferior para expandir si está colapsado */}
         {collapsed && (
