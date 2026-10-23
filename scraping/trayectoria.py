@@ -5,11 +5,10 @@ import re
 import unicodedata
 from datetime import date, timedelta
 
-from .fechas_trayectoria import fecha, lectura_fecha
+from .fechas_trayectoria import AUSENTES, fecha, lectura_fecha, normalizar_fecha
+from .campos_trayectoria import campo_laboral
 
 from .trayectoria_reglas import VERSION, TRANSICIONES_MINIMAS, VENTANA_MESES, HORIZONTE_MESES
-
-CAMPO = re.compile(r"^Exp\[(\d+)\] (Empresa|Puesto|Fecha Inicio|Fecha Fin|Descripci[oó]n|Modalidad|Tipo de contrato|Tipo de empleo)$")
 
 
 def normalizar(texto):
@@ -18,7 +17,21 @@ def normalizar(texto):
 
 
 def campos_laborales(datos):
-    return {k: str(v) for k, v in datos.items() if CAMPO.fullmatch(k) and v is not None}
+    return {k: str(v) for k, v in datos.items() if campo_laboral(k) and v is not None}
+
+
+def resolver_campo(fuentes, hoy):
+    """Una columna vacía no tapa otra poblada; valores incompatibles no se eligen al azar."""
+    valores = {}
+    for fuente in fuentes:
+        valor = fuente["valor"].strip()
+        if normalizar_fecha(valor) not in AUSENTES:
+            intervalo = fecha(valor, hoy)
+            clave = (intervalo["min"], intervalo["max"], intervalo["precision"]) if intervalo else normalizar(valor)
+            valores.setdefault(clave, valor)
+    if len(valores) > 1:
+        return " | ".join(valores.values()), True
+    return next(iter(valores.values()), fuentes[0]["valor"].strip() if fuentes else ""), False
 
 
 def huella(datos):
@@ -60,12 +73,16 @@ def analizar(datos, hoy=None):
     corte = meses(hoy, -HORIZONTE_MESES)
     grupos = {}
     for k, v in campos_laborales(datos).items():
-        m = CAMPO.fullmatch(k)
-        grupos.setdefault(int(m[1]), {})[m[2]] = v
+        indice, campo = campo_laboral(k)
+        grupos.setdefault(indice, {}).setdefault(campo, []).append({"columna": k, "valor": v})
     experiencias, vistos = [], set()
     problemas, notas = [], []
     bloqueantes = False
-    for indice, d in sorted(grupos.items()):
+    for indice, fuentes in sorted(grupos.items()):
+        fuentes = {k: sorted(v, key=lambda f: f["columna"]) for k, v in fuentes.items()}
+        resueltos = {k: resolver_campo(v, hoy) for k, v in sorted(fuentes.items())}
+        d = {k: valor for k, (valor, _) in resueltos.items()}
+        conflictos = [k for k, (_, conflicto) in resueltos.items() if conflicto]
         empresa, puesto = d.get("Empresa", "").strip(), d.get("Puesto", "").strip()
         descripcion = d.get("Descripción", d.get("Descripcion", "")).strip()
         ini, fin = d.get("Fecha Inicio", "").strip(), d.get("Fecha Fin", "").strip()
@@ -73,23 +90,34 @@ def analizar(datos, hoy=None):
             continue
         explicita = " ".join(d.get(k, "").strip() for k in ["Modalidad", "Tipo de contrato", "Tipo de empleo"] if d.get(k, "").strip())
         modo, motivo = modalidad(puesto, empresa, descripcion, explicita)
+        if conflictos:
+            modo, motivo = "desconocida", "Campos laborales contradictorios"
         dedup = (normalizar(empresa), normalizar(puesto), ini, fin, modo)
         if dedup in vistos:
             continue
         vistos.add(dedup)
         inicio, inicio_leido = lectura_fecha(ini, hoy)
         final, fin_leido = lectura_fecha(fin, hoy)
+        for campo, leida in [("Fecha Inicio", inicio_leido), ("Fecha Fin", fin_leido)]:
+            leida["fuentes"] = fuentes.get(campo, [])
+        # Dos valores incompatibles no acreditan ninguna fecha ni modalidad.
+        if "Fecha Inicio" in conflictos:
+            inicio = None
+        if "Fecha Fin" in conflictos:
+            final = None
         # Un mes en curso conserva precisión mensual; sus días posibles no superan el análisis.
         if inicio and inicio["precision"] == "mes" and inicio["min"] <= hoy < inicio["max"]:
             inicio = {**inicio, "max": hoy}
         if final and final["precision"] == "mes" and final["min"] <= hoy < final["max"]:
             final = {**final, "max": hoy}
         excluida = modo in {"preprofesional", "independiente", "temporal"}
-        valida = bool(inicio and final and inicio["precision"] not in {"anio", "actualidad"}
+        valida = bool(not conflictos and inicio and final and inicio["precision"] not in {"anio", "actualidad"}
                       and final["precision"] != "anio" and inicio["min"] <= final["max"]
                       and inicio["max"] <= hoy and (final["min"] <= hoy))
-        incidencias_fecha = []
+        incidencias_fecha = [f"valores contradictorios para {k.lower()} entre columnas del archivo" for k in conflictos]
         for nombre, leida, intervalo in [("inicio", inicio_leido, inicio), ("fin", fin_leido, final)]:
+            if ("Fecha Inicio" if nombre == "inicio" else "Fecha Fin") in conflictos:
+                continue
             if leida["estado"] == "ausente":
                 incidencias_fecha.append(f"fecha de {nombre} no registrada en la fuente")
             elif leida["estado"] == "no_reconocida":
@@ -111,6 +139,7 @@ def analizar(datos, hoy=None):
             bloqueantes |= bool(incidencias_fecha or not empresa or motivo == "Práctica sin tipo especificado")
         experiencias.append({"indice": indice, "empresa": empresa, "puesto": puesto,
             "inicio": ini, "fin": fin, "fecha_inicio": inicio_leido, "fecha_fin": fin_leido,
+            "campos_origen": fuentes,
             "modalidad": modo, "motivo": motivo,
             "evidencia": " · ".join(x.strip() for x in [puesto, explicita, descripcion] if x.strip())[:1200],
             "excluida": excluida, "_inicio": inicio, "_fin": final, "_valida": valida})
@@ -129,6 +158,14 @@ def analizar(datos, hoy=None):
             empresa_b = re.sub(r"[^a-z0-9]", "", normalizar(b["empresa"]))
             if empresa_a == empresa_b:
                 continue
+            # Solo un posible cambio dentro del horizonte puede bloquear el resultado reciente.
+            t = b["_inicio"]
+            if t["max"] < corte:
+                continue
+            if t["min"] < corte:
+                problemas.append("Transición en el límite del horizonte de 24 meses")
+                bloqueantes = True
+                continue
             # Una relación vigente o un solapamiento no acreditan una sustitución.
             if a["_fin"]["precision"] == "actualidad" or a["_fin"]["max"] >= b["_inicio"]["min"]:
                 problemas.append(f"Exp[{a['indice']}] y Exp[{b['indice']}]: simultaneidad o límite temporal ambiguo")
@@ -139,13 +176,6 @@ def analizar(datos, hoy=None):
                    and c["_inicio"]["min"] <= a["_inicio"]["min"]
                    and c["_fin"]["max"] >= b["_inicio"]["min"] for c in ordenadas):
                 problemas.append("Existen relaciones laborales simultáneas")
-                bloqueantes = True
-                continue
-            t = b["_inicio"]
-            if t["max"] < corte:
-                continue
-            if t["min"] < corte:
-                problemas.append("Transición en el límite del horizonte de 24 meses")
                 bloqueantes = True
                 continue
             evento = {"desde": a["indice"], "hasta": b["indice"], "min": t["min"], "max": t["max"]}

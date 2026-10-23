@@ -5,7 +5,8 @@ from pathlib import Path
 
 from .csv_bumeran import leer_csv
 from .fechas_trayectoria import fecha, lectura_fecha
-from .trayectoria import analizar
+from .trayectoria import analizar, huella
+from .campos_trayectoria import campo_laboral
 from .test_trayectoria import HOY, experiencia, patron
 
 
@@ -22,6 +23,98 @@ def perfil_regresion():
 
 
 class FechasTrayectoriaTests(unittest.TestCase):
+    def test_encabezados_de_fecha_equivalentes(self):
+        for cabecera in ["Exp[1] Fecha fin", "EXP[1] FECHA FIN", " Exp [ 1 ] Fecha de fin ",
+                         "Exp[1]\u00a0Fecha\u202ffin", "Exp[1] Fecha de término", "Exp[1] Fecha de finalización",
+                         "\ufeffExp[1] Fecha egreso", "Exp[1] Fecha de te\u0301rmino"]:
+            with self.subTest(cabecera=cabecera):
+                d = experiencia(1, "A", "junio del 2024", "")
+                d[cabecera] = "31/12/2025 00:00:00"
+                r = analizar(d, HOY)
+                self.assertEqual(r["incidencias"], [])
+                self.assertEqual(r["experiencias"][0]["fecha_fin"]["texto"], "31/12/2025")
+                self.assertIn({"columna": cabecera, "valor": d[cabecera]}, r["experiencias"][0]["fecha_fin"]["fuentes"])
+
+    def test_alias_inicio_y_campos_laborales(self):
+        d = {" exp[1] EMPRESA ": "A", "EXP[1] PUESTO": "Analista", "Exp[1] Fecha de ingreso": "jun. 2024",
+             "Exp[1] Fecha de fin": "dic. 2025", "Exp[1] descripcio\u0301n": "Funciones",
+             "Exp[1] TIPO DE CONTRATO": "Dependiente"}
+        r = analizar(d, HOY)
+        self.assertEqual(r["incidencias"], [])
+        self.assertEqual(r["experiencias"][0]["modalidad"], "dependiente")
+        self.assertEqual(r["experiencias"][0]["fecha_inicio"]["precision"], "mes")
+        for nombre in ["Est[1] Fecha Fin", "Fecha Fin", "Exp[1] Fecha Fin estimada", "Exp[١] Fecha Fin"]:
+            self.assertIsNone(campo_laboral(nombre), nombre)
+            self.assertEqual(huella(d), huella({**d, nombre: "otra"}))
+
+    def test_columnas_equivalentes_con_una_vacia_no_pierden_fecha(self):
+        for vacio in ["", "N/A", "Sin datos", "null"]:
+            d = experiencia(1, "A", "2024-01-01", vacio)
+            d["Exp[1] Fecha fin"] = "2025-12-31"
+            self.assertEqual(analizar(d, HOY)["incidencias"], [])
+            self.assertEqual(analizar(dict(reversed(list(d.items()))), HOY), analizar(d, HOY))
+
+    def test_fechas_equivalentes_con_formatos_distintos_no_son_conflicto(self):
+        d = experiencia(1, "A", "2024-01-01", "2025-12-31")
+        d["Exp[1] Fecha fin"] = "31/12/2025"
+        self.assertEqual(analizar(d, HOY)["incidencias"], [])
+
+    def test_columnas_de_fecha_contradictorias_conservan_evidencia(self):
+        d = patron(); d["Exp[2] Fecha fin"] = "2026-03-31"
+        r = analizar(d, HOY)
+        self.assertEqual(r["estado"], "informacion_insuficiente")
+        self.assertIn("Exp[2]: valores contradictorios para fecha fin entre columnas del archivo", r["incidencias"])
+        self.assertFalse(any("no registrada" in i for i in r["incidencias"]))
+        f = r["experiencias"][1]["fecha_fin"]
+        self.assertEqual(f["estado"], "no_reconocida")
+        self.assertEqual({v["valor"] for v in f["fuentes"]}, {"2026-02-28", "2026-03-31"})
+
+    def test_conflicto_no_convierte_empleo_en_excluido(self):
+        d = experiencia(1, "A", "2024-01-01", "2025-12-31")
+        d["Exp[1] modalidad"] = "Freelance"
+        r = analizar(d, HOY)
+        self.assertEqual(r["estado"], "informacion_insuficiente")
+        self.assertFalse(r["experiencias"][0]["excluida"])
+
+    def test_csv_con_variantes_de_encabezado_hasta_analisis(self):
+        for cod in ["utf-8-sig", "cp1252"]:
+            with tempfile.TemporaryDirectory() as tmp:
+                p = Path(tmp) / "test.csv"
+                p.write_text('Nombre;EXP[1] Empresa;Exp[1] Fecha de inicio;Exp[1] Fecha Fin;Exp[1] Fecha fin\n'
+                             'Prueba;A;01/06/2024;;31/12/2025\n', encoding=cod)
+                _, filas = leer_csv(p)
+                r = analizar(filas[0], HOY)
+                self.assertEqual(r["incidencias"], [])
+                self.assertEqual(r["experiencias"][0]["fin"], "31/12/2025")
+
+    def test_solapamiento_historico_no_bloquea_horizonte_actual(self):
+        d = {**experiencia(1, "A", "2019-01-01", "2023-12-31"),
+             **experiencia(2, "B", "2023-01-01", "2023-12-31")}
+        r = analizar(d, HOY)
+        self.assertEqual(r["estado"], "sin_patron")
+        self.assertEqual(r["incidencias"], [])
+        d.update(experiencia(3, "C", "2025-01-01", "2025-12-31"))
+        self.assertEqual(analizar(d, HOY)["estado"], "sin_patron")
+
+    def test_solapamiento_reciente_sigue_sin_contar_como_cambio(self):
+        d = {**experiencia(1, "A", "2025-01-01", "2026-06-30"),
+             **experiencia(2, "B", "2026-01-01", "2026-09-30")}
+        r = analizar(d, HOY)
+        self.assertEqual(r["estado"], "informacion_insuficiente")
+        self.assertEqual(r["total_transiciones"], 0)
+        self.assertTrue(any("simultaneidad" in i for i in r["incidencias"]))
+
+    def test_huella_incluye_variantes_y_sus_cambios(self):
+        d = {"Exp[1] Fecha fin": "2025-12-31"}
+        self.assertNotEqual(huella(d), huella({}))
+        self.assertNotEqual(huella(d), huella({"Exp[1] Fecha fin": "2025-11-30"}))
+
+    def test_fechas_con_hora_local_y_particula_del(self):
+        for valor in ["1/6/2024 00:00:00", "2024/06/01 12:30:01.123", "1 de junio del 2024"]:
+            self.assertEqual(fecha(valor, HOY)["min"], date(2024, 6, 1))
+        for valor in ["1/6/2024 25:00:00", "31/02/2024 00:00:00", "06/24 00:00:00"]:
+            self.assertIsNone(fecha(valor, HOY), valor)
+
     def test_formatos_dia(self):
         for valor in ["2024-06-01", "2024/6/1", "2024.06.01", "1/6/2024", "01-06-2024", "01.06.2024",
                       "1 de junio de 2024", "01-jun-2024", "1 June 2024", "01 JUN. 2024",

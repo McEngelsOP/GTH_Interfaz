@@ -1,5 +1,17 @@
 # Validación de trayectoria laboral
 
+## Detección v3: fechas presentes y relevancia temporal
+
+Base: `93673debd39e43f97cf4fb4c4e09e2f804c4ff51` de ETAPA-I.
+
+- 52 pruebas Python aprobadas: variantes de encabezados, Unicode, columnas equivalentes vacías/pobladas, fechas contradictorias y conservación de origen, formatos con hora local, CSV UTF-8/CP1252, solapamiento histórico frente a reciente, invalidación de caché y recálculo v2→v3 sin eliminar historial.
+- 189 pruebas de servicios aprobadas; compilación TypeScript/Vite aprobada. Permanece el aviso previo de tamaño de bundle.
+- Prueba SQL de trayectoria aprobada en PGlite con todas las migraciones, incluida v3. Verifica reconocimiento y huella idénticos en Python/PostgreSQL para aliases válidos e inválidos, historial v1/v2, rechazo de nuevas revisiones sobre versiones anteriores, selección del snapshot v3 compatible, cambios en columnas alternativas, RLS y paginación de 1201 perfiles.
+- Se completó el entorno simulado del test de trayectoria con el rol `service_role`, requerido por la migración de sueldos existente. No se modifica esa migración ni sus políticas.
+- No se cambian componentes de interfaz. No se ejecutan pruebas de navegador al no haber cambios visuales o de interacción.
+
+La conexión Supabase disponible solo muestra Lyra. No se aplicó la migración ni se recalcularon perfiles en GTH_Bumeran. La activación pendiente está documentada en `trayectoria-laboral.md`; el cambio no permite asegurar el origen del fallo del postulante real sin contrastar su CSV/CV.
+
 ## Vista resumida de experiencia laboral
 
 Base: `2dc2be941830e421e0719b132cf336cc69e70c05` de ETAPA-I, que incluye la comparación salarial añadida por el equipo.

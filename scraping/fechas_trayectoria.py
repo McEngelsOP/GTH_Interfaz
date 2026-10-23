@@ -2,7 +2,7 @@
 import calendar
 import re
 import unicodedata
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 MESES = (
     ("ene", "enero", "jan", "january"), ("feb", "febrero", "february"),
@@ -36,6 +36,11 @@ def fecha(valor, hoy):
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:z|[+-]\d{2}:?\d{2})?", t):
             d = datetime.fromisoformat(t.replace("z", "+00:00")).date()
             return {"min": d, "max": d, "precision": "dia"}
+        # Exportaciones con fecha local y hora: validar ambas, sin interpretar mes/día/año.
+        con_hora = re.fullmatch(r"(\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}[/.-]\d{1,2}[/.-]\d{1,2})[t ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)", t)
+        if con_hora:
+            time.fromisoformat(con_hora[2])
+            t = con_hora[1]
         t = re.sub(r"\s*([/.-])\s*", r"\1", t)
         dia = None
         if re.fullmatch(r"\d{4}[-/.]\d{1,2}(?:[-/.]\d{1,2})?", t):
@@ -47,7 +52,7 @@ def fecha(valor, hoy):
         elif re.fullmatch(r"\d{1,2}[-/.]\d{4}", t):
             m, y = map(int, re.split(r"[-/.]", t))
         else:
-            partes = re.sub(r"\bde\b", " ", t).replace(".", " ").replace("-", " ").replace("/", " ").split()
+            partes = re.sub(r"\b(?:de|del)\b", " ", t).replace(".", " ").replace("-", " ").replace("/", " ").split()
             if len(partes) == 2 and partes[0] in MES_POR_NOMBRE and re.fullmatch(r"\d{4}", partes[1]):
                 m, y = MES_POR_NOMBRE[partes[0]], int(partes[1])
             elif (len(partes) == 3 and re.fullmatch(r"\d{1,2}", partes[0])

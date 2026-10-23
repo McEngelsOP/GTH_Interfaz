@@ -158,11 +158,17 @@ class PersistenciaTests(unittest.TestCase):
 
     def test_version_nueva_recalcula_sin_borrar_historial(self):
         self.importar()
-        self.bd.cx.execute("UPDATE gth_trayectoria_analisis SET version='trayectoria-v1'")
+        self.bd.cx.execute("UPDATE gth_trayectoria_analisis SET version='trayectoria-v2'")
         self.bd.cx.commit()
         self.assertEqual(ejecutar(self.bd, "A")["analizados"], 1)
         self.assertEqual(ejecutar(self.bd, "A")["reutilizados"], 1)
         self.assertEqual(self.bd.uno("SELECT count(*) n FROM gth_trayectoria_analisis")["n"], 2)
+
+    def test_reimportacion_con_cabecera_alternativa_invalida_cache(self):
+        self.importar({"Exp[2] Fecha fin": "2026-02-28"})
+        self.importar({"Exp[2] Fecha fin": "2026-03-31"})
+        self.assertEqual(self.bd.uno("SELECT count(*) n FROM gth_trayectoria_analisis")["n"], 2)
+        self.assertEqual(ejecutar(self.bd, "A")["reutilizados"], 1)
 
 
 if __name__ == "__main__":
