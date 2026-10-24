@@ -1,6 +1,7 @@
 import { useTrayectoria } from '../../services/trayectoria.ts';
 import '../../styles/trayectoria.css';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useContentMotion } from '../common/MotionRegion.tsx';
 import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
 import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
@@ -40,6 +41,7 @@ import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEm
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 
 interface CandidateTableProps {
+  motionKey?: string;
   enRevision: ReturnType<typeof useEnRevision>;
   applications: Application[];
   selectedMethod: EvaluationMethod;
@@ -54,6 +56,7 @@ interface CandidateTableProps {
 }
 
 export function CandidateTable({
+  motionKey = '',
   applications,
   enRevision,
   selectedMethod,
@@ -137,6 +140,8 @@ export function CandidateTable({
   const totalItems = sortedApplications.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const validPage = Math.min(currentPage, totalPages);
+  const tableRef = useRef<HTMLDivElement>(null);
+  useContentMotion(tableRef, `${motionKey}:${density}:${validPage}`);
 
   const paginatedApplications = useMemo(() => {
     const start = (validPage - 1) * pageSize;
@@ -289,7 +294,7 @@ export function CandidateTable({
       </div>
 
       {/* Contenedor con scroll horizontal garantizado (sin desbordar pantalla) */}
-      <div
+      <div ref={tableRef} className="candidate-results"
         style={{
           width: '100%',
           overflowX: 'auto',

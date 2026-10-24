@@ -1,3 +1,4 @@
+import { MotionRegion } from '../common/MotionRegion.tsx';
 import { TrayectoriaPanel } from './TrayectoriaPanel.tsx';
 import { WhatsAppButton } from './WhatsAppButton.tsx';
 import React, { useEffect, useState } from 'react';
@@ -228,7 +229,7 @@ export function CandidateDrawer() {
         <ComparacionSalarial key={currentJob.id} job={currentJob} app={app} />
         <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} className="candidate-drawer-tabs" />
 
-        <div style={{ marginTop: '1.25rem' }}>
+        <MotionRegion motionKey={activeTab} className="candidate-tab-content" style={{ marginTop: '1.25rem' }}>
           {activeTab === 'postulaciones' && <PostulacionesPanel key={app.id} candidate={candidate} job={currentJob} />}
           {/* 1. Por qué este puntaje: similitud y evidencia por requisito */}
           {activeTab === 'puntaje' && (
@@ -363,7 +364,7 @@ export function CandidateDrawer() {
               )}
             </div>
           )}
-        </div>
+        </MotionRegion>
       </Drawer>
 
       {/* Modales rápidos anidados (con foco accesible) */}

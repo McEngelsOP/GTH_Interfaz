@@ -1,3 +1,4 @@
+import { MotionRegion } from '../components/common/MotionRegion.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Kanban, Search, Mail, Calendar, Settings, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext.tsx';
@@ -108,7 +109,7 @@ export function AvanceCandidatosView() {
   if (!activeJob) return null;
   const communicationAllowed = workflow.ready && activeJob.status === 'activa';
   return <div className="workflow-page">
-    <ActiveJobBanner aside={<div className="workflow-banner-actions" aria-label={`Acciones de ${PIPELINE_STAGES[currentIndex].label}`}>
+    <ActiveJobBanner aside={<MotionRegion motionKey={stage} className="workflow-banner-actions" aria-label={`Acciones de ${PIPELINE_STAGES[currentIndex].label}`}>
       <div className="workflow-banner-context"><span>{PIPELINE_STAGES[currentIndex].label}</span>
         {supabase && <Button size="sm" variant="ghost" aria-label="Actualizar avance" title="Actualizar avance" icon={<RefreshCw size={15} />} onClick={() => void workflow.reload()} />}
       </div>
@@ -132,7 +133,7 @@ export function AvanceCandidatosView() {
       {stage === 'preseleccionado' && supabase && !sending && servidor === 'apagado' && <p className="workflow-banner-help" role="status">Servidor apagado: el envío a Multitest corre en la laptop de GTH y no está prendida.</p>}
       {stage === 'preseleccionado' && sending && <p className="workflow-banner-help" role="status">{envio === 'en_curso' ? 'El servidor está agregando a los candidatos en Multitest…'
         : envio === 'pendiente' ? 'Envío en cola: el servidor de Multitest lo tomará en unos segundos.' : 'Verificando el servidor de Multitest…'} Puedes cerrar esta página: el servidor termina el envío.</p>}
-    </div>} />
+    </MotionRegion>} />
     <header className="workflow-header">
       <div><h2><Kanban size={22} />Avance de candidatos</h2><p>Selecciona una columna para cambiar las acciones del banner. Arrastra tarjetas o usa los botones para avanzar.</p></div>
     </header>

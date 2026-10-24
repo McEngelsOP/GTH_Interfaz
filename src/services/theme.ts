@@ -1,6 +1,6 @@
 export type ThemePreference = 'light' | 'dark' | 'system';
 
-export const THEME_TRANSITION_MS = 420;
+export const THEME_TRANSITION_MS = 280;
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const SLOW_UPDATE_QUERY = '(update: slow)';
@@ -62,7 +62,7 @@ export function createThemeController() {
       }
       if (isDark) root.setAttribute('data-theme', 'dark');
       else root.removeAttribute('data-theme');
-      if (shouldAnimate) timer = window.setTimeout(stop, THEME_TRANSITION_MS + 220);
+      if (shouldAnimate) timer = window.setTimeout(stop, THEME_TRANSITION_MS + 80);
     },
     subscribe(listener: () => void) {
       const queries = [dark, reduced, slow];

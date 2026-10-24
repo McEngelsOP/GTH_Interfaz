@@ -1,0 +1,9 @@
+.tabs-scroll { overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border-subtle); }
+.tabs-track { position: relative; display: flex; align-items: center; gap: .25rem; width: max-content; min-width: 100%; }
+.tabs-button { display: flex; align-items: center; gap: .5rem; padding: .65rem 1rem; font-size: .875rem; font-weight: 500; color: var(--text-secondary); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; transition: color var(--transition-fast), background-color var(--transition-fast); }
+.tabs-button[aria-selected='true'] { font-weight: 600; color: var(--primary-red); }
+.tabs-icon { display: flex; }
+.tabs-count { font-size: .75rem; padding: .15rem .45rem; border-radius: var(--radius-full); background: var(--bg-muted); color: var(--text-secondary); font-weight: 600; transition: background-color var(--transition-fast), color var(--transition-fast); }
+.tabs-button[aria-selected='true'] .tabs-count { background: var(--primary-red-subtle); color: var(--primary-red); }
+.tabs-indicator { position: absolute; left: 0; bottom: 0; width: 1px; height: 2px; background: var(--primary-red); transform-origin: left center; pointer-events: none; transition: transform var(--transition-normal); }
+@media (hover: hover) { .tabs-button:hover { background: var(--bg-hover); } }

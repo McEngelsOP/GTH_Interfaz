@@ -143,9 +143,15 @@
   --glow-primary: 0 0 24px -2px rgba(210, 38, 70, 0.38);
 }
 
-/* Only animate the palette while changing theme; preserve normal interactions. */
+/* Una sola interpolación de la paleta: los hijos la siguen sin volver a animar
+   los colores en cada fotograma. Se conservan los desplazamientos y la opacidad. */
 .theme-transition {
   transition: var(--theme-color-transition) !important;
+}
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition-property: transform, opacity, visibility, grid-template-columns, grid-template-rows !important;
 }
 
 /* Compatible fallback for engines without typed CSS custom properties. */
@@ -153,9 +159,11 @@
 .theme-transition-fallback *,
 .theme-transition-fallback *::before,
 .theme-transition-fallback *::after {
-  transition: background-color 420ms ease-in-out, color 420ms ease-in-out,
-    border-color 420ms ease-in-out, outline-color 420ms ease-in-out,
-    box-shadow 420ms ease-in-out, fill 420ms ease-in-out, stroke 420ms ease-in-out !important;
+  transition: background-color 280ms ease-in-out, color 280ms ease-in-out,
+    border-color 280ms ease-in-out, outline-color 280ms ease-in-out,
+    box-shadow 280ms ease-in-out, fill 280ms ease-in-out, stroke 280ms ease-in-out,
+    transform var(--transition-normal), opacity var(--transition-normal),
+    grid-template-columns var(--transition-layout), grid-template-rows var(--transition-layout) !important;
 }
 
 /* Reducir animaciones si se solicita o por preferencia de accesibilidad */
@@ -300,8 +308,8 @@ a {
   to { transform: translateX(0); }
 }
 @keyframes viewChange {
-  from { opacity: .65; }
-  to { opacity: 1; }
+  from { opacity: .88; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .view-content { animation: viewChange var(--transition-normal); }
 

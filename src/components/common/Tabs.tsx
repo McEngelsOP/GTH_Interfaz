@@ -1,4 +1,5 @@
-import React, { ReactNode } from 'react';
+import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import '../../styles/tabs.css';
 
 export interface TabItem {
   id: string;
@@ -15,64 +16,52 @@ export interface TabsProps {
 }
 
 export function Tabs({ tabs, activeTab, onChange, className = '' }: TabsProps) {
+  const track = useRef<HTMLDivElement>(null);
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  useLayoutEffect(() => {
+    const element = track.current;
+    if (!element) return;
+    const update = () => {
+      const selected = element.querySelector<HTMLElement>('[aria-selected="true"]');
+      const next = { left: selected?.offsetLeft || 0, width: selected?.offsetWidth || 0 };
+      setIndicator(previous => previous.left === next.left && previous.width === next.width ? previous : next);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    element.querySelectorAll('[role="tab"]').forEach(tab => observer.observe(tab));
+    return () => observer.disconnect();
+  }, [activeTab, tabs]);
+
   return (
-    <div
-      role="tablist"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        borderBottom: '1px solid var(--border-subtle)',
-        overflowX: 'auto',
-        scrollbarWidth: 'none',
-      }}
-      className={className}
-    >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={isActive}
+    <div className={`tabs-scroll ${className}`}>
+      <div ref={track} role="tablist" className="tabs-track">
+        <span aria-hidden="true" className="tabs-indicator"
+          style={{ transform: `translateX(${indicator.left}px) scaleX(${indicator.width})`, visibility: indicator.width ? 'visible' : 'hidden' }} />
+        {tabs.map((tab, index) => {
+          const isActive = tab.id === activeTab;
+          return <button key={tab.id} type="button" role="tab" aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1} className="tabs-button focus-ring"
             onClick={() => onChange(tab.id)}
-            className="focus-ring"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.65rem 1rem',
-              fontSize: '0.875rem',
-              fontWeight: isActive ? 600 : 500,
-              color: isActive ? 'var(--primary-red)' : 'var(--text-secondary)',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: isActive ? '2px solid var(--primary-red)' : '2px solid transparent',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all var(--transition-fast)',
-              marginBottom: '-1px',
-            }}
-          >
-            {tab.icon && <span style={{ display: 'flex' }}>{tab.icon}</span>}
+            onKeyDown={event => {
+              let next = index;
+              if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+              else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+              else if (event.key === 'Home') next = 0;
+              else if (event.key === 'End') next = tabs.length - 1;
+              else return;
+              event.preventDefault();
+              onChange(tabs[next].id);
+              const target = track.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next];
+              target?.focus({ preventScroll: true });
+              target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            }}>
+            {tab.icon && <span className="tabs-icon">{tab.icon}</span>}
             <span>{tab.label}</span>
-            {tab.count !== undefined && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  padding: '0.15rem 0.45rem',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: isActive ? 'var(--primary-red-subtle)' : 'var(--bg-muted)',
-                  color: isActive ? 'var(--primary-red)' : 'var(--text-muted)',
-                  fontWeight: 600,
-                }}
-              >
-                {tab.count}
-              </span>
-            )}
-          </button>
-        );
-      })}
+            {tab.count !== undefined && <span className="tabs-count">{tab.count}</span>}
+          </button>;
+        })}
+      </div>
     </div>
   );
 }

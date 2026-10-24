@@ -1,3 +1,4 @@
+import { MotionRegion } from '../components/common/MotionRegion.tsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Copy, KeyRound, Lock, Pencil, RefreshCw, Search, UserCog, UserPlus, UserX, UserCheck, Trash2 } from 'lucide-react';
 import { Button } from '../components/common/Button.tsx';
@@ -114,6 +115,7 @@ export function UsuariosPermisosView() {
         ]} />
       </div>
 
+      <MotionRegion motionKey={tab}>
       {tab === 'usuarios' ? (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
           <table className="base-tabla" style={{ minWidth: '900px' }}>
@@ -185,6 +187,7 @@ export function UsuariosPermisosView() {
         </>
       )}
 
+      </MotionRegion>
       {eliminando && <Modal isOpen onClose={() => { if (!ocupado) setEliminando(null); }} title="Eliminar cuenta" subtitle={eliminando.email}
         footer={<><Button variant="secondary" disabled={!!ocupado} onClick={() => setEliminando(null)}>Cancelar</Button><Button variant="danger" disabled={!!ocupado} onClick={() => accionServidor(eliminando, 'eliminar')}>{ocupado ? 'Eliminando…' : 'Eliminar cuenta'}</Button></>}>
         <p>Esta persona perderá el acceso. Sus decisiones y registros del proceso se conservarán.</p>

@@ -376,6 +376,7 @@ export function MejoresCandidatosView() {
         {!activeJob.bumeran && <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Importar perfiles</Button>}
       </div>}
       <CandidateTable
+        motionKey={activeTab}
         applications={displayedApplications}
         enRevision={enRevision}
         topIds={topIds}
