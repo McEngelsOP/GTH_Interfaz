@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { JobPosting } from '../types/index.ts';
+import { compareJobTitles } from '../services/jobOrdering.ts';
 import { Badge } from '../components/common/Badge.tsx';
 import { Button } from '../components/common/Button.tsx';
 import { fechaHora, timeAgo } from '../services/bumeranSync.ts';
@@ -62,7 +63,7 @@ export function ConvocatoriasView() {
     if (ranking === 'con' && !job.bumeran?.rankingAt) return false;
     if (ranking === 'sin' && job.bumeran?.rankingAt) return false;
     return true;
-  }).sort((a, b) => (Date.parse(b.bumeran?.detalle?.publicadoEl || b.createdAt) || 0) - (Date.parse(a.bumeran?.detalle?.publicadoEl || a.createdAt) || 0)),
+  }).sort(compareJobTitles),
   [appState.jobPostings, searchQuery, area, nivel, ranking]);
 
 

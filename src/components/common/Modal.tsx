@@ -41,7 +41,7 @@ export function Modal({
         padding: '1rem',
         backgroundColor: 'rgba(15, 20, 28, 0.65)',
         backdropFilter: 'blur(3px)',
-        animation: 'fadeIn 160ms cubic-bezier(0.16, 1, 0.3, 1)',
+        animation: 'fadeIn var(--transition-normal)',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -64,7 +64,7 @@ export function Modal({
           flexDirection: 'column',
           maxHeight: '90vh',
           overflow: 'hidden',
-          animation: 'slideUp 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+          animation: 'scaleIn var(--transition-normal)',
         }}
         onClick={(e) => e.stopPropagation()}
       >

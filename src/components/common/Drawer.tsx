@@ -43,7 +43,7 @@ export function Drawer({
         justifyContent: position === 'right' ? 'flex-end' : 'flex-start',
         backgroundColor: 'rgba(15, 20, 28, 0.55)',
         backdropFilter: 'blur(2px)',
-        animation: 'fadeIn 160ms cubic-bezier(0.16, 1, 0.3, 1)',
+        animation: 'fadeIn var(--transition-normal)',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -67,7 +67,7 @@ export function Drawer({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          animation: 'slideInRight 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+          animation: `${position === 'right' ? 'slideInRight' : 'slideInLeft'} var(--transition-layout)`,
         }}
         onClick={(e) => e.stopPropagation()}
       >

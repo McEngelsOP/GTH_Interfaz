@@ -225,10 +225,10 @@ export function MejoresCandidatosView() {
   }
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       {/* Aviso; a su derecha, candidatos activos y Top-N. Debajo, el aviso completo en un desplegable */}
       <ActiveJobBanner conDetalle aside={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="ranking-actions">
         <div className="ranking-resumen">
           <div className="ranking-dato">
             <span>Candidatos activos</span>
@@ -239,15 +239,17 @@ export function MejoresCandidatosView() {
             <strong className="tabular-nums" aria-label="Total en el Top-N">{topIds.size}</strong>
             <div className="topn-control">
               <small>primeros</small>
+              <span className="topn-stepper">
               <button type="button" className="focus-ring" aria-label="Reducir Top-N" onClick={() => setTopN(appState.topN - 1)}><Minus size={12} /></button>
               <input type="number" aria-label="Cantidad Top-N" min={1} value={appState.topN} onChange={(e) => setTopN(parseInt(e.target.value) || 1)} />
               <button type="button" className="focus-ring" aria-label="Aumentar Top-N" onClick={() => setTopN(appState.topN + 1)}><Plus size={12} /></button>
+              </span>
             </div>
             <small>{conEstrella ? `+${conEstrella} con estrella · ` : ''}{fueraDelTop.length} fuera del Top-N</small>
           </div>
         </div>
           {/* Debajo de los recuadros, a todo su ancho, para que conserven su tamaño */}
-          <Button variant="primary" size="sm" icon={<UserCheck size={14} />} style={{ justifyContent: 'center' }}
+          <Button variant="primary" size="sm" icon={<UserCheck size={14} />} style={{ justifyContent: 'center', whiteSpace: 'normal' }}
             disabled={!topPorPreseleccionar.length || activeJob.status !== 'activa'}
             onClick={handlePreseleccionarTopN}
             title={topPorPreseleccionar.length ? 'Revisar y confirmar el paso de todo el Top-N a Preseleccionados' : 'Todo el Top-N ya está en Preseleccionados o en una etapa posterior'}>

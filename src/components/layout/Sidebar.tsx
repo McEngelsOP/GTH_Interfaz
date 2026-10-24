@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { useDialog } from '../common/useDialog.ts';
+import '../../styles/sidebar.css';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp, ViewType } from '../../context/AppContext.tsx';
 import {
@@ -17,6 +19,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  X,
   GraduationCap,
   RefreshCw,
   Library,
@@ -50,6 +53,19 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
   const { currentView, setCurrentView, activeJobApplications, appState } = useApp();
   const perfil = usePerfil();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const navId = useId();
+  const compact = collapsed && !isMobile;
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  useDialog(isMobile && isMobileOpen, sidebarRef, () => onCloseMobile?.());
+  const toggleSidebar = () => isMobile ? onCloseMobile?.() : setCollapsed((value) => !value);
+  const toggleLabel = isMobile ? 'Cerrar menú lateral' : compact ? 'Expandir menú lateral' : 'Colapsar menú lateral';
 
   // Contadores vivos calculados a partir de los datos
   const totalInJob = activeJobApplications.length;
@@ -143,261 +159,72 @@ export function Sidebar({ sync, isMobileOpen = false, onCloseMobile }: SidebarPr
 
   return (
     <>
-      {/* Backdrop para móvil */}
-      {isMobileOpen && (
-        <div
-          onClick={onCloseMobile}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1020,
-          }}
-        />
-      )}
-
-      <aside
-        style={{
-          width: collapsed ? '68px' : '260px',
-          height: '100vh',
-          backgroundColor: 'var(--bg-surface)',
-          borderRight: '1px solid var(--border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'sticky',
-          top: 0,
-          zIndex: 1030,
-          flexShrink: 0,
-          overflow: 'hidden',
-        }}
-        className={isMobileOpen ? 'sidebar-mobile-open' : ''}
+      <div className={`sidebar-backdrop${isMobileOpen ? ' is-open' : ''}`} aria-hidden="true" onClick={onCloseMobile} />
+      <div
+        ref={sidebarRef}
+        className={`sidebar-shell${compact ? ' is-compact' : ''}${isMobileOpen ? ' is-mobile-open' : ''}`}
+        role={isMobile && isMobileOpen ? 'dialog' : undefined}
+        aria-modal={isMobile && isMobileOpen ? true : undefined}
+        aria-label={isMobile ? 'Menú de navegación' : undefined}
+        inert={isMobile && !isMobileOpen}
+        tabIndex={-1}
       >
-        {/* Marca Institucional */}
-        <div
-          style={{
-            height: '64px',
-            padding: '0 1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'space-between',
-            borderBottom: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--bg-surface)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              cursor: 'pointer',
-              minWidth: 0,
-            }}
-            onClick={() => handleSelectView('mejores_candidatos')}
-          >
-            <div
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--primary-red)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#FFFFFF',
-                flexShrink: 0,
-              }}
-            >
-              <GraduationCap size={20} />
-            </div>
-            {!collapsed && (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    letterSpacing: '-0.3px',
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  TalentAI <span style={{ color: 'var(--primary-red)' }}>· ESAN</span>
-                </span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                  GTHC · Selección
-                </span>
-              </div>
-            )}
-          </div>
-
-          {!collapsed && (
-            <button
-              onClick={() => setCollapsed(true)}
-              className="focus-ring hide-on-mobile"
-              aria-label="Colapsar menú lateral"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '0.3rem',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <ChevronLeft size={18} />
+        <aside className="sidebar">
+          <div className="sidebar-header">
+            <button type="button" className="sidebar-brand-toggle focus-ring" onClick={toggleSidebar}
+              aria-label={toggleLabel} title={toggleLabel} aria-expanded={isMobile ? isMobileOpen : !compact} aria-controls={navId}>
+              <span className="sidebar-brand-icon"><GraduationCap size={20} /></span>
             </button>
-          )}
-        </div>
-
-        {/* Lista de navegación con scroll */}
-        <nav
-          aria-label="Navegación principal"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: '0.75rem 0.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
-          {navGroups.map((group) => (
-            <div key={group.title} role="group" aria-label={group.title || 'Convocatorias'} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              {!collapsed && group.title && (
-                <div
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                    padding: '0.25rem 0.75rem',
-                  }}
-                >
-                  {group.title}
-                </div>
-              )}
-              {group.items.map((item) => {
-                const isActive = currentView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleSelectView(item.id)}
-                    className="focus-ring"
-                    aria-label={item.label}
-                    aria-current={isActive ? 'page' : undefined}
-                    title={collapsed ? item.label : undefined}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: collapsed ? '0.65rem 0' : '0.55rem 0.75rem',
-                      justifyContent: collapsed ? 'center' : 'flex-start',
-                      borderRadius: 'var(--radius-md)',
-                      border: 'none',
-                      backgroundColor: isActive ? 'var(--primary-red-subtle)' : 'transparent',
-                      color: isActive ? 'var(--primary-red)' : 'var(--text-primary)',
-                      fontWeight: isActive ? 600 : 500,
-                      fontSize: '0.84rem',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all var(--transition-fast)',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Indicador lateral rojo activo */}
-                    {isActive && (
-                      <span
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          top: '15%',
-                          bottom: '15%',
-                          width: '3px',
-                          backgroundColor: 'var(--primary-red)',
-                          borderRadius: '0 2px 2px 0',
-                        }}
-                      />
-                    )}
-
-                    <span
-                      style={{
-                        display: 'flex',
-                        flexShrink: 0,
-                        alignItems: 'center',
-                        color: isActive ? 'var(--primary-red)' : 'var(--text-secondary)',
-                        position: 'relative',
-                      }}
-                    >
-                      {item.icon}
-                      {collapsed && item.status && (
-                        <span aria-hidden="true" style={{ position: 'absolute', top: '-2px', right: '-3px', width: '8px', height: '8px',
-                          borderRadius: '50%', backgroundColor: item.status.color, border: '1.5px solid var(--bg-surface)' }} />
+            <button type="button" className="sidebar-wordmark sidebar-copy focus-ring"
+              tabIndex={compact ? -1 : undefined} aria-hidden={compact}
+              onClick={() => handleSelectView('mejores_candidatos')}>
+              <span>TalentAI <em>· ESAN</em></span>
+              <small>GTHC · Selección</small>
+            </button>
+            <button type="button" className="sidebar-header-close sidebar-copy focus-ring"
+              tabIndex={compact ? -1 : undefined} aria-hidden={compact}
+              onClick={toggleSidebar} aria-label={isMobile ? 'Cerrar navegación' : 'Contraer navegación'}
+              aria-expanded={isMobile ? isMobileOpen : !compact} aria-controls={navId}>
+              {isMobile ? <X size={18} /> : <ChevronLeft size={18} />}
+            </button>
+          </div>
+          <nav id={navId} aria-label="Navegación principal" className="sidebar-nav">
+            {navGroups.map((group) => (
+              <div key={group.title} role="group" aria-label={group.title || 'Convocatorias'} className="sidebar-group">
+                {group.title && <div className="sidebar-group-heading" aria-hidden={compact}>
+                  <div><span>{group.title}</span></div>
+                </div>}
+                {group.items.map((item) => {
+                  const isActive = currentView === item.id;
+                  return (
+                    <button key={item.id} type="button" onClick={() => handleSelectView(item.id)}
+                      className="sidebar-link focus-ring" aria-label={item.label}
+                      aria-current={isActive ? 'page' : undefined} title={compact ? item.label : undefined}>
+                      <span className="sidebar-link-icon">
+                        {item.icon}
+                        {item.status && <span className="sidebar-status-dot" aria-hidden="true" style={{ backgroundColor: item.status.color }} />}
+                      </span>
+                      <span className="sidebar-link-label sidebar-copy" aria-hidden={compact}>{item.label}</span>
+                      {item.status && <span className="sidebar-status sidebar-copy" aria-hidden={compact}
+                        title={item.status.label} style={{ color: item.status.color }}>{item.status.text}</span>}
+                      {item.count !== undefined && item.count > 0 && (
+                        <span className="sidebar-count sidebar-copy" aria-hidden={compact}>{item.count}</span>
                       )}
-                    </span>
-
-                    {!collapsed && (
-                      <span style={{ flex: 1, whiteSpace: 'normal', lineHeight: 1.35 }}>
-                        {item.label}
-                      </span>
-                    )}
-
-                    {!collapsed && item.status && (
-                      <span title={item.status.label} aria-label={item.status.label}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem',
-                          color: 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.status.color, flexShrink: 0 }} />
-                        {item.status.text}
-                      </span>
-                    )}
-
-                    {!collapsed && item.count !== undefined && item.count > 0 && (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: 'var(--radius-full)',
-                          backgroundColor: isActive ? 'var(--primary-red)' : 'var(--bg-muted)',
-                          color: isActive ? '#FFFFFF' : 'var(--text-muted)',
-                        }}
-                      >
-                        {item.count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-
-        {/* Botón inferior para expandir si está colapsado */}
-        {collapsed && (
-          <div
-            style={{
-              padding: '0.75rem',
-              borderTop: '1px solid var(--border-subtle)',
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            <button
-              onClick={() => setCollapsed(false)}
-              className="focus-ring"
-              aria-label="Expandir menú lateral"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '0.4rem',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <ChevronRight size={18} />
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            <button type="button" className="sidebar-footer-toggle focus-ring" onClick={toggleSidebar}
+              aria-label={toggleLabel} aria-expanded={!compact} aria-controls={navId}>
+              <span className="sidebar-footer-chevron"><ChevronRight size={18} /></span>
+              <span className="sidebar-copy" aria-hidden={compact}>Contraer menú</span>
             </button>
           </div>
-        )}
-      </aside>
+        </aside>
+      </div>
     </>
   );
 }

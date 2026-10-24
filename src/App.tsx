@@ -64,15 +64,17 @@ function MainContent({ sync }: { sync: ReturnType<typeof useBumeranSync> }) {
 
   return (
     <main
+      className="app-main"
       style={{
         flex: 1,
         padding: '1.5rem',
         overflowY: 'auto',
         backgroundColor: 'var(--bg-base)',
-        minHeight: 'calc(100vh - 64px)',
+        minHeight: 0,
+        scrollbarGutter: 'stable',
       }}
     >
-      {renderView()}
+      <div key={currentView} className="view-content">{renderView()}</div>
     </main>
   );
 }
@@ -86,7 +88,7 @@ function AppLayout() {
     <TrayectoriaContext.Provider value={sync.trayectoria}><div style={{ display: 'flex', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
       <Sidebar sync={sync} isMobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        <Header onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
+        <Header mobileNavOpen={mobileNavOpen} onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
         <MainContent sync={sync} />
       </div>
       <CandidateDrawer key={selectedCandidateForDrawer?.id || 'closed'} />

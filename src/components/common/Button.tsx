@@ -31,7 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       borderRadius: 'var(--radius-sm)',
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.55 : 1,
-      transition: 'all var(--transition-fast)',
+      transition: 'background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast)',
       border: '1px solid transparent',
       textDecoration: 'none',
       whiteSpace: 'nowrap',
@@ -97,7 +97,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           ...variantStyles[variant],
           ...customStyle,
         }}
-        className={`focus-ring ${className}`}
+        className={`ui-button ui-button-${variant} focus-ring ${className}`}
         {...restProps}
       >
         {icon && iconPosition === 'left' && <span style={{ display: 'flex' }}>{icon}</span>}

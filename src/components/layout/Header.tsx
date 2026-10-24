@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { compareJobTitles } from '../../services/jobOrdering.ts';
 import { supabase } from '../../services/supabase.ts';
 import { Button } from '../common/Button.tsx';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
@@ -17,9 +18,10 @@ import { Badge } from '../common/Badge.tsx';
 
 interface HeaderProps {
   onToggleMobileNav: () => void;
+  mobileNavOpen: boolean;
 }
 
-export function Header({ onToggleMobileNav }: HeaderProps) {
+export function Header({ onToggleMobileNav, mobileNavOpen }: HeaderProps) {
   const {
     appState,
     activeJob,
@@ -29,6 +31,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     setTheme,
     showToast,
   } = useApp();
+  const orderedJobs = useMemo(() => [...appState.jobPostings].sort(compareJobTitles), [appState.jobPostings]);
 
   // Perfil de la cuenta con sesión iniciada; sin Supabase (modo local) se muestra el equipo
   const perfil = usePerfil();
@@ -58,6 +61,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
     <header
       style={{
         height: '64px',
+        flexShrink: 0,
         backgroundColor: 'var(--header-bg)',
         backdropFilter: 'blur(12px) saturate(160%)',
         WebkitBackdropFilter: 'blur(12px) saturate(160%)',
@@ -79,6 +83,8 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
           onClick={onToggleMobileNav}
           className="focus-ring mobile-only"
           aria-label="Abrir menú de navegación"
+          aria-expanded={mobileNavOpen}
+          aria-haspopup="dialog"
           style={{
             background: 'transparent',
             border: 'none',
@@ -105,7 +111,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
               border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}
           >
             {!appState.jobPostings.length && <option value="">Sin convocatorias</option>}
-            {appState.jobPostings.map((job) => (
+            {orderedJobs.map((job) => (
               <option key={job.id} value={job.id}>{job.title} · {job.code}</option>
             ))}
           </select>
@@ -185,7 +191,7 @@ export function Header({ onToggleMobileNav }: HeaderProps) {
             borderRadius: 'var(--radius-md)',
             color: 'var(--text-secondary)',
             cursor: 'pointer',
-            transition: 'all var(--transition-fast)',
+            transition: 'background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast)',
           }}
         >
           {appState.theme === 'light' ? (
