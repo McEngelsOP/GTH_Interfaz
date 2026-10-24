@@ -1,15 +1,17 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { Badge } from '../common/Badge.tsx';
-import { ShieldCheck, Calendar, Sliders, ArrowRightLeft, Clock, FileText } from 'lucide-react';
+import { ShieldCheck, Calendar, Sliders, ArrowRightLeft, Clock, FileText, Scale } from 'lucide-react';
 import { timeAgo } from '../../services/bumeranSync.ts';
 import { Button } from '../common/Button.tsx';
+import { PesosRequisitosModal } from '../modals/PesosRequisitosModal.tsx';
 
 /** `aside`: contenido a la derecha del aviso (p. ej. candidatos activos y Top-N).
  *  `conDetalle`: muestra el desplegable con el aviso completo y los requisitos del puesto. */
 export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNode; conDetalle?: boolean } = {}) {
   const { activeJob, setCurrentView } = useApp();
+  const [pesosAbierto, setPesosAbierto] = useState(false);
 
   if (!activeJob) return null;
 
@@ -87,24 +89,31 @@ export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNo
           )}
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            fontSize: '0.78rem',
-            color: 'var(--text-secondary)',
-            backgroundColor: 'var(--bg-base)',
-            padding: '0.35rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            marginTop: '0.2rem',
-            width: 'fit-content',
-          }}
-        >
-          <ShieldCheck size={14} style={{ color: 'var(--primary-red)', flexShrink: 0 }} />
-          <span>
-            <strong>Requisito obligatorio:</strong> {activeJob.knockoutRule}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.78rem',
+              color: 'var(--text-secondary)',
+              backgroundColor: 'var(--bg-base)',
+              padding: '0.35rem 0.65rem',
+              borderRadius: 'var(--radius-sm)',
+              width: 'fit-content',
+            }}
+          >
+            <ShieldCheck size={14} style={{ color: 'var(--primary-red)', flexShrink: 0 }} />
+            <span>
+              <strong>Requisito obligatorio:</strong> {activeJob.knockoutRule}
+            </span>
+          </div>
+          {conDetalle && activeJob.criteria.length > 0 && (
+            <Button variant="outline" size="sm" icon={<Scale size={14} />} onClick={() => setPesosAbierto(true)}
+              title="Ver los requisitos del aviso y ajustar su peso">
+              Requisitos y pesos ({activeJob.criteria.length})
+            </Button>
+          )}
         </div>
       </div>
 
@@ -158,6 +167,7 @@ export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNo
           </div>
         </details>
       )}
+      {conDetalle && <PesosRequisitosModal isOpen={pesosAbierto} onClose={() => setPesosAbierto(false)} job={activeJob} />}
     </div>
   );
 }

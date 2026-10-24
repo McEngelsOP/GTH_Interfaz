@@ -6,6 +6,7 @@ import { avisoToJob, fetchAvisos, fetchCorridas, fetchPostulantes, fetchRanking,
 import type { CorridaRow } from './bumeranSync.ts';
 import { supabase } from './supabase.ts';
 import { fetchAvisosVisibles } from './permisos.ts';
+import { aplicarPesos, cargarRequisitos, eventosPesos } from './pesosRequisitos.ts';
 
 type LoadState = { loading: boolean; error: string; checkedAt: string | null };
 const initial: LoadState = { loading: false, error: '', checkedAt: null };
@@ -20,6 +21,7 @@ export function useBumeranSync() {
   const [postings, setPostings] = useState(initial);
   const [applicants, setApplicants] = useState(initial);
   const [ranking, setRanking] = useState(initial);
+  const [pesosRevision, setPesosRevision] = useState(0);
   const [runs, setRuns] = useState<LoadState & { rows: CorridaRow[] }>({ ...initial, rows: [] });
   const refresh = () => setRevision((value) => value + 1);
 
@@ -81,17 +83,26 @@ export function useBumeranSync() {
     if (!supabase || !avisoId || !job || !applicationIds) return;
     let alive = true;
     setRanking({ ...initial, loading: true });
-    fetchRanking(supabase, avisoId, job.criteriaVersion).then((rows) => {
+    // Pesos guardados del aviso: si no se pueden leer, el ranking se muestra con los pesos originales.
+    Promise.all([fetchRanking(supabase, avisoId, job.criteriaVersion), cargarRequisitos(supabase, avisoId).catch(() => [])]).then(([rows, pesos]) => {
       if (!alive) return;
       const current = latest.current;
-      const results = rankingToMatches(job, current.appState.applications, current.appState.candidates, rows);
+      const ponderado = aplicarPesos(rows, job.criteria.map((c) => c.label), pesos);
+      const results = rankingToMatches(job, current.appState.applications, current.appState.candidates, ponderado);
       if (Object.keys(results).length) current.handleApplyEmbeddingRanking(results);
       setRanking({ loading: false, error: '', checkedAt: new Date().toISOString() });
     }).catch(() => {
       if (alive) setRanking({ ...initial, error: 'No se pudo consultar el ranking. Vuelve a cargar los datos.' });
     });
     return () => { alive = false; };
-  }, [avisoId, job?.criteriaVersion, job?.bumeran?.rankingAt, applicationIds, revision]);
+  }, [avisoId, job?.criteriaVersion, job?.bumeran?.rankingAt, applicationIds, revision, pesosRevision]);
+
+  // «Guardar y aplicar» en Requisitos y pesos: vuelve a ponderar el ranking del aviso abierto.
+  useEffect(() => {
+    const alGuardar = (e: Event) => { if ((e as CustomEvent<string>).detail === avisoId) setPesosRevision((v) => v + 1); };
+    eventosPesos.addEventListener('guardados', alGuardar);
+    return () => eventosPesos.removeEventListener('guardados', alGuardar);
+  }, [avisoId]);
 
   const trayectoria = useCargarTrayectoria(avisoId, JSON.stringify([updatedAt, revision, applicants.checkedAt]));
   return { trayectoria, configured: !!supabase, postings, applicants, ranking, runs, refresh };

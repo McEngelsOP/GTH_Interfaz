@@ -27,6 +27,9 @@ export type RankingRow = {
   id_postulante: string | null; criterios_version: string; backend: 'e5' | 'tfidf'; ranking: number | null;
   score: number | null; req_sims: (number | null)[] | null; req_fragmentos: string[] | null;
   explicacion: string | null; calculado_at: string | null;
+  /** Similitud original por requisito: permite volver a ponderar sin recalcular (pesosRequisitos.ts). */
+  req_sims_bruto?: (number | null)[] | null;
+  score_bruto?: number | null;
 };
 
 export const isBumeranJob = (job: JobPosting | undefined) => !!job?.bumeran;
@@ -176,7 +179,7 @@ export async function fetchRanking(client: SupabaseClient, avisoId: string, crit
   const rows: RankingRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await client.from('ranking_embeddings')
-      .select('id_postulante, criterios_version, backend, ranking, score, req_sims, req_fragmentos, explicacion, calculado_at')
+      .select('id_postulante, criterios_version, backend, ranking, score, score_bruto, req_sims, req_sims_bruto, req_fragmentos, explicacion, calculado_at')
       .eq('aviso_id', avisoId).eq('criterios_version', criteriaVersion).order('ranking').range(from, from + 999);
     if (error) throw new Error(error.message);
     rows.push(...((data || []) as RankingRow[]));
