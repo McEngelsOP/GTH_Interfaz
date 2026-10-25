@@ -16,14 +16,22 @@ export function leerSueldo(valor: string): number | null {
   return sueldoValido(numero) ? numero : null;
 }
 
-/** La fuente es el CSV del aviso; no se deducen importes del texto libre del CV. */
+// Columna est\u00e1ndar del CSV de Bumeran (\u00abPreferencia Salarial\u00bb) y otros nombres de la pretensi\u00f3n.
+const CAMPO_SUELDO = /^(?:preferencia salarial|pretension(?: salarial)?|sueldo (?:bruto )?(?:pretendido|deseado)|remuneracion pretendida|expectativa salarial|salario (?:bruto )?(?:pretendido|deseado))(?:\s*\((?:s\/\.?|pen|soles)\))?$/i;
+// Preguntas del aviso: \u00ab\u00bfCu\u00e1l es tu expectativa salarial\u2026?\u00bb, \u00ab\u00bfCu\u00e1les son tus pretensiones salariales?\u00bb
+const PREGUNTA_SUELDO = /\b(?:expectativas? salarial(?:es)?|pretensi(?:on|ones) salarial(?:es)?)\b/i;
+
+/** La fuente es el CSV del aviso; no se deducen importes del texto libre del CV. Primero la columna de Bumeran y,
+ *  si no trae un monto v\u00e1lido, la respuesta a la pregunta salarial del aviso. */
 export function extraerSueldoPretendido(records: Record<string, string>[]): number | null {
-  for (const record of records) for (const [key, value] of Object.entries(record)) {
-    const campo = key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[_-]/g, ' ');
-    if (!/^(?:pretension(?: salarial)?|sueldo (?:bruto )?(?:pretendido|deseado)|remuneracion pretendida|expectativa salarial|salario (?:bruto )?(?:pretendido|deseado))(?:\s*\((?:s\/\.?|pen|soles)\))?$/i.test(campo.trim())) continue;
-    if (typeof value !== 'string') continue;
-    const monto = leerSueldo(value);
-    if (monto !== null) return monto;
+  const campos = records.flatMap((record) => Object.entries(record)).map(([key, value]) =>
+    ({ campo: key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[_-]/g, ' ').trim(), value }));
+  for (const coincide of [(c: string) => CAMPO_SUELDO.test(c), (c: string) => PREGUNTA_SUELDO.test(c)]) {
+    for (const { campo, value } of campos) {
+      if (!coincide(campo) || typeof value !== 'string') continue;
+      const monto = leerSueldo(value);
+      if (monto !== null) return monto;
+    }
   }
   return null;
 }

@@ -1,5 +1,5 @@
 import { MotionRegion } from '../common/MotionRegion.tsx';
-import { TrayectoriaPanel } from './TrayectoriaPanel.tsx';
+import { SemaforoDePostulante, TrayectoriaPanel } from './TrayectoriaPanel.tsx';
 import { WhatsAppButton } from './WhatsAppButton.tsx';
 import React, { useEffect, useState } from 'react';
 import { PostulacionesPanel } from './PostulacionesPanel.tsx';
@@ -91,7 +91,10 @@ export function CandidateDrawer() {
 
   const drawerTabs = [
     { id: 'perfil', label: 'Perfil' },
-    { id: 'puntaje', label: 'Por qué este puntaje' },
+    { id: 'puntaje', label: 'Puntaje' },
+    { id: 'sueldo', label: 'Sueldo' },
+    { id: 'trayectoria', label: 'Trayectoria',
+      icon: <SemaforoDePostulante aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} /> },
     { id: 'postulaciones', label: 'Postulaciones' },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
@@ -216,7 +219,7 @@ export function CandidateDrawer() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', paddingBottom: '1rem',
           borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
           <Button variant="secondary" size="sm" icon={<Mail size={14} />} onClick={() => setIsEmailModalOpen(true)}
-            title="Preparar borrador de correo para el candidato">
+            title="Escribir y enviar un correo al candidato desde la cuenta de GTH">
             Correo
           </Button>
           <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={() => setVerCv(true)}
@@ -226,11 +229,14 @@ export function CandidateDrawer() {
         </div>
 
         {/* Pestañas de detalle */}
-        <ComparacionSalarial key={currentJob.id} job={currentJob} app={app} />
         <Tabs tabs={drawerTabs} activeTab={activeTab} onChange={setActiveTab} className="candidate-drawer-tabs" />
 
         <MotionRegion motionKey={activeTab} className="candidate-tab-content" style={{ marginTop: '1.25rem' }}>
           {activeTab === 'postulaciones' && <PostulacionesPanel key={app.id} candidate={candidate} job={currentJob} />}
+          {activeTab === 'sueldo' && <ComparacionSalarial key={currentJob.id} job={currentJob} app={app} />}
+          {activeTab === 'trayectoria' && (
+            <TrayectoriaPanel key={app.id} aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
+          )}
           {/* 1. Por qué este puntaje: similitud y evidencia por requisito */}
           {activeTab === 'puntaje' && (
             emb ? <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -246,7 +252,6 @@ export function CandidateDrawer() {
             <div className="perfil-bumeran">
               <section>
                 <h3>Experiencia laboral</h3>
-                <TrayectoriaPanel key={app.id} aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
                 {perfil.experiencias.length ? perfil.experiencias.map((e, i) => (
                   <article key={i}>
                     <strong>{e.puesto}</strong>

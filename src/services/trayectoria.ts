@@ -30,6 +30,14 @@ export const ESTADOS_TRAYECTORIA: Record<EstadoTrayectoria, string> = {
   informacion_insuficiente: 'Información insuficiente', no_aplica: 'No aplica',
   pendiente: 'Análisis pendiente', desactualizado: 'Análisis desactualizado',
 };
+/** Semáforo de «Cambios entre empleadores»: rojo si hay cambios frecuentes, verde si no hay riesgo, amarillo si no se
+ *  pudo concluir (falta información o el análisis está pendiente). */
+export type Semaforo = 'verde' | 'rojo' | 'amarillo';
+export const semaforoTrayectoria = (estado: EstadoTrayectoria | undefined): Semaforo =>
+  estado === 'patron_detectado' ? 'rojo' : estado === 'sin_patron' || estado === 'no_aplica' ? 'verde' : 'amarillo';
+export const TEXTO_SEMAFORO: Record<Semaforo, string> = {
+  verde: 'Sin riesgo', rojo: 'Con riesgo: cambios frecuentes', amarillo: 'No se pudo concluir',
+};
 const revisiones = ['justificado', 'dato_incorrecto', 'revisado'];
 export async function cargarResumenTrayectoria(client: SupabaseClient, aviso: string): Promise<Record<string, ResumenTrayectoria>> {
   const rows: Record<string, ResumenTrayectoria> = Object.create(null);

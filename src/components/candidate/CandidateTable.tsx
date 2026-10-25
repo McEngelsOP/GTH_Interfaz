@@ -417,7 +417,7 @@ export function CandidateTable({
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
                         {trayectoria.aviso === activeJob?.bumeran?.avisoId && trayectoria.rows[cand?.importedProfile?.externalId || '']?.estado === 'patron_detectado' && <button
-                          type="button" className="trayectoria-alert focus-ring" onClick={() => openCandidateDrawer(app)}
+                          type="button" className="trayectoria-alert focus-ring" onClick={() => openCandidateDrawer(app, 'trayectoria')}
                           aria-label={`Revisar trayectoria de ${cand?.name}`}>Revisar trayectoria</button>}
                         {(recurrence.totals[cand?.importedProfile?.externalId || ''] || 0) > 1 && <button
                           type="button" className="candidate-recurrence focus-ring" onClick={() => openCandidateDrawer(app, 'postulaciones')}

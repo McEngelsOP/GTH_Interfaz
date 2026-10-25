@@ -69,6 +69,9 @@ export interface ToastNotification {
   type: 'info' | 'success' | 'warning' | 'error';
 }
 
+/** Pestañas de «Ver perfil» que se pueden abrir directamente (CandidateDrawer). */
+export type PestanaPerfil = 'perfil' | 'trayectoria' | 'postulaciones';
+
 interface AppContextValue {
   appState: AppStateData;
   currentView: ViewType;
@@ -76,7 +79,7 @@ interface AppContextValue {
   activeJobApplications: Application[];
   selectedApplicationIds: string[];
   selectedCandidateForDrawer: Application | null;
-  candidateDrawerTab: 'perfil' | 'postulaciones';
+  candidateDrawerTab: PestanaPerfil;
   isAssistantOpen: boolean;
   toasts: ToastNotification[];
   // Navegación y vista
@@ -90,7 +93,7 @@ interface AppContextValue {
   selectAllApplications: (appIds: string[]) => void;
   clearApplicationSelection: () => void;
   // Ficha drawer y asistente
-  openCandidateDrawer: (app: Application | null, tab?: 'perfil' | 'postulaciones') => void;
+  openCandidateDrawer: (app: Application | null, tab?: PestanaPerfil) => void;
   selectedCandidateId: string | null;
   setSelectedCandidateId: (id: string | null) => void;
   isCandidateDrawerOpen: boolean;
@@ -166,7 +169,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
   const [selectedApplicationIds, setSelectedApplicationIds] = useState<string[]>([]);
   const [drawerApplicationId, setDrawerApplicationId] = useState<string | null>(null);
-  const [candidateDrawerTab, setCandidateDrawerTab] = useState<'perfil' | 'postulaciones'>('perfil');
+  const [candidateDrawerTab, setCandidateDrawerTab] = useState<PestanaPerfil>('perfil');
   const selectedCandidateForDrawer = appState.applications.find((app) => app.id === drawerApplicationId) || null;
   const setSelectedCandidateForDrawer = (app: Application | null) => setDrawerApplicationId(app?.id || null);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -265,7 +268,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     setSelectedApplicationIds([]);
   };
 
-  const openCandidateDrawer = (app: Application | null, tab: 'perfil' | 'postulaciones' = 'perfil') => {
+  const openCandidateDrawer = (app: Application | null, tab: PestanaPerfil = 'perfil') => {
     setCandidateDrawerTab(tab);
     setSelectedCandidateForDrawer(app);
   };

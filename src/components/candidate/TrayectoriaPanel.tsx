@@ -1,10 +1,29 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { Badge } from '../common/Badge.tsx';
 import { Button } from '../common/Button.tsx';
 import { supabase } from '../../services/supabase.ts';
 import { cargarDetalleTrayectoria, cargarRevisionesTrayectoria, ESTADOS_TRAYECTORIA, ETIQUETAS_REVISION, guardarRevisionTrayectoria, useTrayectoria,
-  type DetalleTrayectoria, type RevisionTrayectoria, type RevisionRegistrada } from '../../services/trayectoria.ts';
+  semaforoTrayectoria, TEXTO_SEMAFORO, type DetalleTrayectoria, type EstadoTrayectoria, type RevisionTrayectoria, type RevisionRegistrada } from '../../services/trayectoria.ts';
 import '../../styles/trayectoria.css';
+
+const ICONO_SEMAFORO = { verde: CheckCircle2, rojo: AlertCircle, amarillo: HelpCircle };
+
+/** Verde sin riesgo, rojo con cambios frecuentes, amarillo si no se pudo concluir. Lleva su texto para lectores de
+ *  pantalla, así que no depende solo del color. */
+export function SemaforoTrayectoria({ estado, size = 15 }: { estado?: EstadoTrayectoria; size?: number }) {
+  const color = semaforoTrayectoria(estado);
+  const Icono = ICONO_SEMAFORO[color];
+  return <Icono size={size} className={`trayectoria-semaforo trayectoria-semaforo-${color}`} role="img"
+    aria-label={TEXTO_SEMAFORO[color]} aria-hidden={false} />;
+}
+
+/** Semáforo de la trayectoria de un postulante del aviso abierto (para la pestaña del perfil). */
+export function SemaforoDePostulante({ aviso, postulante }: { aviso?: string; postulante?: string }) {
+  const ctx = useTrayectoria();
+  if (!aviso || !postulante || ctx.aviso !== aviso || ctx.loading || ctx.error) return null;
+  return <SemaforoTrayectoria estado={ctx.rows[postulante]?.estado} />;
+}
 
 function resumenBreve(detalle: DetalleTrayectoria) {
   if (detalle.ventana) return `Se detectaron ${detalle.ventana.transiciones.length} transiciones en un intervalo de ${detalle.parametros.ventana_meses} meses.`;
@@ -77,6 +96,7 @@ export function TrayectoriaPanel({ aviso, postulante }: { aviso?: string; postul
   return <section className="trayectoria-panel" aria-label="Cambios entre empleadores">
     <div className="trayectoria-heading">
       <strong>Cambios entre empleadores</strong>
+      {!!aviso && !!supabase && !ctx.loading && !ctx.error && <SemaforoTrayectoria estado={row?.estado} size={17} />}
       {!!aviso && !!supabase && <Badge size="sm" variant={row?.estado === 'patron_detectado' ? 'warning' : 'neutral'}>
         {ctx.loading ? 'Consultando…' : ctx.error ? 'No disponible' : etiqueta}
       </Badge>}

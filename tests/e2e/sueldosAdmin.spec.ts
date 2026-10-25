@@ -47,7 +47,7 @@ async function preparar(page: Page, nivel = 'superadmin', sinOferta = false) {
 }
 async function abrir(page: Page) {
   await page.goto('/#view=mejores_candidatos');
-  await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
+  await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click(); await page.getByRole('tab', { name: 'Sueldo', exact: true }).click();
   return page.getByRole('region', { name: 'Comparación salarial', exact: true });
 }
 test('oferta compartida, igualdad verde, superior rojo, fallo y recarga; escritorio y móvil', async ({ page }) => {
@@ -69,7 +69,7 @@ test('oferta compartida, igualdad verde, superior rojo, fallo y recarga; escrito
   ctx.rechazar(); await input.fill('5000'); await panel.getByRole('button', { name: 'Guardar oferta' }).click();
   await expect(panel.getByRole('alert')).toContainText('No se guardó');
   await expect(panel.getByText('Pretensión superior al presupuesto', { exact: true })).toBeVisible();
-  await page.reload(); await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
+  await page.reload(); await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click(); await page.getByRole('tab', { name: 'Sueldo', exact: true }).click();
   panel = page.getByRole('region', { name: 'Comparación salarial', exact: true });
   await expect(panel.getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('3000');
   expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 3500 }, { aviso_id: aviso.aviso_id, monto: 3000 }]);
@@ -109,7 +109,7 @@ test('oferta ausente o migración faltante no usa los importes antiguos del nave
   let panel = await abrir(page);
   await expect(panel.getByText('Comparación pendiente', { exact: true })).toBeVisible();
   await expect(panel.getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('');
-  ctx.sinMigracion(); await page.reload(); await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
+  ctx.sinMigracion(); await page.reload(); await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click(); await page.getByRole('tab', { name: 'Sueldo', exact: true }).click();
   panel = page.getByRole('region', { name: 'Comparación salarial', exact: true });
   await expect(panel.getByRole('alert')).toContainText('migración');
   await expect(panel.getByText('Comparación pendiente', { exact: true })).toBeVisible();

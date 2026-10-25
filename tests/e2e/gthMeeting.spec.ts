@@ -211,9 +211,9 @@ test('ficha abre en Perfil y tabla centra cabeceras y controles', async ({ page 
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('tab', { name: 'Perfil', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(drawer.getByRole('tab', { name: 'Historial', exact: true })).toHaveCount(0);
-  expect(await drawer.getByRole('tab').allTextContents()).toEqual(['Perfil', 'Por qué este puntaje']);
-  await drawer.getByRole('tab', { name: 'Por qué este puntaje', exact: true }).click();
-  await expect(drawer.getByRole('tab', { name: 'Por qué este puntaje', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(await drawer.getByRole('tab').allTextContents()).toEqual(['Perfil', 'Puntaje', 'Sueldo', 'Trayectoria', 'Postulaciones']);
+  await drawer.getByRole('tab', { name: 'Puntaje', exact: true }).click();
+  await expect(drawer.getByRole('tab', { name: 'Puntaje', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '/tmp/gth-profile-mobile.png', fullPage: true });
 });

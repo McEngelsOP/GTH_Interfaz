@@ -18,3 +18,8 @@
 .trayectoria-panel textarea { resize: vertical; }
 .trayectoria-panel :is(select,textarea,summary):focus-visible { outline: 2px solid var(--primary-red); outline-offset: 3px; }
 .trayectoria-alert { align-self: flex-start; margin-top: .35rem; border: 1px solid var(--status-partial-border); border-radius: var(--radius-sm); background: var(--status-partial-bg); color: var(--status-partial-text); padding: .25rem .4rem; font: inherit; font-size: .75rem; cursor: pointer; }
+.trayectoria-semaforo { flex-shrink: 0; }
+.trayectoria-semaforo-verde { color: var(--status-verified-text); }
+.trayectoria-semaforo-rojo { color: var(--status-failed-text); }
+.trayectoria-semaforo-amarillo { color: #CA8A04; }   /* amarillo legible en claro; el ámbar del tema tira a marrón */
+[data-theme='dark'] .trayectoria-semaforo-amarillo { color: #FACC15; }

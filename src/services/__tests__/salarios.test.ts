@@ -24,6 +24,13 @@ describe('comparación salarial', () => {
     expect(extraerSueldoPretendido([{ 'Pretensión salarial (PEN)': '3500' }])).toBe(3500);
     expect(extraerSueldoPretendido([{ 'Exp[1] Sueldo pretendido': '5000', 'Sueldo pretendido USD': '3500', Nombre: 'Ana' }])).toBeNull();
   });
+  it('lee la columna «Preferencia Salarial» de Bumeran y, si no hay, la pregunta salarial del aviso', () => {
+    expect(extraerSueldoPretendido([{ 'Preferencia Salarial': '2500' }])).toBe(2500);
+    expect(extraerSueldoPretendido([{ '¿Cuál es tu expectativa salarial neta para un cambio?': '2000', 'Preferencia Salarial': '1800' }])).toBe(1800);
+    expect(extraerSueldoPretendido([{ 'Preferencia Salarial': '', '¿Cuáles son tus pretensiones salariales?': 'S/ 3,000' }])).toBe(3000);
+    expect(extraerSueldoPretendido([{ '¿Cuál es tu expectativa salarial?': 'entre 2000 y 2500' }])).toBeNull();
+    expect(extraerSueldoPretendido([{ '¿Tienes experiencia en ventas?': '3000' }])).toBeNull();
+  });
   it('conserva sueldos distintos de una persona en dos avisos y los actualiza desde su propia fuente', () => {
     let state = estadoConConvocatoriaDePrueba();
     const base = state.jobPostings[0];
