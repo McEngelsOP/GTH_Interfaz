@@ -1,0 +1,69 @@
+"""Regla de prácticas (años equivalentes): python -m unittest scraping.test_experiencia"""
+import unittest
+from datetime import date
+
+from . import experiencia as ex
+from . import ranking
+
+HOY = date(2026, 10, 24)
+
+
+def exp(i, puesto, inicio, fin, descripcion=""):
+    return {f"Exp[{i}] Puesto": puesto, f"Exp[{i}] Fecha Inicio": inicio, f"Exp[{i}] Fecha Fin": fin,
+            f"Exp[{i}] Descripción": descripcion, f"Exp[{i}] Empresa": f"Empresa {i}"}
+
+
+class TestExperiencia(unittest.TestCase):
+    def test_avisos_y_requisitos_a_los_que_aplica(self):
+        self.assertTrue(ex.aplica("Analista de Cobranzas"))
+        self.assertTrue(ex.aplica("Asistente Administrativo"))
+        self.assertFalse(ex.aplica("Practicante de Marketing"))
+        self.assertFalse(ex.aplica("Docente de matemática"))
+        self.assertEqual(ex.anios_requeridos("2 años de experiencia en puestos similares"), 2)
+        self.assertEqual(ex.anios_requeridos("Mínimo un año de experiencia en atención al cliente"), 1)
+        self.assertEqual(ex.anios_requeridos("Experiencia de 1 a 2 años en cobranzas"), 1)
+        self.assertIsNone(ex.anios_requeridos("Experiencia en atención al cliente"))
+        self.assertIsNone(ex.anios_requeridos("Excel intermedio"))
+        self.assertEqual(ex.requisitos_de_anios("Analista", ["Excel", "2 años de experiencia"]), {1: 2})
+        self.assertEqual(ex.requisitos_de_anios("Practicante", ["2 años de experiencia"]), {})
+
+    def test_factor_por_tipo(self):
+        self.assertEqual(ex.factor("Analista contable", "Elaboración de reportes y buenas prácticas"), 1)
+        self.assertEqual(ex.factor("Practicante profesional de contabilidad", ""), 0.5)
+        self.assertEqual(ex.factor("Asistente", "Prácticas profesionales en el área de finanzas"), 0.5)
+        self.assertEqual(ex.factor("Practicante preprofesional", ""), 0)
+        self.assertEqual(ex.factor("Asistente", "Prácticas pre profesionales"), 0)
+        self.assertEqual(ex.factor("Practicante de marketing", ""), 0)   # sin tipo = preprofesional
+
+    def test_anios_equivalentes(self):
+        datos = {**exp(1, "Analista", "2024-01-01", "2024-12-31"),                      # 1 año laboral
+                 **exp(2, "Practicante profesional", "2023-01-01", "2023-12-31"),       # 1 año a la mitad
+                 **exp(3, "Practicante de ventas", "2022-01-01", "2022-12-31")}         # no suma
+        total, laboral, practica = ex.anios_equivalentes(datos, HOY)
+        self.assertAlmostEqual(total, 1.5)
+        self.assertAlmostEqual(laboral, 1)
+        self.assertAlmostEqual(practica, 1)
+
+    def test_superposicion_y_empleo_actual(self):
+        datos = {**exp(1, "Analista", "2025-10-01", ""),                                 # actual: 13 meses
+                 **exp(2, "Practicante profesional", "2025-10-01", "2026-03-31")}       # superpuesta: no suma
+        total, laboral, practica = ex.anios_equivalentes(datos, HOY)
+        self.assertAlmostEqual(total, 13 / 12)
+        self.assertEqual(practica, 0)
+
+    def test_regla_en_el_ranking(self):
+        filas = [{"clave": c, "req_sims_bruto": [0.8, 0.7], "score_bruto": 0.75,
+                  "explicacion_bruta": "[Excel…] -> Exp[1] A (0.80) | [2 años…] -> Exp[1] A (0.70)"} for c in ("P1", "P2")]
+        filas[1]["req_sims_bruto"] = [0.8, 0.9]
+        datos = {"P1": exp(1, "Analista", "2023-10-01", "2025-09-30"),              # 2 años: cumple
+                 "P2": exp(1, "Practicante de ventas", "2020-01-01", "2025-12-31")}  # solo preprofesional
+        ranking.aplicar_regla_practicas(filas, datos, "Analista", ["Excel", "2 años de experiencia"], [1, 1])
+        self.assertEqual(filas[0]["_sims"], [0.8, 0.9])    # tope del rango del requisito en el aviso
+        self.assertEqual(filas[1]["_sims"], [0.8, 0.7])    # piso
+        self.assertEqual(filas[1]["req_sims_bruto"], [0.8, 0.9])   # la similitud e5 se conserva
+        self.assertGreater(filas[0]["score_bruto"], filas[1]["score_bruto"])
+        self.assertIn("2.0 años de experiencia equivalente", filas[0]["explicacion_bruta"])
+
+
+if __name__ == "__main__":
+    unittest.main()

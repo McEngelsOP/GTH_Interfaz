@@ -16,6 +16,9 @@ export type AvisoRow = {
   detalle_texto: string | null;
   detalle_json: { caracteristicas?: string[]; migas?: string[]; ubicacion?: string; empresa?: string; url?: string } | null;
   url_publica: string | null; ultimo_csv_at: string | null; ranking_at?: string | null;
+  /** Requisitos con que el scraper calculó el ranking guardado (scraping/ranking.py): los de «Requisitos y pesos» o,
+   *  si no hay, los de la oferta. */
+  criterios?: Criterion[] | null; criterios_version?: string | null;
 };
 export type PostulanteRow = { id_postulante: string | null; datos_json: Record<string, string>; cv_url?: string | null; cv_estado?: string | null };
 
@@ -27,7 +30,7 @@ export type RankingRow = {
   id_postulante: string | null; criterios_version: string; backend: 'e5' | 'tfidf'; ranking: number | null;
   score: number | null; req_sims: (number | null)[] | null; req_fragmentos: string[] | null;
   explicacion: string | null; calculado_at: string | null;
-  /** Similitud original por requisito: permite volver a ponderar sin recalcular (pesosRequisitos.ts). */
+  /** Similitud original por requisito, antes de reescalar dentro del aviso. */
   req_sims_bruto?: (number | null)[] | null;
   score_bruto?: number | null;
 };
@@ -107,17 +110,29 @@ export function detalleAviso(row: AvisoRow) {
 }
 export type DetalleAviso = ReturnType<typeof detalleAviso>;
 
+/** Requisitos del ranking guardado; si el scraper aún no los registró, los de la oferta con pesos iguales. */
+function criteriaOf(row: AvisoRow, title: string): { criteria: Criterion[]; criteriaVersion: string } {
+  const saved = Array.isArray(row.criterios) ? row.criterios.filter((c) => typeof c?.label === 'string' && c.label.trim()) : [];
+  if (saved.length && row.criterios_version) {
+    return {
+      criteria: saved.map((c, i) => ({ id: c.id || `r${i + 1}`, label: c.label, weightPct: Number(c.weightPct) || 0, type: 'LLM' })),
+      criteriaVersion: row.criterios_version,
+    };
+  }
+  const criteria = equalCriteria(extractRequirements(row.detalle_texto, title));
+  return { criteria, criteriaVersion: `Bumeran ${shortHash(criteria.map((c) => c.label).join('|'))}` };
+}
+
 export function avisoToJob(row: AvisoRow): JobPosting {
   const title = row.titulo?.trim() || `Aviso ${row.aviso_id}`;
-  const criteria = equalCriteria(extractRequirements(row.detalle_texto, title));
+  const { criteria, criteriaVersion } = criteriaOf(row, title);
   const features = row.detalle_json?.caracteristicas || [];
   const vacancies = Number(features.map((f) => f.match(/(\d+)\s+vacante/i)?.[1]).find(Boolean)) || null;
   return {
     id: `${BUMERAN_PREFIX}${row.aviso_id}`, code: `${BUMERAN_PREFIX}${row.aviso_id}`, title, category: category(title),
     department: `Bumeran · ${features.find((f) => !NOT_AREA.test(f)) || 'Aviso publicado'}`,
     period: `Publicado el ${formatDate(row.publicado_el)}`, status: 'activa', phase: 'Recepción de CVs',
-    vacancies, knockoutRule: BUMERAN_KNOCKOUT, criteria,
-    criteriaVersion: `Bumeran ${shortHash(criteria.map((c) => c.label).join('|'))}`,
+    vacancies, knockoutRule: BUMERAN_KNOCKOUT, criteria, criteriaVersion,
     defaultTopN: 5, evaluationReference: row.detalle_texto?.slice(0, 8000) || undefined,
     createdAt: row.publicado_el || new Date().toISOString().slice(0, 10),
     bumeran: { avisoId: row.aviso_id, updatedAt: row.ultimo_csv_at, publicUrl: row.url_publica || row.detalle_json?.url || null,
@@ -158,7 +173,7 @@ export function postulantesToTable(avisoId: string, rows: PostulanteRow[]): Impo
 /** Todos los avisos guardados: también los que ya no figuran en Bumeran (cerrados), con su último registro. */
 export async function fetchAvisos(client: SupabaseClient): Promise<AvisoRow[]> {
   const { data, error } = await client.from('avisos')
-    .select('aviso_id, titulo, publicado_el, recibidos, detalle_texto, detalle_json, url_publica, ultimo_csv_at, ranking_at')
+    .select('aviso_id, titulo, publicado_el, recibidos, detalle_texto, detalle_json, url_publica, ultimo_csv_at, ranking_at, criterios, criterios_version')
     .order('publicado_el', { ascending: false });
   if (error) throw new Error(error.message);
   return (data || []) as AvisoRow[];

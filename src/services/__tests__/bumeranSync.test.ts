@@ -48,6 +48,17 @@ describe('avisos de Bumeran', () => {
     expect(parseStoredState(JSON.stringify(state))?.jobPostings.at(-1)?.bumeran?.avisoId).toBe('1110000001');
   });
 
+  it('usa los requisitos con que se calculó el ranking guardado (p. ej. los de «Requisitos y pesos»)', () => {
+    const sinGuardar = avisoToJob(aviso);
+    const guardados = [{ id: 'r1', label: 'Mínimo 1 año de experiencia en atención al cliente.', weightPct: 75, type: 'LLM' as const },
+      { id: 'r2', label: 'Experiencia en sector educativo', weightPct: 25, type: 'LLM' as const }];
+    const job = avisoToJob({ ...aviso, criterios: guardados, criterios_version: 'Bumeran abc123' });
+    expect(job.criteria).toEqual(guardados);
+    expect(job.criteriaVersion).toBe('Bumeran abc123');
+    expect(avisoToJob({ ...aviso, criterios: [], criterios_version: 'Bumeran abc123' })).toMatchObject(
+      { criteria: sinGuardar.criteria, criteriaVersion: sinGuardar.criteriaVersion });
+  });
+
   it('agrega al final sin reordenar ni tocar las convocatorias existentes, y no cambia nada si ya está igual', () => {
     const base = structuredClone(INITIAL_APP_STATE);
     const once = mergeBumeranJobs(base, [avisoToJob(aviso)]);

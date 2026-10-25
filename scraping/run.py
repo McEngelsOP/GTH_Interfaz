@@ -4,6 +4,7 @@ Uso (desde la carpeta raíz del repo):
   python -m scraping.run                      sincroniza todo: lista, CSV de avisos nuevos/cambiados,
                                               detalle de avisos nuevos y CVs adjuntos pendientes
   python -m scraping.run --solo-lista         solo lee la lista de avisos (rápido, para probar)
+  python -m scraping.run --rapido             lee la lista y solo procesa los avisos con novedades (servidor de GTH)
   python -m scraping.run --aviso 1118437785   solo ese aviso
   python -m scraping.run --sin-cvs            no descarga los PDF adjuntos
   python -m scraping.run --solo-pdfs          solo los PDFs de cada aviso (sin CSV ni oferta)
@@ -295,6 +296,12 @@ def paso_ranking_seguro(bd: BD, aviso: dict, forzar=False):
         log.exception("No se pudo calcular el ranking del aviso %s: %s", aviso["aviso_id"], e)
 
 
+def tiene_novedades(bd: BD, aviso: dict) -> bool:
+    """Para --rapido: el aviso es nuevo, cambió su número de postulantes o le falta la oferta publicada."""
+    a = bd.aviso(aviso["aviso_id"])
+    return not a or a["detalle_at"] is None or bd.necesita_csv(aviso["aviso_id"])[0]
+
+
 def procesar_aviso(driver, bd: BD, aviso: dict, args):
     log.info("── Aviso %s · %s", aviso["aviso_id"], aviso.get("titulo"))
     if args.solo_pdfs:      # solo PDFs: el nombre de cada PDF sale del perfil, sin CSV
@@ -303,7 +310,8 @@ def procesar_aviso(driver, bd: BD, aviso: dict, args):
         return
     bajo_csv = paso_csv(driver, bd, aviso, forzar=args.forzar)
     paso_detalle(driver, bd, aviso, forzar=args.forzar)
-    if not args.sin_ranking:
+    # En --rapido el ranking solo se recalcula si llegaron postulantes (los cambios de requisitos los pide la web)
+    if not args.sin_ranking and (not args.rapido or bajo_csv):
         paso_ranking_seguro(bd, aviso)
     if not args.sin_cvs:
         paso_cvs(driver, bd, aviso, max_cvs=args.max_cvs, solo_pendientes=not (bajo_csv or args.forzar),
@@ -314,6 +322,8 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Scraper de Bumeran para GTH")
     p.add_argument("--aviso", help="ID de un aviso concreto")
     p.add_argument("--solo-lista", action="store_true")
+    p.add_argument("--rapido", action="store_true",
+                   help="lee la lista y solo entra a los avisos nuevos o con postulantes nuevos (servidor de GTH, cada 5 min)")
     p.add_argument("--sin-cvs", action="store_true")
     p.add_argument("--solo-pdfs", action="store_true",
                    help="solo los CVs en PDF de cada aviso (sin CSV ni oferta); el nombre sale del perfil")
@@ -376,6 +386,9 @@ def main(argv=None):
             objetivo = [a for a in avisos if not args.aviso or a["aviso_id"] == args.aviso]
             if args.aviso and not objetivo:
                 raise SystemExit(f"El aviso {args.aviso} no está entre los avisos '{config.ESTADO_OBJETIVO}'")
+            if args.rapido:
+                objetivo = [a for a in objetivo if tiene_novedades(bd, a)]
+                log.info("Revisión rápida: %d avisos con novedades", len(objetivo))
             objetivo.sort(key=lambda a: a.get("publicado_el") or "", reverse=True)
             for i, aviso in enumerate(objetivo, 1):
                 log.info("[%d/%d]", i, len(objetivo))

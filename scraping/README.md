@@ -62,10 +62,26 @@ poner la ruta del chromedriver en la variable de entorno `CHROMEDRIVER`.
 Si seleccionas filas (Ctrl+clic), los botones 2-4 se aplican solo a esos avisos. *Detener* para al terminar
 el paso actual. Las filas amarillas tienen postulantes nuevos; las rojas, errores en PDFs.
 
-## Servidor de Multitest
+## Servidor de GTH (Multitest y recálculo de puntaje)
 
-«Enviar Multitest» (Avance de candidatos, en la web publicada o local) deja el pedido en Supabase (`multitest_envios`).
-Lo ejecuta esta laptop con `scraping\iniciar_servidor_multitest.bat` (o `python -m scraping.multitest_servidor`):
+Un solo servidor atiende los dos pedidos que la web deja en Supabase. Se enciende en esta laptop con
+`scraping\iniciar_servidor_gth.bat` (o `python -m scraping.multitest_servidor`, con el Python de `.venv`, que tiene e5).
+
+**Recalcular puntaje** («Requisitos y pesos» en el ranking) deja el pedido en `ranking_recalculos`. El servidor
+recalcula el ranking e5 del aviso con los requisitos activos y pesos de `gth_aviso_requisitos` (`ranking.py`): reutiliza
+la similitud de los requisitos que ya estaban y solo calcula con e5 los añadidos. El scraper diario usa esos mismos
+requisitos y pesos. Requiere la migración `supabase/migrations/20261024120000_ranking_recalculos.sql`.
+
+**Regla de prácticas** (`experiencia.py`): en los avisos de asistente, analista o coordinador, los requisitos «N años de
+experiencia» valen min(1, años equivalentes / N), contando la experiencia laboral 1, la práctica profesional 0.5 y la
+preprofesional (o «practicante» sin tipo) 0. Ese valor reemplaza la similitud e5 del requisito, dentro de su rango en el aviso.
+
+**Revisión de Bumeran cada 5 minutos**: el servidor corre `python -m scraping.run --rapido` en un proceso
+aparte, con la ventana de Chrome (sin ventana, Bumeran bloquea el acceso). Lee la lista de avisos y solo entra a los nuevos o con postulantes nuevos (CSV, oferta, ranking y CV en PDF).
+El detalle queda en `data\scraper.log`. Con `--sin-scraping` el servidor no revisa Bumeran.
+
+**Enviar Multitest** (Avance de candidatos, en la web publicada o local) deja el pedido en Supabase (`multitest_envios`).
+El servidor:
 agrega a los candidatos en Multitest con Playwright (`scripts/multitest-envio.mjs`), presiona Continuar → Enviar por
 proceso y confirma los envíos en el avance compartido, aunque la página ya esté cerrada. Cada 15 s marca su latido en
 `servidor_latido`; si pasan 90 s sin latido, la web muestra «Servidor apagado» y no deja enviar.

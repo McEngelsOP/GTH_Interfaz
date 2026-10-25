@@ -4,16 +4,18 @@ import type { JobPosting } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { supabase } from '../../services/supabase.ts';
 import {
-  agregarRequisito, alternarActivo, avisarPesosGuardados, avisoDeJob, cambiarPeso, cargarRequisitos, guardarRequisitos,
-  participacion, pesosValidos, requisitosDelJob, type RequisitoPeso,
+  agregarRequisito, alternarActivo, avisarRecalculado, avisoDeJob, cambiarPeso, cargarRequisitos, encolarRecalculo, esperarRecalculo,
+  guardarRequisitos, participacion, pesosValidos, requisitosDelJob, ultimoRecalculo, type EstadoRecalculo, type RequisitoPeso,
 } from '../../services/pesosRequisitos.ts';
+import { servidorEncendido } from '../../services/multitest.ts';
 import { Modal } from '../common/Modal.tsx';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
 
 interface Props { isOpen: boolean; onClose: () => void; job: JobPosting }
 
-/** Requisitos del aviso con un peso de 0 a 100 cada uno. Guardar y aplicar reordena el ranking con esos pesos. */
+/** Requisitos del aviso con un peso de 0 a 100 cada uno. «Recalcular puntaje» pide al servidor de la laptop de GTH
+ *  que recalcule el ranking con los requisitos y pesos guardados. */
 export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
   const { showToast } = useApp();
   const aviso = avisoDeJob(job);
@@ -25,6 +27,43 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [servidor, setServidor] = useState<'revisando' | 'encendido' | 'apagado'>('revisando');
+  const [recalculo, setRecalculo] = useState<EstadoRecalculo | null>(null);   // pendiente / en curso mientras se espera
+  const recalculando = recalculo === 'pendiente' || recalculo === 'en_curso';
+
+  const esperar = async (id: number) => {
+    if (!supabase) return;
+    setRecalculo('pendiente');
+    try {
+      const fin = await esperarRecalculo(supabase, id, setRecalculo);
+      if (fin.estado === 'ok') {
+        avisarRecalculado(aviso);
+        showToast(fin.mensaje || 'Puntaje recalculado.', 'success');
+      } else {
+        showToast(fin.mensaje || 'No se pudo recalcular el puntaje.', 'error');
+      }
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setRecalculo(null);
+    }
+  };
+
+  // Servidor de la laptop de GTH (mismo latido que Multitest) y, si hay un recálculo del aviso en marcha, su avance.
+  useEffect(() => {
+    if (!isOpen || !supabase) return;
+    const client = supabase;
+    let vigente = true;
+    const revisar = () => servidorEncendido(client).then(
+      (on) => { if (vigente) setServidor(on ? 'encendido' : 'apagado'); },
+      () => { if (vigente) setServidor('apagado'); });
+    revisar();
+    const timer = window.setInterval(revisar, 30_000);
+    ultimoRecalculo(client, aviso).then((r) => {
+      if (vigente && r && (r.estado === 'pendiente' || r.estado === 'en_curso') && !recalculando) void esperar(r.id);
+    }).catch(() => undefined);
+    return () => { vigente = false; window.clearInterval(timer); };
+  }, [isOpen, aviso]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -42,10 +81,8 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
   }, [isOpen, aviso]);
 
   const cambios = useMemo(() => quitados.length > 0 || JSON.stringify(items) !== JSON.stringify(inicial), [items, inicial, quitados]);
-  // Los añadidos aún no tienen similitud calculada: no cuentan en el puntaje hasta recalcular.
-  const partes = participacion(items.map((r) => (r.origen === 'manual' ? { ...r, activo: false } : r)));
+  const partes = participacion(items);
   const validos = pesosValidos(items);
-  const manualesActivos = items.filter((r) => r.origen === 'manual' && r.activo && r.peso > 0).length;
 
   const añadir = () => {
     const lista = agregarRequisito(items, nuevo);
@@ -74,13 +111,24 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
     }
   };
 
-  // Reordena el ranking con los pesos ya guardados; los añadidos esperan a que el scraper calcule su similitud.
-  const recalcular = () => {
-    avisarPesosGuardados(aviso);
-    showToast(manualesActivos
-      ? 'Puntaje recalculado. Los requisitos añadidos contarán cuando se recalcule el ranking completo.'
-      : 'Puntaje recalculado con los pesos guardados.', 'success');
+  // El servidor recalcula con los pesos guardados: calcula con e5 los requisitos añadidos y reordena el ranking.
+  const recalcular = async () => {
+    if (!supabase || recalculando) return;
+    try {
+      if (!(await servidorEncendido(supabase))) {
+        setServidor('apagado');
+        showToast('Servidor apagado: enciende la laptop de GTH con el servidor y vuelve a intentarlo.', 'error');
+        return;
+      }
+      await esperar(await encolarRecalculo(supabase, aviso));
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    }
   };
+  const tituloRecalcular = cambios ? 'Guarda los cambios antes de recalcular'
+    : enBase.size === 0 ? 'Aún no hay pesos guardados para este aviso'
+    : servidor === 'apagado' ? 'Servidor apagado: el recálculo corre en la laptop de GTH'
+    : 'Recalcular el ranking con los requisitos y pesos guardados';
 
   return (
     <Modal
@@ -92,14 +140,14 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
       footer={
         <>
           <Button variant="secondary" icon={<Save size={15} />} onClick={guardar}
-            disabled={!supabase || cargando || guardando || !cambios || !validos}
+            disabled={!supabase || cargando || guardando || recalculando || !cambios || !validos}
             title={validos ? undefined : 'Debe haber al menos un requisito activo con peso mayor que 0'}>
             {guardando ? 'Guardando…' : 'Guardar'}
           </Button>
           <Button variant="primary" icon={<RefreshCw size={15} />} onClick={recalcular}
-            disabled={!supabase || cargando || guardando || cambios || enBase.size === 0}
-            title={cambios ? 'Guarda los cambios antes de recalcular' : enBase.size === 0 ? 'Aún no hay pesos guardados para este aviso' : 'Reordenar el ranking con los pesos guardados'}>
-            Recalcular puntaje
+            disabled={!supabase || cargando || guardando || cambios || enBase.size === 0 || servidor !== 'encendido' || recalculando}
+            title={tituloRecalcular}>
+            {recalculo === 'pendiente' ? 'En cola…' : recalculo === 'en_curso' ? 'Calculando…' : 'Recalcular puntaje'}
           </Button>
         </>
       }
@@ -112,10 +160,14 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
           <Info size={16} style={{ flexShrink: 0, marginTop: '0.1rem', color: 'var(--text-muted)' }} />
           <span>
             Cada requisito tiene un peso de 0 a 100: cuanto más alto, más importa en el puntaje. Añadir, quitar o desactivar
-            uno no cambia los demás. <strong>Guardar</strong> deja los pesos para todo el equipo; <strong>Recalcular puntaje</strong> reordena
-            el ranking de este aviso con ellos.
+            uno no cambia los demás. <strong>Guardar</strong> deja los pesos para todo el equipo; <strong>Recalcular puntaje</strong> recalcula
+            el ranking de este aviso con ellos en el servidor de la laptop de GTH.
           </span>
         </div>
+
+        {supabase && servidor === 'apagado' && <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
+          Servidor apagado: el recálculo corre en la laptop de GTH y no está prendida.
+        </p>}
 
         {!supabase && <p role="alert" style={{ color: 'var(--status-failed-text)', fontSize: '0.84rem' }}>
           Esta instalación no está conectada a Supabase: los pesos no se pueden guardar.
@@ -164,7 +216,8 @@ export function PesosRequisitosModal({ isOpen, onClose, job }: Props) {
                   style={{ width: '100%', accentColor: 'var(--primary-red)', cursor: r.activo ? 'pointer' : 'default' }} />
                 {r.activo && (
                   <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {r.origen === 'manual' ? 'Contará en el puntaje cuando se recalcule el ranking' : `Representa el ${partes[i]}% del puntaje`}
+                    Representa el {partes[i]}% del puntaje
+                    {r.origen === 'manual' && !enBase.has(r.etiqueta) && ' (cuenta desde que se guarde y se recalcule)'}
                   </small>
                 )}
               </li>
