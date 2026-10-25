@@ -8,6 +8,9 @@
     },
     "api/evaluate.ts": {
       "maxDuration": 60
+    },
+    "api/correo.ts": {
+      "maxDuration": 60
     }
   }
 }

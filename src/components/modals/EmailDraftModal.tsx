@@ -4,7 +4,11 @@ import { Button } from '../common/Button.tsx';
 import { Input } from '../common/Input.tsx';
 import { Select } from '../common/Select.tsx';
 import { Candidate, Application, JobPosting } from '../../types/index.ts';
-import { Mail, Eye, Info } from 'lucide-react';
+import { Mail, Eye, Info, Send } from 'lucide-react';
+import { useApp } from '../../context/AppContext.tsx';
+import { enviarCorreos } from '../../services/correo.ts';
+import { supabase } from '../../services/supabase.ts';
+import { workflowCandidateId, workflowJobId } from '../../services/sharedWorkflow.ts';
 
 interface EmailDraftModalProps {
   isOpen: boolean;
@@ -39,6 +43,8 @@ export function EmailDraftModal({
   const [body, setBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const { showToast } = useApp();
 
   // Cargar texto según plantilla e idioma
   useEffect(() => {
@@ -129,11 +135,28 @@ export function EmailDraftModal({
   const previewSubject = subject.replace(/{nombre}/g, candidate.name).replace(/{puesto}/g, job.title);
   const previewBody = body.replace(/{nombre}/g, candidate.name).replace(/{puesto}/g, job.title);
 
+  // Envío real desde la cuenta de GTH (api/correo.ts); las respuestas llegan a esa misma cuenta.
+  const handleSend = async () => {
+    const destino = to.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)) { setEmailError('Ingrese un correo electrónico válido'); return; }
+    if (!supabase || !window.confirm(`Se enviará este correo a ${destino} desde la cuenta de GTH. ¿Continuar?`)) return;
+    setEmailError(''); setEnviando(true);
+    try {
+      const [resultado] = await enviarCorreos(supabase, [{ destinatario: destino, asunto: previewSubject, cuerpo: previewBody, tipo: 'perfil',
+        aviso_id: workflowJobId(job), id_postulante: workflowCandidateId(candidate) }]);
+      if (!resultado?.ok) { setEmailError(resultado?.error || 'No se pudo enviar el correo.'); return; }
+      showToast(`Correo enviado a ${destino}.`, 'success');
+      onClose();
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Preparar borrador de correo"
+      title="Correo al postulante"
       subtitle={`Candidato: ${candidate.name} · Puesto: ${job.code}`}
       maxWidth="620px"
       footer={
@@ -141,8 +164,13 @@ export function EmailDraftModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" icon={<Mail size={16} />} onClick={handleSave} disabled={!subject.trim() || !body.trim()}>
+          <Button variant="secondary" icon={<Mail size={16} />} onClick={handleSave} disabled={enviando || !subject.trim() || !body.trim()}>
             Guardar borrador
+          </Button>
+          <Button variant="primary" icon={<Send size={16} />} onClick={() => void handleSend()}
+            disabled={!supabase || enviando || !to.trim() || !!cc.trim() || !subject.trim() || !body.trim()}
+            title={cc.trim() ? 'El envío directo va solo al destinatario: deja vacío el campo CC' : 'Enviar desde la cuenta de GTH'}>
+            {enviando ? 'Enviando…' : 'Enviar'}
           </Button>
         </>
       }
@@ -164,8 +192,8 @@ export function EmailDraftModal({
         >
           <Info size={17} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
           <div>
-            <strong>Aviso de integración local:</strong> Este mensaje se guardará como borrador local en la
-            actividad del candidato. La conexión directa con Gmail para envío real se habilitará posteriormente.
+            <strong>Enviar</strong> manda el correo desde la cuenta de GTH y las respuestas llegan a esa cuenta.
+            <strong> Guardar borrador</strong> solo lo deja en la actividad del candidato, sin enviarlo.
           </div>
         </div>
 

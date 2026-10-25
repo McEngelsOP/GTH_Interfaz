@@ -4,8 +4,9 @@ import { useApp } from '../../context/AppContext.tsx';
 import { Modal } from '../common/Modal.tsx';
 import { Button } from '../common/Button.tsx';
 import type { Application, Candidate, JobPosting } from '../../types/index.ts';
-import { finishCommunication, reserveCommunication, workflowCandidateId, type SharedAction, type WorkflowAction } from '../../services/sharedWorkflow.ts';
-import { cargarCuentaEmisora, cuentaEmisoraValida, gmailComposeUrl, guardarCuentaEmisora } from '../../services/emailComposition.ts';
+import { finishCommunication, reserveCommunication, workflowCandidateId, workflowJobId, type SharedAction, type WorkflowAction } from '../../services/sharedWorkflow.ts';
+import { enviarCorreos } from '../../services/correo.ts';
+import { supabase } from '../../services/supabase.ts';
 import { correoVigente, whatsappNumber } from '../../services/candidateContact.ts';
 
 interface Props {
@@ -29,7 +30,6 @@ export function WorkflowCommunicationModal({ action, job, applications, onClose 
   const busyRef = useRef(false);
   const [error, setError] = useState('');
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const [cuenta, setCuenta] = useState(cargarCuentaEmisora);
   const candidates = new Map(appState.candidates.map(c => [c.id, c]));
   const people = applications.map(app => candidates.get(app.candidateId)).filter((c): c is Candidate => !!c);
   const actions = new Map(workflow.actions.filter(a => a.accion === action).map(a => [a.id_postulante, a]));
@@ -83,12 +83,24 @@ export function WorkflowCommunicationModal({ action, job, applications, onClose 
     } })));
     setSelected(new Set());
   });
+  // Correo: lo envía el servidor desde la cuenta de GTH, uno por postulante; confirma a quienes lo recibieron y libera
+  // a los demás para reintentar.
+  const send = (group: SharedAction[]) => run(async () => {
+    if (!supabase) throw new Error('Esta instalación no está conectada a Supabase.');
+    if (!window.confirm(`Se enviarán ${group.length} correo${group.length === 1 ? '' : 's'} desde la cuenta de GTH. ¿Continuar?`)) return;
+    const resultados = await enviarCorreos(supabase, group.map(a => ({ destinatario: a.detalle.destinatario, asunto: a.detalle.asunto,
+      cuerpo: a.detalle.mensaje, tipo: action === 'entrevista' ? 'entrevista' : 'agradecimiento', aviso_id: workflowJobId(job), id_postulante: a.id_postulante })));
+    const ok = group.filter((_, i) => resultados[i]?.ok).map(a => a.id_postulante);
+    const fallidos = group.filter((_, i) => !resultados[i]?.ok);
+    if (ok.length) await finishCommunication(job, action, ok, false);
+    if (fallidos.length) {
+      await finishCommunication(job, action, fallidos.map(a => a.id_postulante), true);
+      throw new Error(`${ok.length} enviado${ok.length === 1 ? '' : 's'}; ${fallidos.length} sin enviar (${resultados.find(r => !r.ok)?.error}). Quedaron libres para reintentar.`);
+    }
+  });
   const open = (key: string, group: SharedAction[]) => {
     const detail = group[0].detalle;
-    if (detail.canal === 'correo' && !cuentaEmisoraValida(cuenta)) { setError('Indica la cuenta emisora (el correo desde el que se enviará).'); return; }
-    if (detail.canal === 'correo') guardarCuentaEmisora(cuenta);
-    const url = detail.canal === 'correo' ? gmailComposeUrl([...new Set(group.map(a => a.detalle.destinatario))], detail.asunto, detail.mensaje, cuenta)
-      : `https://wa.me/${detail.destinatario}?text=${encodeURIComponent(detail.mensaje)}`;
+    const url = `https://wa.me/${detail.destinatario}?text=${encodeURIComponent(detail.mensaje)}`;
     // Síncrono desde el clic: evita bloqueos de ventanas tras esperar la base de datos.
     const popup = window.open(url, '_blank');
     if (!popup) { setError('Permite las ventanas emergentes para abrir el borrador. No se ha confirmado ningún envío.'); return; }
@@ -103,11 +115,9 @@ export function WorkflowCommunicationModal({ action, job, applications, onClose 
   return <Modal isOpen onClose={() => { if (!busy) onClose(); }} title={titles[action]} subtitle={job.title} maxWidth="780px"
     footer={<Button variant="ghost" disabled={busy} onClick={onClose}>Cerrar</Button>}>
     <div className="workflow-compose">
-      <p className="workflow-help">Preparar reserva los destinatarios para ti. Revisa y envía desde {channel === 'correo' ? 'Gmail' : 'WhatsApp'}; después confirma el envío aquí. Los demás colaboradores verán el bloqueo.</p>
-      {(channel === 'correo' || pending.some(a => a.detalle.canal === 'correo')) && <div className="workflow-form-grid">
-        <label>Cuenta emisora<input type="email" value={cuenta} onChange={e => setCuenta(e.target.value)} placeholder="correo@esan.edu.pe" maxLength={200} autoComplete="email" /></label>
-        <p className="workflow-help">Gmail abrirá el borrador en esta cuenta; debe tener la sesión iniciada en este navegador. Se recuerda para los próximos envíos.</p>
-      </div>}
+      <p className="workflow-help">{channel === 'correo'
+        ? 'Preparar reserva los destinatarios para ti; luego revisa el mensaje y presiona «Enviar correo». Sale desde la cuenta de GTH, un correo por postulante, y las respuestas llegan a esa cuenta. Los demás colaboradores verán el bloqueo.'
+        : 'Preparar reserva los destinatarios para ti. Revisa y envía desde WhatsApp; después confirma el envío aquí. Los demás colaboradores verán el bloqueo.'}</p>
       {!workflow.ready && <p role="alert">{workflow.error || 'Conecta y activa el avance compartido para preparar comunicaciones.'}</p>}
       {error && <p role="alert">{error}</p>}
       {pending.length > 0 && <section className="workflow-prepared" aria-label="Comunicaciones preparadas">
@@ -117,8 +127,12 @@ export function WorkflowCommunicationModal({ action, job, applications, onClose 
           <p className="workflow-help">{group.map(a => people.find(c => workflowCandidateId(c) === a.id_postulante)?.name || a.detalle.destinatario).join(', ')}</p>
           <details><summary>Revisar mensaje preparado</summary><p className="workflow-message">{group[0].detalle.mensaje}</p></details>
           <div className="workflow-buttons">
-            <Button size="sm" disabled={busy || !workflow.ready} icon={<Mail size={15} />} onClick={() => open(key, group)}>Abrir {group[0].detalle.canal === 'correo' ? 'Gmail' : 'WhatsApp'}</Button>
-            <Button size="sm" variant="outline" disabled={busy || !workflow.ready || !opened.has(key)} icon={<Check size={15} />} onClick={() => void finish(group, false)}>Confirmar envío realizado ({group.length})</Button>
+            {group[0].detalle.canal === 'correo'
+              ? <Button size="sm" disabled={busy || !workflow.ready} icon={<Mail size={15} />} onClick={() => void send(group)}>{busy ? 'Enviando…' : `Enviar correo (${group.length})`}</Button>
+              : <>
+                <Button size="sm" disabled={busy || !workflow.ready} icon={<Mail size={15} />} onClick={() => open(key, group)}>Abrir WhatsApp</Button>
+                <Button size="sm" variant="outline" disabled={busy || !workflow.ready || !opened.has(key)} icon={<Check size={15} />} onClick={() => void finish(group, false)}>Confirmar envío realizado ({group.length})</Button>
+              </>}
             <Button size="sm" variant="ghost" disabled={busy || !workflow.ready} icon={<X size={15} />} onClick={() => void finish(group, true)}>Liberar preparación</Button>
           </div>
         </div>)}
@@ -154,7 +168,7 @@ export function WorkflowCommunicationModal({ action, job, applications, onClose 
       <Button disabled={busy || !workflow.ready || !chosen.length || !subject.trim() || !message.trim()} icon={action === 'entrevista' ? <Calendar size={16} /> : <Mail size={16} />} onClick={() => void prepare()}>
         {busy ? 'Guardando…' : `Preparar ${channel === 'correo' ? 'correo' : 'WhatsApp'} (${chosen.length})`}
       </Button>
-      {chosen.length > 40 && <p role="status">Se prepararán tandas de hasta 40 destinatarios, con correos en CCO.</p>}
+      {chosen.length > 40 && <p role="status">Se prepararán tandas de hasta 40 destinatarios; cada uno recibe su propio correo.</p>}
     </div>
   </Modal>;
 }

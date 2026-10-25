@@ -2,16 +2,18 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// En localhost, /api/usuarios corre la misma función que en Vercel (api/usuarios.ts) con las claves de .env.local.
+// En localhost, /api/usuarios y /api/correo corren la misma función que en Vercel (api/*.ts) con las claves de .env.local.
 function apiUsuariosLocal(): Plugin {
   return {
     name: 'api-usuarios-local',
     configureServer(server) {
       Object.assign(process.env, loadEnv(server.config.mode, process.cwd(), ''));
-      server.middlewares.use('/api/usuarios', async (req, res) => {
-        const { default: handler } = await server.ssrLoadModule('/api/usuarios.ts');
-        await handler(req, res);
-      });
+      for (const ruta of ['/api/usuarios', '/api/correo']) {
+        server.middlewares.use(ruta, async (req, res) => {
+          const { default: handler } = await server.ssrLoadModule(`${ruta}.ts`);
+          await handler(req, res);
+        });
+      }
     },
   };
 }
