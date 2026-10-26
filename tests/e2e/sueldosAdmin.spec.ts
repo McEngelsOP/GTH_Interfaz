@@ -143,6 +143,14 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
   const lecturasAntes = ctx.lecturas();
   await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Criterios y pesos', exact: true });
+  await expect(dialog.getByRole('list', { name: 'Criterios de clasificación' }).getByRole('listitem')).toHaveText([
+    'Experiencia laboral', 'Alta rotación laboral', 'Rubro o sector de experiencia',
+    'Análisis de sobrecalificación', 'Categorización de empresas por escala y complejidad',
+  ]);
+  await expect(dialog.getByText('Pesos de los requisitos', { exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Ver pesos', exact: true })).toHaveCount(0);
+  await expect(dialog.locator('#modo-sueldo-ayuda')).toHaveCount(0);
+  await expect(dialog.getByLabel('Indicadores salariales')).toHaveCount(0);
   await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('estricto');
   await dialog.getByLabel('Sueldo', { exact: true }).selectOption('manejable');
   await expect(sueldoAna.getByRole('img', { name: 'Pretensión superior al presupuesto', exact: true })).toBeVisible();

@@ -181,8 +181,7 @@ export function ActiveJobBanner({ aside, conDetalle = false, sueldo, onSueldo }:
       )}
       {conDetalle && <PesosRequisitosModal isOpen={pesosAbierto} onClose={() => setPesosAbierto(false)} job={activeJob} />}
       {conDetalle && criteriosAbierto && sueldo && <CriteriosPesosModal key={activeJob.id} job={activeJob} sueldo={sueldo}
-        onClose={() => { if (!sueldo.guardando) setCriteriosAbierto(false); }}
-        onRequisitos={() => { setCriteriosAbierto(false); setPesosAbierto(true); }} />}
+        onClose={() => { if (!sueldo.guardando) setCriteriosAbierto(false); }} />}
     </div>
   );
 }

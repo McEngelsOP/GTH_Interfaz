@@ -19,9 +19,10 @@
 .criterios-sueldo-form { display: flex; flex-direction: column; gap: 1.5rem; }
 .criterios-sueldo-form p { font-size: .8125rem; line-height: 1.5; color: var(--text-secondary); }
 .criterios-sueldo-form .sueldo-error, .sueldo-error p { color: var(--status-failed-text); }
-.criterios-sueldo-requisitos { display: flex; gap: 1rem; justify-content: space-between; align-items: center; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); }
-.criterios-sueldo-requisitos p { margin-top: .35rem; }
-.sueldo-leyenda { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.criterios-clasificacion { list-style: none; padding: 0; margin: 0; }
+.criterios-clasificacion li { padding: 1rem 0; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); font-size: .875rem; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.criterios-clasificacion li:first-child { padding-top: 0; }
+.criterio-sueldo-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 250px); gap: 1rem; align-items: center; }
 .sueldo-error { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; font-size: .8125rem; line-height: 1.5; }
 .candidate-salary-button { max-width: 185px; text-align: left; white-space: normal; }
 .candidate-salary-button .sueldo-indicador { font-size: .75rem; }
@@ -29,8 +30,8 @@
 .comparison-salary:hover { background: var(--bg-base); }
 .comparison-salary .sueldo-indicador { font-size: .75rem; }
 @media (max-width: 480px) {
-  .sueldo-importes, .sueldo-leyenda, .sueldo-oferta-form { grid-template-columns: minmax(0, 1fr); }
-  .criterios-sueldo-requisitos { flex-direction: column; align-items: flex-start; }
+  .sueldo-importes, .sueldo-oferta-form, .criterio-sueldo-fila { grid-template-columns: minmax(0, 1fr); }
+  .criterio-sueldo-fila { gap: .5rem; }
   .sueldo-oferta-form > button { width: 100%; min-height: 44px; }
   .ranking-criteria-actions > button, .candidate-salary-button { min-height: 44px !important; }
 }
