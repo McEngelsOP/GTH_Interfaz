@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyRound, LogIn, LogOut, Lock, Mail, RefreshCw } from 'lucide-react';
 import { Button } from '../components/common/Button.tsx';
 import { Input } from '../components/common/Input.tsx';
+import { AuthScreen } from '../components/auth/AuthScreen.tsx';
 import { supabase } from '../services/supabase.ts';
 
 // Solo aparece si Supabase está configurado: los avisos y postulantes de Bumeran son datos personales
@@ -40,24 +41,21 @@ export function LoginView() {
 
 function Tarjeta({ etiqueta, onSubmit, children }: { etiqueta: string; onSubmit?: (event: React.FormEvent) => void; children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1.5rem', backgroundColor: 'var(--bg-base)' }}>
-      <form onSubmit={onSubmit || ((e) => e.preventDefault())} aria-label={etiqueta} style={{ width: '100%', maxWidth: '380px',
-        backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)',
-        boxShadow: 'var(--shadow-sm)', padding: '1.75rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <AuthScreen etiqueta={etiqueta}>
+      <form onSubmit={onSubmit || ((e) => e.preventDefault())} aria-label={etiqueta} className="auth-form">
         {children}
       </form>
-    </div>
+    </AuthScreen>
   );
 }
 
 function Titulo({ texto }: { texto: string }) {
   return (
     <div>
-      <h1 style={{ fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
+      <h1 className="auth-title">
         TalentAI <span style={{ color: 'var(--primary-red)' }}>· ESAN</span>
       </h1>
-      <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>{texto}</p>
+      <p className="auth-lead">{texto}</p>
     </div>
   );
 }
