@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS ranking_embeddings (   -- ranking e5 calculado al baj
     explicacion       TEXT,
     explicacion_bruta TEXT,
     calculado_at      TEXT,
+    ajustes           TEXT,             -- regla de prácticas: similitud por experiencia y años (ranking.py)
     PRIMARY KEY (aviso_id, clave)
 );
 
@@ -132,7 +133,8 @@ LEFT JOIN cvs c
 
 # Columnas añadidas después de la primera versión (BD SQLite ya creadas)
 _COLUMNAS_NUEVAS_SQLITE = [("cvs", "drive_id"), ("cvs", "drive_url"), ("postulaciones", "id_postulante"),
-                           ("avisos", "criterios"), ("avisos", "criterios_version"), ("avisos", "ranking_at")]
+                           ("avisos", "criterios"), ("avisos", "criterios_version"), ("avisos", "ranking_at"),
+                           ("ranking_embeddings", "ajustes")]
 
 
 def ahora() -> str:
@@ -353,10 +355,10 @@ class BD:
 
     def ranking_guardado(self, aviso_id, version) -> dict:
         """Filas ya calculadas con esta versión de criterios, por clave (con sus valores originales)."""
-        filas = self.consultar("SELECT clave, backend, score_bruto, req_sims_bruto, req_fragmentos, explicacion_bruta "
+        filas = self.consultar("SELECT clave, backend, score_bruto, req_sims_bruto, req_fragmentos, explicacion_bruta, ajustes "
                                "FROM ranking_embeddings WHERE aviso_id=? AND criterios_version=?", (aviso_id, version))
         for f in filas:
-            for k in ("req_sims_bruto", "req_fragmentos"):
+            for k in ("req_sims_bruto", "req_fragmentos", "ajustes"):
                 if isinstance(f[k], str):
                     f[k] = json.loads(f[k])
         return {f["clave"]: f for f in filas}
@@ -366,14 +368,15 @@ class BD:
         ya no están en el último CSV."""
         t = ahora()
         cols = ["aviso_id", "clave", "id_postulante", "criterios_version", "backend", "ranking", "score", "score_bruto",
-                "req_sims", "req_sims_bruto", "req_fragmentos", "explicacion", "explicacion_bruta", "calculado_at"]
+                "req_sims", "req_sims_bruto", "req_fragmentos", "explicacion", "explicacion_bruta", "calculado_at", "ajustes"]
         sql = self._sql(f"INSERT INTO ranking_embeddings({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))}) "
                         f"ON CONFLICT(aviso_id, clave) DO UPDATE SET "
                         + ", ".join(f"{c}=excluded.{c}" for c in cols[2:]))
         lote = [(aviso_id, f["clave"], f.get("id_postulante"), version, f["backend"], f["ranking"], f["score"],
                  f["score_bruto"], json.dumps(f["req_sims"]), json.dumps(f["req_sims_bruto"]),
                  json.dumps(f["req_fragmentos"], ensure_ascii=False), f["explicacion"], f["explicacion_bruta"],
-                 f.get("calculado_at") or t) for f in filas]
+                 f.get("calculado_at") or t, json.dumps(f["ajustes"], ensure_ascii=False) if f.get("ajustes") else None)
+                for f in filas]
         if lote:
             self.cx.cursor().executemany(sql, lote)
         self.cx.execute(self._sql("DELETE FROM ranking_embeddings WHERE aviso_id=? AND (criterios_version<>? OR clave NOT IN "

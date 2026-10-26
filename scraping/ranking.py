@@ -90,30 +90,72 @@ def criterios_efectivos(bd, a: dict):
     return criterios, f"Bumeran {_hash_corto(clave)}"
 
 
-def aplicar_regla_practicas(filas, datos, titulo, etiquetas, pesos):
-    """Reemplaza la similitud e5 de los requisitos «N años de experiencia» por los años equivalentes (experiencia.py),
-    llevados al rango de similitud de ese requisito en el aviso para que pese igual que los demás. Deja en cada fila
-    "_sims" (para ordenar y reescalar) y recalcula score_bruto; req_sims_bruto conserva la similitud e5 original."""
+def similitud_experiencias(emb, postulantes, requisito, cache):
+    """{clave: {índice Exp[i]: similitud e5 de esa experiencia con el requisito}}. Reutiliza lo guardado en `cache`
+    (columna ajustes) y solo calcula con e5 a los postulantes que faltan, todos en un lote."""
+    from matching.embeddings.matching_llm import chunks_candidato
+    out, textos, donde = {}, [], []
+    for p in postulantes:
+        if p["clave"] in cache:
+            out[p["clave"]] = cache[p["clave"]]
+            continue
+        out[p["clave"]] = {}
+        for nombre, texto in chunks_candidato(_campos(p["datos_json"])):
+            if nombre.startswith("Exp["):
+                textos.append(texto)
+                donde.append((p["clave"], int(nombre[4:nombre.index("]")])))
+    if textos:
+        sims = (emb.encode([requisito], es_query=True) @ emb.encode(textos, es_query=False).T)[0]
+        for (clave, indice), s in zip(donde, sims):
+            out[clave][indice] = round(float(s), 4)
+    return out
+
+
+def aplicar_regla_practicas(filas, datos, titulo, etiquetas, pesos, sims_exp=None):
+    """Reemplaza la similitud e5 de los requisitos «N años de experiencia» por los años equivalentes de experiencia
+    relacionada (experiencia.py), llevados al rango de similitud de ese requisito en el aviso para que pese igual que
+    los demás. Una experiencia es relacionada si su similitud con el requisito (sims_exp[k][clave][i]) está en la mitad
+    alta de las del aviso; sin sims_exp cuentan todas. Deja en cada fila "_sims" (para ordenar y reescalar) y "ajustes"
+    (similitudes por experiencia y años, para reutilizarlos), y recalcula score_bruto; req_sims_bruto conserva e5."""
     reglas = experiencia.requisitos_de_anios(titulo, etiquetas)
     if not reglas:
         return
     validas = [f for f in filas if f["explicacion_bruta"] != SIN_INFORMACION and f["req_sims_bruto"]]
-    rangos = {}
+    rangos, cortes = {}, {}
     for k in reglas:
         valores = [f["req_sims_bruto"][k] for f in validas if f["req_sims_bruto"][k] is not None]
         rangos[k] = (min(valores), max(valores)) if valores else (0.0, 1.0)
+        if sims_exp and k in sims_exp:
+            todas = sorted(s for d in sims_exp[k].values() for s in d.values())
+            cortes[k] = todas[len(todas) // 2] if todas else None   # mediana de las experiencias del aviso
     for f in validas:
         sims, partes = list(f["req_sims_bruto"]), f["explicacion_bruta"].split(" | ")
         partes += [""] * (len(etiquetas) - len(partes))
-        total, laboral, practica = experiencia.anios_equivalentes(datos.get(f["clave"]))
+        ajustes = {}
         for k, n in reglas.items():
+            propias = (sims_exp or {}).get(k, {}).get(f["clave"])
+            relacionadas = None if k not in cortes else {i for i, s in (propias or {}).items() if s >= cortes[k]}
+            total, laboral, practica = experiencia.anios_equivalentes(datos.get(f["clave"]), relacionadas=relacionadas)
             v = min(1.0, total / n)
             lo, hi = rangos[k]
             sims[k] = round(lo + v * (hi - lo), 4)
             partes[k] = f"[{etiquetas[k][:40]}…] -> {experiencia.describir(total, laboral, practica)} ({v:.2f})"
+            ajustes[etiquetas[k]] = {"experiencias": {str(i): s for i, s in (propias or {}).items()},
+                                     "anios": round(total, 2), "laborales": round(laboral, 2), "practica": round(practica, 2)}
         f["_sims"] = sims
+        f["ajustes"] = {"experiencia": ajustes}
         f["explicacion_bruta"] = " | ".join(partes)
         f["score_bruto"] = round(sum(w * (s or 0.0) for w, s in zip(pesos, sims)) / sum(pesos), 4)
+
+
+def cache_experiencias(filas, etiqueta):
+    """Similitudes por experiencia ya guardadas en la columna ajustes para ese requisito: {clave: {índice: sim}}."""
+    out = {}
+    for clave, f in filas.items():
+        guardado = ((_json(f.get("ajustes")) or {}).get("experiencia") or {}).get(etiqueta)
+        if guardado and "experiencias" in guardado:
+            out[clave] = {int(i): s for i, s in guardado["experiencias"].items()}
+    return out
 
 
 def _json(v):
@@ -176,12 +218,12 @@ def paso_ranking(bd, aviso: dict, forzar=False):
         return 0
 
     # Similitud por requisito con los criterios anteriores (e5), para no recalcular los requisitos que siguen.
-    anterior = {}
+    anterior, filas_previas = {}, {}
     previa = a.get("criterios_version")
     if nuevos and not forzar and emb.backend == "e5" and previa and previa != version:
         previas = [c["label"] for c in _json(a.get("criterios")) or []]
-        anterior = {k: (f["explicacion_bruta"] == SIN_INFORMACION, _por_requisito(f, previas))
-                    for k, f in bd.ranking_guardado(aviso_id, previa).items() if f.get("backend") == "e5"}
+        filas_previas = {k: f for k, f in bd.ranking_guardado(aviso_id, previa).items() if f.get("backend") == "e5"}
+        anterior = {k: (f["explicacion_bruta"] == SIN_INFORMACION, _por_requisito(f, previas)) for k, f in filas_previas.items()}
 
     calculado, grupos = {}, {}
     for p in nuevos:
@@ -227,7 +269,13 @@ def paso_ranking(bd, aviso: dict, forzar=False):
 
     filas = [{"clave": p["clave"], "id_postulante": p["id_postulante"],
               **(calculado.get(p["clave"]) or guardado[p["clave"]])} for p in postulantes]
-    aplicar_regla_practicas(filas, {p["clave"]: p["datos_json"] for p in postulantes}, a["titulo"], etiquetas, pesos)
+    # Regla de prácticas: similitud de cada experiencia con los requisitos de años (guardada en ajustes para reutilizarla)
+    sims_exp = None
+    if emb.backend == "e5":
+        previos = {**filas_previas, **guardado}
+        sims_exp = {k: similitud_experiencias(emb, postulantes, etiquetas[k], cache_experiencias(previos, etiquetas[k]))
+                    for k in experiencia.requisitos_de_anios(a["titulo"], etiquetas)}
+    aplicar_regla_practicas(filas, {p["clave"]: p["datos_json"] for p in postulantes}, a["titulo"], etiquetas, pesos, sims_exp)
     for f in filas:
         if "_sims" in f:
             f["req_fragmentos"] = _fragmentos(f["explicacion_bruta"], n)

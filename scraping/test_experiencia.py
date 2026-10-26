@@ -62,7 +62,29 @@ class TestExperiencia(unittest.TestCase):
         self.assertEqual(filas[1]["_sims"], [0.8, 0.7])    # piso
         self.assertEqual(filas[1]["req_sims_bruto"], [0.8, 0.9])   # la similitud e5 se conserva
         self.assertGreater(filas[0]["score_bruto"], filas[1]["score_bruto"])
-        self.assertIn("2.0 años de experiencia equivalente", filas[0]["explicacion_bruta"])
+        self.assertIn("2.0 años de experiencia relacionada equivalente", filas[0]["explicacion_bruta"])
+        self.assertEqual(filas[0]["ajustes"]["experiencia"]["2 años de experiencia"]["anios"], 2.0)
+
+    def test_solo_cuenta_experiencia_relacionada(self):
+        datos = {**exp(1, "Analista de cobranzas", "2022-10-01", "2024-09-30"),      # 2 años, relacionada
+                 **exp(2, "Mesero", "2024-10-01", "2026-09-30")}                    # 2 años, no relacionada
+        self.assertAlmostEqual(ex.anios_equivalentes(datos, HOY)[0], 4.0)
+        self.assertAlmostEqual(ex.anios_equivalentes(datos, HOY, relacionadas={1})[0], 2.0)
+        self.assertEqual(ex.anios_equivalentes(datos, HOY, relacionadas=set())[0], 0)
+
+    def test_regla_con_similitud_por_experiencia(self):
+        etiquetas = ["Excel", "3 años de experiencia en cobranzas"]
+        filas = [{"clave": c, "req_sims_bruto": [0.8, s], "score_bruto": 0.0,
+                  "explicacion_bruta": "[Excel…] -> Exp[1] A (0.80) | [3 años…] -> Exp[1] A (0.70)"} for c, s in (("P1", 0.7), ("P2", 0.9))]
+        datos = {"P1": {**exp(1, "Analista de cobranzas", "2020-10-01", "2023-09-30"), **exp(2, "Mesero", "2023-10-01", "2026-09-30")},
+                 "P2": {**exp(1, "Mesero", "2017-10-01", "2026-09-30")}}
+        # P1: la experiencia de cobranzas es relacionada (similitud alta); P2 solo tiene experiencia no relacionada
+        sims_exp = {1: {"P1": {1: 0.85, 2: 0.70}, "P2": {1: 0.60}}}
+        ranking.aplicar_regla_practicas(filas, datos, "Analista de cobranzas", etiquetas, [1, 1], sims_exp)
+        self.assertEqual(filas[0]["_sims"][1], 0.9)    # 3 años relacionados: cumple
+        self.assertEqual(filas[1]["_sims"][1], 0.7)    # 9 años, pero ninguno relacionado
+        self.assertEqual(filas[0]["ajustes"]["experiencia"][etiquetas[1]]["experiencias"], {"1": 0.85, "2": 0.70})
+        self.assertEqual(ranking.cache_experiencias({"P1": {"ajustes": filas[0]["ajustes"]}}, etiquetas[1]), {"P1": {1: 0.85, 2: 0.70}})
 
 
 if __name__ == "__main__":

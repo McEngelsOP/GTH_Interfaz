@@ -5,6 +5,9 @@ experiencia» se evalúa contando la experiencia del CSV de Bumeran así:
   - experiencia laboral: 1 (cada año cuenta un año);
   - práctica profesional: 0.5;
   - práctica preprofesional: 0. «Practicante de X» sin especificar el tipo cuenta como preprofesional.
+Solo cuenta la experiencia relacionada con el requisito (criterio de Andrea: no asumir que toda experiencia es
+relevante): una experiencia es relacionada si su similitud e5 con el requisito está en la mitad alta de las
+experiencias del aviso (ranking.py). Validado contra la elección de GTH en 3 procesos (25/10/2026).
 El requisito vale min(1, años equivalentes / N). Los meses en que se superponen dos experiencias cuentan una vez, con
 el factor más alto. La similitud de e5 no distingue años ni prácticas; por eso este requisito la reemplaza.
 """
@@ -15,7 +18,7 @@ from .campos_trayectoria import campo_laboral
 from .fechas_trayectoria import fecha
 from .trayectoria import normalizar
 
-VERSION = "practicas1"
+VERSION = "practicas2"   # 2: solo experiencia relacionada
 AVISO_APLICA = re.compile(r"\b(?:asistente|analista|coordinador|coordinadora)\b")
 AVISO_PRACTICAS = re.compile(r"\b(?:practicante|practicas?|pasante|pasantia|trainee)\b")
 NUMEROS = {"un": 1, "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6}
@@ -69,17 +72,16 @@ def _meses(desde: date, hasta: date):
     return [(desde.year * 12 + desde.month - 1 + i) for i in range(n + 1)]
 
 
-def anios_equivalentes(datos, hoy=None):
-    """(años equivalentes, años laborales, años de práctica profesional) del CV. Las prácticas preprofesionales no
-    suman."""
+def experiencias(datos, hoy=None):
+    """[(índice Exp[i], meses que abarca, factor)] de las experiencias con fechas legibles del CSV."""
     hoy = hoy or date.today()
     exps = {}
     for k, v in (datos or {}).items():
         campo = campo_laboral(k)
         if campo and v is not None and str(v).strip():
             exps.setdefault(campo[0], {}).setdefault(campo[1], str(v).strip())
-    por_mes = {}
-    for e in exps.values():
+    out = []
+    for indice, e in sorted(exps.items()):
         ini, fin = fecha(e.get("Fecha Inicio", ""), hoy), fecha(e.get("Fecha Fin", ""), hoy)
         if not ini or ini["precision"] == "actualidad":
             continue
@@ -94,7 +96,18 @@ def anios_equivalentes(datos, hoy=None):
             continue
         f = factor(e.get("Puesto", ""), e.get("Descripción", ""),
                    " ".join(e.get(c, "") for c in ("Modalidad", "Tipo de contrato", "Tipo de empleo")))
-        for m in _meses(desde, hasta):
+        out.append((indice, set(_meses(desde, hasta)), f))
+    return out
+
+
+def anios_equivalentes(datos, hoy=None, relacionadas=None):
+    """(años equivalentes, años laborales, años de práctica profesional) del CV. Las prácticas preprofesionales no
+    suman. Con `relacionadas` (índices Exp[i]) solo cuentan esas experiencias."""
+    por_mes = {}
+    for indice, meses, f in experiencias(datos, hoy):
+        if relacionadas is not None and indice not in relacionadas:
+            continue
+        for m in meses:
             por_mes[m] = max(por_mes.get(m, 0.0), f)
     laboral = sum(1 for f in por_mes.values() if f == 1.0) / 12
     practica = sum(1 for f in por_mes.values() if f == 0.5) / 12
@@ -102,5 +115,5 @@ def anios_equivalentes(datos, hoy=None):
 
 
 def describir(total, laboral, practica):
-    texto = f"{total:.1f} años de experiencia equivalente: {laboral:.1f} laborales"
+    texto = f"{total:.1f} años de experiencia relacionada equivalente: {laboral:.1f} laborales"
     return texto + (f" y {practica:.1f} de práctica profesional, que cuentan la mitad" if practica else "")

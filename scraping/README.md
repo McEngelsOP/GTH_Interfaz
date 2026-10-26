@@ -74,7 +74,9 @@ requisitos y pesos. Requiere la migración `supabase/migrations/20261024120000_r
 
 **Regla de prácticas** (`experiencia.py`): en los avisos de asistente, analista o coordinador, los requisitos «N años de
 experiencia» valen min(1, años equivalentes / N), contando la experiencia laboral 1, la práctica profesional 0.5 y la
-preprofesional (o «practicante» sin tipo) 0. Ese valor reemplaza la similitud e5 del requisito, dentro de su rango en el aviso.
+preprofesional (o «practicante» sin tipo) 0. Solo cuenta la experiencia relacionada: la que tiene una similitud e5 con
+el requisito en la mitad alta de las experiencias del aviso (se guarda en `ranking_embeddings.ajustes` para no volver a
+calcularla). Ese valor reemplaza la similitud e5 del requisito, dentro de su rango en el aviso.
 
 **Revisión de Bumeran cada 5 minutos**: el servidor corre `python -m scraping.run --rapido` en un proceso
 aparte, con la ventana de Chrome (sin ventana, Bumeran bloquea el acceso). Lee la lista de avisos y solo entra a los nuevos o con postulantes nuevos (CSV, oferta, ranking y CV en PDF).
