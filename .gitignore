@@ -163,6 +163,7 @@ secrets.yaml
 playwright-report/
 test-results/
 test-results-workflow/
+.impeccable/review/
 
 # Automatización de Multitest: grabaciones y sesión pueden traer contraseñas o datos de postulantes
 automatizacion/multitest/

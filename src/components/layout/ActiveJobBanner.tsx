@@ -1,17 +1,23 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { IS_STAGE_ONE } from '../../config/edition.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { Badge } from '../common/Badge.tsx';
-import { ShieldCheck, Calendar, Sliders, ArrowRightLeft, Clock, FileText, Scale } from 'lucide-react';
+import { ShieldCheck, Calendar, Sliders, ArrowRightLeft, Clock, FileText, Scale, Wallet, SlidersHorizontal } from 'lucide-react';
 import { timeAgo } from '../../services/bumeranSync.ts';
 import { Button } from '../common/Button.tsx';
 import { PesosRequisitosModal } from '../modals/PesosRequisitosModal.tsx';
+import { CriteriosPesosModal } from '../modals/CriteriosPesosModal.tsx';
+import type { SueldoAviso } from '../../services/useSueldoAviso.ts';
 
 /** `aside`: contenido a la derecha del aviso (p. ej. candidatos activos y Top-N).
  *  `conDetalle`: muestra el desplegable con el aviso completo y los requisitos del puesto. */
-export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNode; conDetalle?: boolean } = {}) {
+export function ActiveJobBanner({ aside, conDetalle = false, sueldo, onSueldo }: {
+  aside?: ReactNode; conDetalle?: boolean; sueldo?: SueldoAviso; onSueldo?: () => void;
+} = {}) {
   const { activeJob, setCurrentView } = useApp();
   const [pesosAbierto, setPesosAbierto] = useState(false);
+  const [criteriosAbierto, setCriteriosAbierto] = useState(false);
+  useEffect(() => { setPesosAbierto(false); setCriteriosAbierto(false); }, [activeJob?.id]);
 
   if (!activeJob) return null;
 
@@ -89,7 +95,7 @@ export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNo
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+        <div className="ranking-criteria-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
           <div
             style={{
               display: 'flex',
@@ -114,6 +120,12 @@ export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNo
               Requisitos y pesos ({activeJob.criteria.length})
             </Button>
           )}
+          {conDetalle && sueldo && <Button variant="outline" size="sm" icon={<SlidersHorizontal size={14} />}
+            onClick={() => setCriteriosAbierto(true)} title="Configurar el criterio salarial de esta convocatoria">
+            Criterios y pesos
+          </Button>}
+          {conDetalle && onSueldo && <Button variant="secondary" size="sm" icon={<Wallet size={14} />}
+            onClick={onSueldo} title="Consultar sueldos pretendidos y la oferta del aviso">Sueldo</Button>}
         </div>
       </div>
 
@@ -168,6 +180,9 @@ export function ActiveJobBanner({ aside, conDetalle = false }: { aside?: ReactNo
         </details>
       )}
       {conDetalle && <PesosRequisitosModal isOpen={pesosAbierto} onClose={() => setPesosAbierto(false)} job={activeJob} />}
+      {conDetalle && criteriosAbierto && sueldo && <CriteriosPesosModal key={activeJob.id} job={activeJob} sueldo={sueldo}
+        onClose={() => { if (!sueldo.guardando) setCriteriosAbierto(false); }}
+        onRequisitos={() => { setCriteriosAbierto(false); setPesosAbierto(true); }} />}
     </div>
   );
 }

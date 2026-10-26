@@ -26,6 +26,16 @@ assert.equal((await db.query('select aviso_id from public.avisos')).rows.length,
 await save(4000);
 assert.equal((await db.query("select monto,actualizado_por from public.gth_sueldos_ofertados where aviso_id='A'")).rows[0].actualizado_por,id('1'));
 await save(4500);
+// La migración conserva la oferta previa y deja Estricto como predeterminado.
+await db.exec('reset role');
+await db.exec(readFileSync('supabase/migrations/20261026231414_criterios_sueldo_estricto_manejable.sql','utf8'));
+await user('1');
+assert.deepEqual((await db.query("select monto,modo_sueldo from public.gth_sueldos_ofertados where aviso_id='A'")).rows[0], { monto: '4500.00', modo_sueldo: 'estricto' });
+// Actualizaciones parciales del modo y del monto no se sobrescriben entre sí.
+const modo = valor => db.query("insert into public.gth_sueldos_ofertados(aviso_id,modo_sueldo) values('A',$1) on conflict(aviso_id) do update set modo_sueldo=excluded.modo_sueldo returning monto,modo_sueldo",[valor]);
+await modo('manejable'); await save(4600);
+assert.deepEqual((await db.query("select monto,modo_sueldo from public.gth_sueldos_ofertados where aviso_id='A'")).rows[0], { monto: '4600.00', modo_sueldo: 'manejable' });
+await assert.rejects(modo('flexible')); await assert.rejects(modo(null));
 await assert.rejects(save(-1)); await assert.rejects(save(0)); await assert.rejects(save(1000001));
 await assert.rejects(db.query("update public.gth_sueldos_ofertados set aviso_id='B' where aviso_id='A'"));
 await assert.rejects(db.query("update public.gth_perfiles set nivel='general' where user_id=auth.uid()"));
@@ -36,6 +46,7 @@ await db.query("insert into public.gth_sueldos_ofertados(aviso_id,monto) values(
 await user('2');
 assert.equal((await db.query('select * from public.gth_sueldos_ofertados')).rows.length,2);
 await assert.rejects(save(9000),'admin no crea ni actualiza oferta');
+await assert.rejects(modo('estricto'),'admin no cambia el criterio salarial');
 assert.equal((await db.query("update public.gth_sueldos_ofertados set monto=9000 returning monto")).rows.length,0);
 await assert.rejects(db.query(`update public.gth_perfiles set nivel='maestro' where user_id='${id('3')}'`));
 await assert.rejects(db.query(`update public.gth_perfiles set nombre='Intruso' where user_id='${id('1')}'`));

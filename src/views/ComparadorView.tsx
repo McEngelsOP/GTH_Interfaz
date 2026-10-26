@@ -1,6 +1,6 @@
 import { useTrayectoria, ESTADOS_TRAYECTORIA } from '../services/trayectoria.ts';
 import { ComparisonChart } from '../components/candidate/ComparisonChart.tsx';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { ActiveJobBanner } from '../components/layout/ActiveJobBanner.tsx';
 import { Button } from '../components/common/Button.tsx';
@@ -31,6 +31,8 @@ import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../services/ran
 import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
 import { argumentosPorRequisito, colorPct, perfilBumeran } from '../services/perfilBumeran.ts';
 import { Application, Candidate } from '../types/index.ts';
+import { useSueldoAviso } from '../services/useSueldoAviso.ts';
+import { SueldoModal } from '../components/modals/SueldoModal.tsx';
 
 export function ComparadorView() {
   const trayectoria = useTrayectoria();
@@ -47,6 +49,9 @@ export function ComparadorView() {
     handleAdvanceSelected,
     showToast,
   } = useApp();
+  const sueldo = useSueldoAviso(activeJob);
+  const [sueldoDe, setSueldoDe] = useState<string | null>(null);
+  useEffect(() => { setSueldoDe(null); }, [activeJob?.id]);
 
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [selectedCandidateToAdd, setSelectedCandidateToAdd] = useState('');
@@ -108,6 +113,8 @@ export function ComparadorView() {
 
   return (
     <div className="comparison-view" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', minWidth: 0 }}>
+      {sueldoDe && <SueldoModal key={activeJob.id} job={activeJob} applications={rankingOrdenado} candidates={appState.candidates}
+        applicationId={sueldoDe} sueldo={sueldo} onClose={() => { if (!sueldo.guardando) setSueldoDe(null); }} />}
       <ActiveJobBanner />
 
       {/* Cabecera del Comparador */}
@@ -282,6 +289,7 @@ export function ComparadorView() {
       ) : (
         <>
         <ComparisonChart applications={comparedApplications} candidates={candidateMap} job={activeJob} positions={posicion}
+          sueldo={sueldo} onSueldo={app => setSueldoDe(app.id)}
           onRemove={toggleApplicationSelection} onViewProfile={openCandidateDrawer} />
         {/* Matriz de Comparación con Desplazamiento Horizontal Controlado (Sección 12) */}
         <div

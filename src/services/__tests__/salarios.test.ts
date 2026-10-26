@@ -1,9 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { compararSueldo, extraerSueldoPretendido, leerSueldo } from '../salarios.ts';
+import { compararSueldo, evaluarAjusteSalarial, extraerSueldoPretendido, leerSueldo } from '../salarios.ts';
 import { analyzeCandidateTables, applyCandidateImport } from '../candidateImport.ts';
 import { estadoConConvocatoriaDePrueba } from '../../../tests/fixtures/convocatoriaDePrueba.ts';
 
 describe('comparación salarial', () => {
+  const job = estadoConConvocatoriaDePrueba().jobPostings[0];
+  const app = { ...estadoConConvocatoriaDePrueba().applications[0], expectedSalary: 4500,
+    embeddingMatch: { score: .7, criteriaVersion: job.criteriaVersion } } as Parameters<typeof evaluarAjusteSalarial>[1];
+  it('por defecto estricto: el exceso se señala aunque tenga puntaje alto', () => {
+    expect(evaluarAjusteSalarial({ monto: 4000, modo: 'estricto', admiteModo: true }, app, job)).toBe('supera');
+  });
+  it.each([.7, .8, .9, 1])('manejable con puntaje vigente alto (%s), sin cambiar los importes ni el puntaje', score => {
+    const candidato = { ...app, embeddingMatch: { ...app.embeddingMatch!, score } };
+    const antes = structuredClone(candidato);
+    expect(evaluarAjusteSalarial({ monto: 4000, modo: 'manejable', admiteModo: true }, candidato, job)).toBe('manejable');
+    expect(candidato).toEqual(antes);
+  });
+  it.each([.6999, 0, NaN, Infinity, 1.01])('puntaje %s no justifica marcar el exceso como manejable', score => {
+    expect(evaluarAjusteSalarial({ monto: 4000, modo: 'manejable', admiteModo: true },
+      { ...app, embeddingMatch: { ...app.embeddingMatch!, score } }, job)).toBe('supera');
+  });
+  it('puntajes ausentes o antiguos no justifican negociación; montos ausentes quedan pendientes', () => {
+    const criterio = { monto: 4000, modo: 'manejable' as const, admiteModo: true };
+    expect(evaluarAjusteSalarial(criterio, { ...app, embeddingMatch: undefined }, job)).toBe('supera');
+    expect(evaluarAjusteSalarial(criterio, { ...app, embeddingMatch: { ...app.embeddingMatch!, criteriaVersion: 'vieja' } }, job)).toBe('supera');
+    expect(evaluarAjusteSalarial(null, app, job)).toBe('pendiente');
+    expect(evaluarAjusteSalarial({ ...criterio, monto: null }, app, job)).toBe('pendiente');
+    expect(evaluarAjusteSalarial(criterio, { ...app, expectedSalary: null }, job)).toBe('pendiente');
+    expect(evaluarAjusteSalarial(criterio, { ...app, expectedSalary: 4000 }, job)).toBe('dentro');
+    expect(evaluarAjusteSalarial(criterio, { ...app, expectedSalary: 3500 }, job)).toBe('dentro');
+  });
   it('verde para menor o igual y rojo solo para superior', () => {
     expect(compararSueldo(4000, 3500)).toBe('dentro');
     expect(compararSueldo(4000, 4000)).toBe('dentro');

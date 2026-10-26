@@ -8,6 +8,8 @@ import { Badge } from '../components/common/Badge.tsx';
 import { AdvanceDecisionModal } from '../components/modals/AdvanceDecisionModal.tsx';
 import { ReleaseModal } from '../components/modals/ReleaseModal.tsx';
 import { BulkReleaseModal } from '../components/modals/BulkReleaseModal.tsx';
+import { SueldoModal } from '../components/modals/SueldoModal.tsx';
+import { useSueldoAviso } from '../services/useSueldoAviso.ts';
 import {
   calculateJobMetrics,
   isEligibleForTopN,
@@ -53,12 +55,15 @@ export function MejoresCandidatosView() {
     showToast,
   } = useApp();
   useEmbeddingRanking();
+  const sueldo = useSueldoAviso(activeJob);
   const enRevision = useEnRevision(activeJob, activeJobApplications, appState.candidates);
 
   const [activeTab, setActiveTab] = useState<'en_proceso' | 'mejores' | 'preseleccionados' | 'contratados' | 'marcados' | 'revisados' | 'no_continuan' | 'todos'>('en_proceso');
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [releaseTarget, setReleaseTarget] = useState<{ app: Application; cand: Candidate } | null>(null);
   const [bulkReleaseIds, setBulkReleaseIds] = useState<string[] | null>(null);
+  const [sueldoAbierto, setSueldoAbierto] = useState<{ applicationId: string | null } | null>(null);
+  useEffect(() => { setSueldoAbierto(null); }, [activeJob?.id]);
   useEffect(() => { setBulkReleaseIds(null); setReleaseTarget(null); setIsAdvanceModalOpen(false); }, [activeJob?.id]);
 
   // Métricas vivas calculadas del puesto activo
@@ -227,7 +232,10 @@ export function MejoresCandidatosView() {
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       {/* Aviso; a su derecha, candidatos activos y Top-N. Debajo, el aviso completo en un desplegable */}
-      <ActiveJobBanner conDetalle aside={
+      {sueldoAbierto && <SueldoModal key={activeJob.id} job={activeJob} applications={ordenadas}
+        candidates={appState.candidates} applicationId={sueldoAbierto.applicationId} sueldo={sueldo}
+        onClose={() => { if (!sueldo.guardando) setSueldoAbierto(null); }} />}
+      <ActiveJobBanner conDetalle sueldo={sueldo} onSueldo={() => setSueldoAbierto({ applicationId: null })} aside={
         <div className="ranking-actions">
         <div className="ranking-resumen">
           <div className="ranking-dato">
@@ -376,6 +384,8 @@ export function MejoresCandidatosView() {
         {!activeJob.bumeran && <Button variant="primary" icon={<Plus size={16} />} onClick={() => setCurrentView('agregar_archivos')}>Importar perfiles</Button>}
       </div>}
       <CandidateTable
+        sueldo={sueldo}
+        onSueldo={(app) => setSueldoAbierto({ applicationId: app.id })}
         motionKey={activeTab}
         applications={displayedApplications}
         enRevision={enRevision}

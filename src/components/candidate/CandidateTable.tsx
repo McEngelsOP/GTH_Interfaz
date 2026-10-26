@@ -39,8 +39,13 @@ import {
 import { isEligibleForTopN, puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
+import type { SueldoAviso } from '../../services/useSueldoAviso.ts';
+import { evaluarAjusteSalarial } from '../../services/salarios.ts';
+import { IndicadorSueldo } from './IndicadorSueldo.tsx';
 
 interface CandidateTableProps {
+  sueldo: SueldoAviso;
+  onSueldo: (app: Application) => void;
   motionKey?: string;
   enRevision: ReturnType<typeof useEnRevision>;
   applications: Application[];
@@ -56,6 +61,8 @@ interface CandidateTableProps {
 }
 
 export function CandidateTable({
+  sueldo,
+  onSueldo,
   motionKey = '',
   applications,
   enRevision,
@@ -356,7 +363,7 @@ export function CandidateTable({
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <button
                           onClick={() => openCandidateDrawer(app)}
-                          className="focus-ring"
+                          className="focus-ring candidate-name"
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -373,6 +380,15 @@ export function CandidateTable({
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
+                        <Button variant="ghost" size="sm" className="candidate-salary-button"
+                          style={{ whiteSpace: 'normal', alignSelf: 'flex-start', marginTop: '.35rem', padding: '.25rem .5rem' }}
+                          onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${cand?.name || 'candidato'}`}>
+                          {sueldo.cargando ? 'Sueldo · consultando…' : sueldo.error ? 'Sueldo no disponible' : (() => {
+                            const estado = activeJob ? evaluarAjusteSalarial(sueldo.criterio, app, activeJob) : 'pendiente';
+                            const etiqueta = { dentro: 'Dentro', supera: 'Supera', manejable: 'Manejable', pendiente: 'Sin comparar' }[estado];
+                            return <><IndicadorSueldo estado={estado} compacto /><span>Sueldo · {etiqueta}</span></>;
+                          })()}
+                        </Button>
                         {trayectoria.aviso === activeJob?.bumeran?.avisoId && trayectoria.rows[cand?.importedProfile?.externalId || '']?.estado === 'patron_detectado' && <button
                           type="button" className="trayectoria-alert focus-ring" onClick={() => openCandidateDrawer(app, 'trayectoria')}
                           aria-label={`Revisar trayectoria de ${cand?.name}`}>Revisar trayectoria</button>}

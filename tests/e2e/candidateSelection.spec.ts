@@ -37,7 +37,7 @@ test('perfiles pendientes deshabilitan Top-N y aparecen de A a Z en el selector'
   await page.goto('/#view=mejores_candidatos');
   await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeDisabled();
   await expect(page.locator('#top-n-availability')).toHaveText('Evalúa al menos un perfil con evidencia puntuable y sin requisitos descartados.');
-  await expect(page.locator('tbody tr td:nth-child(3) button')).toHaveText(alphabeticalNames);
+  await expect(page.locator('tbody tr .candidate-name')).toHaveText(alphabeticalNames);
   await page.screenshot({ path: '../candidate-selection.png', fullPage: true });
   await page.goto('/#view=comparador');
   const selector = page.getByRole('combobox', { name: 'Candidato para comparar' });
@@ -70,7 +70,7 @@ test('Top-N para revisión usa puntajes disponibles y mantiene prioridad por pun
   evaluated.applications[0].mandatoryRequirementStatus = 'verificado';
   await writeState(page, evaluated);
   await expect(page.getByRole('button', { name: 'Elegir los mejores', exact: true })).toBeEnabled();
-  await expect(page.locator('tbody tr td:nth-child(3) button').first()).toHaveText('Zoe Prueba');
+  await expect(page.locator('tbody tr .candidate-name').first()).toHaveText('Zoe Prueba');
   await page.getByRole('button', { name: 'Elegir los mejores', exact: true }).click();
   await expect(page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Zoe Prueba', exact: true }) }).getByRole('checkbox')).toBeChecked();
   await page.goto('/#view=comparador');

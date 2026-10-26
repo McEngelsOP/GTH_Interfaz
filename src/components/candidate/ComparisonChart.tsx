@@ -6,6 +6,9 @@ import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import { StageBadge } from './StageBadge.tsx';
 import { Button } from '../common/Button.tsx';
 import '../../styles/comparisonChart.css';
+import { IndicadorSueldo } from './IndicadorSueldo.tsx';
+import { evaluarAjusteSalarial } from '../../services/salarios.ts';
+import type { SueldoAviso } from '../../services/useSueldoAviso.ts';
 
 const LEVELS = [
   { label: 'Alta', range: '70 % o más', className: 'strong', Icon: Check },
@@ -16,6 +19,8 @@ const LEVELS = [
 const levelOf = (pct: number | null) => pct === null ? 3 : pct >= 70 ? 0 : pct >= 40 ? 1 : 2;
 
 interface ComparisonChartProps {
+  sueldo: SueldoAviso;
+  onSueldo: (application: Application) => void;
   applications: Application[];
   candidates: Map<string, Candidate>;
   job: JobPosting;
@@ -24,7 +29,7 @@ interface ComparisonChartProps {
   onViewProfile: (application: Application) => void;
 }
 
-export function ComparisonChart({ applications, candidates, job, positions, onRemove, onViewProfile }: ComparisonChartProps) {
+export function ComparisonChart({ applications, candidates, job, positions, onRemove, onViewProfile, sueldo, onSueldo }: ComparisonChartProps) {
   return <section className="comparison-chart" aria-labelledby="comparison-chart-title">
     <div className="comparison-visual-heading">
       <h3 id="comparison-chart-title">Comparación visual de candidatos</h3>
@@ -78,6 +83,10 @@ export function ComparisonChart({ applications, candidates, job, positions, onRe
               </li>)}
             </ul>
           </div> : <p className="comparison-no-criteria">No hay requisitos configurados para comparar.</p>}
+          <button type="button" className="comparison-salary focus-ring" onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${name}`}>
+            <span>Sueldo</span>{sueldo.cargando ? 'Consultando…' : sueldo.error ? 'No disponible' :
+              <IndicadorSueldo estado={evaluarAjusteSalarial(sueldo.criterio, app, job)} />}
+          </button>
           <footer className="comparison-card-footer"><StageBadge stage={app.stage} size="sm" /><Button variant="secondary" size="sm" onClick={() => onViewProfile(app)}>Ver perfil</Button></footer>
         </article>;
       })}
