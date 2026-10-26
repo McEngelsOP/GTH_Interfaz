@@ -1,6 +1,6 @@
 import { MotionRegion } from '../components/common/MotionRegion.tsx';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Copy, KeyRound, Lock, Pencil, RefreshCw, Search, UserCog, UserPlus, UserX, UserCheck, Trash2 } from 'lucide-react';
+import { AlertCircle, Copy, KeyRound, Lock, Pencil, RefreshCw, Search, Send, UserCog, UserPlus, UserX, UserCheck, Trash2 } from 'lucide-react';
 import { Button } from '../components/common/Button.tsx';
 import { Badge } from '../components/common/Badge.tsx';
 import { Input } from '../components/common/Input.tsx';
@@ -10,6 +10,7 @@ import { Tabs } from '../components/common/Tabs.tsx';
 import '../styles/baseCentralizada.css';
 import { useApp } from '../context/AppContext.tsx';
 import { supabase } from '../services/supabase.ts';
+import { enviarCorreos } from '../services/correo.ts';
 import { fechaHora } from '../services/bumeranSync.ts';
 import {
   apiUsuarios, AvisoAdmin, guardarPerfil, listarAvisosAdmin, listarPerfiles, marcarConfidencial, Nivel, Perfil, SECCIONES, usePerfil, esSuperadmin, esAdministrador, etiquetaNivel, puedeGestionarPerfil,
@@ -314,18 +315,47 @@ function NuevaCuenta({ superadmin, onCerrar, onCreada }: { superadmin: boolean; 
   );
 }
 
+/** Correo con los datos de ingreso; sale desde la cuenta de GTH (api/correo.ts) y no se guarda su texto. */
+const correoCredenciales = (email: string, clave: string) => ({
+  destinatario: email, tipo: 'credenciales' as const, asunto: 'Tu acceso a TalentAI · GTHC ESAN',
+  cuerpo: 'Hola:\n\nSe creó o restableció tu acceso a TalentAI, la herramienta de selección del equipo de GTHC de la Universidad ESAN.\n\n'
+    + `Ingresa en: ${window.location.origin}\nCorreo: ${email}\nContraseña temporal: ${clave}\n\n`
+    + 'Al ingresar, la aplicación te pedirá crear una contraseña nueva. Si no esperabas este correo, avísanos.\n\nEquipo de GTHC · Universidad ESAN',
+});
+
 function ClaveTemporal({ email, clave, onCerrar }: { email: string; clave: string; onCerrar: () => void }) {
   const { showToast } = useApp();
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
   const copiar = () => navigator.clipboard.writeText(`Correo: ${email}\nContraseña temporal: ${clave}`)
     .then(() => showToast('Datos de ingreso copiados.', 'success')).catch(() => showToast('No se pudo copiar; cópiala a mano.', 'warning'));
+  const enviar = async () => {
+    if (!supabase || enviando) return;
+    setEnviando(true);
+    try {
+      const [r] = await enviarCorreos(supabase, [correoCredenciales(email, clave)]);
+      if (r?.ok) { setEnviado(true); showToast(`Credenciales enviadas a ${email}.`, 'success'); }
+      else showToast(r?.error || 'No se pudo enviar el correo. Copia los datos y envíalos a mano.', 'error');
+    } finally {
+      setEnviando(false);
+    }
+  };
   return (
     <Modal isOpen onClose={onCerrar} title="Contraseña temporal" subtitle={email}
-      footer={<><Button variant="secondary" icon={<Copy size={15} />} onClick={copiar}>Copiar</Button><Button variant="primary" onClick={onCerrar}>Listo</Button></>}>
+      footer={<>
+        <Button variant="secondary" icon={<Copy size={15} />} onClick={copiar}>Copiar</Button>
+        <Button variant="secondary" icon={<Send size={15} />} onClick={() => void enviar()} disabled={!supabase || enviando || enviado}
+          title="Envía el correo y la contraseña temporal desde la cuenta de GTH">
+          {enviando ? 'Enviando…' : enviado ? 'Credenciales enviadas' : 'Enviar credenciales al correo'}
+        </Button>
+        <Button variant="primary" onClick={onCerrar}>Listo</Button>
+      </>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem' }}>
         <code style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '.05em', padding: '.85rem 1rem', textAlign: 'center',
           backgroundColor: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)' }}>{clave}</code>
         <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>
-          Entrégasela a la persona por un medio privado. Solo se muestra esta vez; al ingresar, la aplicación le pedirá una contraseña nueva.
+          Entrégasela a la persona por un medio privado o con «Enviar credenciales al correo». Solo se muestra esta vez; al
+          ingresar, la aplicación le pedirá una contraseña nueva.
         </p>
       </div>
     </Modal>

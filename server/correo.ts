@@ -6,11 +6,11 @@ import nodemailer from 'nodemailer';
 // cada envío queda registrado en gth_correos_enviados (sin el cuerpo del mensaje).
 
 type Env = Record<string, string | undefined>;
-export type TipoCorreo = 'agradecimiento' | 'entrevista' | 'perfil';
+export type TipoCorreo = 'agradecimiento' | 'entrevista' | 'perfil' | 'credenciales';
 export type MensajeCorreo = { destinatario: string; asunto: string; cuerpo: string; tipo: TipoCorreo; aviso_id?: string; id_postulante?: string };
 export type Transporte = { sendMail(opciones: Record<string, unknown>): Promise<unknown> };
 
-const TIPOS: TipoCorreo[] = ['agradecimiento', 'entrevista', 'perfil'];
+const TIPOS: TipoCorreo[] = ['agradecimiento', 'entrevista', 'perfil', 'credenciales'];
 export const MAX_MENSAJES = 20;   // ~1-2 s por correo: entra holgado en los 60 s de Vercel
 const MAX_BODY_BYTES = 400_000;
 
@@ -45,8 +45,8 @@ async function colaborador(admin: SupabaseClient, request: Request) {
   if (!token) return null;
   const { data } = await admin.auth.getUser(token);
   if (!data.user) return null;
-  const { data: perfil } = await admin.from('gth_perfiles').select('activo').eq('user_id', data.user.id).maybeSingle();
-  return perfil?.activo ? data.user : null;
+  const { data: perfil } = await admin.from('gth_perfiles').select('activo, nivel').eq('user_id', data.user.id).maybeSingle();
+  return perfil?.activo ? { ...data.user, nivel: perfil.nivel as string } : null;
 }
 
 export async function handleCorreo(request: Request, { env = process.env as Env, transporte }: { env?: Env; transporte?: Transporte } = {}) {
@@ -69,6 +69,9 @@ export async function handleCorreo(request: Request, { env = process.env as Env,
   } catch (error) {
     return reply(400, { error: error instanceof Error && error.message.length < 80 ? error.message : 'Consulta inválida.' });
   }
+  // Las credenciales de una cuenta nueva o restablecida solo las envía quien administra usuarios
+  if (mensajes.some((m) => m.tipo === 'credenciales') && !['maestro', 'superadmin'].includes(yo.nivel))
+    return reply(403, { error: 'Solo una cuenta administradora puede enviar credenciales.' });
 
   // Una sola conexión para todo el lote, cerrada al terminar
   const smtp = transporte ? null : nodemailer.createTransport({

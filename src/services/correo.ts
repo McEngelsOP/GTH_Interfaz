@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Envío de correos a postulantes desde la cuenta de GTH: lo hace el servidor (api/correo.ts) con SMTP_* de .env.local
 // o de Vercel. La web solo manda destinatario, asunto y mensaje con la sesión del usuario.
 
-export type TipoCorreo = 'agradecimiento' | 'entrevista' | 'perfil';
+export type TipoCorreo = 'agradecimiento' | 'entrevista' | 'perfil' | 'credenciales';
 export type CorreoAEnviar = { destinatario: string; asunto: string; cuerpo: string; tipo: TipoCorreo; aviso_id?: string; id_postulante?: string };
 export type ResultadoCorreo = { ok: boolean; error?: string };
 

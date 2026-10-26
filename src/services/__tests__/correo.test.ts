@@ -31,6 +31,9 @@ describe('validarMensajes', () => {
     expect(validarMensajes([{ ...mensaje, asunto: 'Hola\r\nBcc: otro@x.test' }])[0]).toMatchObject(
       { destinatario: 'ana@example.test', asunto: 'Hola Bcc: otro@x.test' });
   });
+  it('acepta el correo de credenciales de cuentas nuevas', () => {
+    expect(validarMensajes([{ ...mensaje, tipo: 'credenciales' }])[0].tipo).toBe('credenciales');
+  });
   it('rechaza correos inválidos, tipos desconocidos, vacíos y lotes demasiado grandes', () => {
     expect(() => validarMensajes([{ ...mensaje, destinatario: 'no-es-correo' }])).toThrow('Correo inválido');
     expect(() => validarMensajes([{ ...mensaje, tipo: 'spam' }])).toThrow('Tipo de correo inválido');
