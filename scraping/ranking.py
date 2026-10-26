@@ -51,6 +51,8 @@ def _campos(datos):
 
 
 SIN_INFORMACION = "CV sin información"
+BONO_RUBRO = 0.25        # bonificación por experiencia en educación superior (ver aplicar_bonificacion_rubro)
+RUBRO_VERSION = "rubro1"
 
 
 def requisitos_guardados(bd, aviso_id) -> list[dict]:
@@ -87,7 +89,34 @@ def criterios_efectivos(bd, a: dict):
         clave += "#" + ",".join(map(str, pesos))
     if experiencia.requisitos_de_anios(a["titulo"], [c["label"] for c in criterios]):
         clave += "#" + experiencia.VERSION
+    clave += "#" + RUBRO_VERSION
     return criterios, f"Bumeran {_hash_corto(clave)}"
+
+
+def quitar_bonificacion_rubro(fila):
+    """Fila reutilizada de un cálculo anterior: su score_bruto ya trae la bonificación por rubro; se descuenta para
+    volver a aplicarla con el rango actual del aviso."""
+    ajustes = dict(_json(fila.get("ajustes")) or {})
+    rubro = ajustes.pop("rubro", None)
+    if rubro and fila.get("score_bruto") is not None:
+        fila["score_bruto"] = round(fila["score_bruto"] - rubro.get("bono", 0.0), 4)
+    fila["ajustes"] = ajustes or None
+
+
+def aplicar_bonificacion_rubro(filas, datos):
+    """Rubro (criterio de Andrea): a quien tiene experiencia en educación superior le suma BONO_RUBRO de la distancia
+    entre los puntajes altos y bajos del aviso (percentiles 90 y 10). Es un atributo deseable: no reemplaza a los
+    requisitos. Validado contra la elección de GTH: el top 15 pasó de 12 a 17 de 51 elegidos (25/10/2026)."""
+    validas = [f for f in filas if f["explicacion_bruta"] != SIN_INFORMACION and f.get("score_bruto") is not None]
+    if len(validas) < 2:
+        return
+    puntajes = sorted(f["score_bruto"] for f in validas)
+    bono = round(BONO_RUBRO * (puntajes[int(.9 * len(puntajes))] - puntajes[int(.1 * len(puntajes))]), 4)
+    for f in validas:
+        empresas = experiencia.empresas_educacion_superior(datos.get(f["clave"]))
+        if empresas and bono > 0:
+            f["score_bruto"] = round(f["score_bruto"] + bono, 4)
+            f["ajustes"] = {**(f.get("ajustes") or {}), "rubro": {"educacion_superior": empresas, "bono": bono}}
 
 
 def similitud_experiencias(emb, postulantes, requisito, cache):
@@ -269,13 +298,17 @@ def paso_ranking(bd, aviso: dict, forzar=False):
 
     filas = [{"clave": p["clave"], "id_postulante": p["id_postulante"],
               **(calculado.get(p["clave"]) or guardado[p["clave"]])} for p in postulantes]
+    for f in filas:
+        quitar_bonificacion_rubro(f)
     # Regla de prácticas: similitud de cada experiencia con los requisitos de años (guardada en ajustes para reutilizarla)
     sims_exp = None
     if emb.backend == "e5":
         previos = {**filas_previas, **guardado}
         sims_exp = {k: similitud_experiencias(emb, postulantes, etiquetas[k], cache_experiencias(previos, etiquetas[k]))
                     for k in experiencia.requisitos_de_anios(a["titulo"], etiquetas)}
-    aplicar_regla_practicas(filas, {p["clave"]: p["datos_json"] for p in postulantes}, a["titulo"], etiquetas, pesos, sims_exp)
+    datos = {p["clave"]: p["datos_json"] for p in postulantes}
+    aplicar_regla_practicas(filas, datos, a["titulo"], etiquetas, pesos, sims_exp)
+    aplicar_bonificacion_rubro(filas, datos)
     for f in filas:
         if "_sims" in f:
             f["req_fragmentos"] = _fragmentos(f["explicacion_bruta"], n)

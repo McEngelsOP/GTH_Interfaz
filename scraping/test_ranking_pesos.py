@@ -8,7 +8,7 @@ from unittest import mock
 import pandas as pd
 
 from . import ranking
-from .criterios import criterios_aviso
+from .criterios import _hash_corto, criterios_aviso
 
 OFERTA = "Requisitos:\n- Experiencia en cobranzas\n- Manejo de Excel\n"
 SIMS = {("P1", "Experiencia en cobranzas"): 0.9, ("P1", "Manejo de Excel"): 0.5, ("P1", "Sector educativo"): 0.2,
@@ -80,12 +80,25 @@ class TestRankingPesos(unittest.TestCase):
 
     def test_sin_requisitos_guardados_usa_la_oferta(self):
         criterios, version = ranking.criterios_efectivos(self.bd, self.bd.a)
-        self.assertEqual(version, criterios_aviso("Analista", OFERTA)[1])
+        self.assertEqual(version, f"Bumeran {_hash_corto('Experiencia en cobranzas|Manejo de Excel#' + ranking.RUBRO_VERSION)}")
         self.assertEqual([c["label"] for c in criterios], ["Experiencia en cobranzas", "Manejo de Excel"])
 
     def test_pesos_iguales_no_cambian_la_version(self):
+        sin_guardar = ranking.criterios_efectivos(self.bd, self.bd.a)[1]
         self.bd.requisitos = [self.req("Experiencia en cobranzas", 70), self.req("Manejo de Excel", 70)]
-        self.assertEqual(ranking.criterios_efectivos(self.bd, self.bd.a)[1], criterios_aviso("Analista", OFERTA)[1])
+        self.assertEqual(ranking.criterios_efectivos(self.bd, self.bd.a)[1], sin_guardar)
+
+    def test_bonificacion_por_educacion_superior(self):
+        filas = [{"clave": c, "score_bruto": s, "explicacion_bruta": "x"} for c, s in (("P1", 0.80), ("P2", 0.70), ("P3", 0.75))]
+        datos = {"P1": {"Exp[1] Empresa": "Banco X"}, "P2": {"Exp[1] Empresa": "Universidad ESAN"}, "P3": {}}
+        ranking.aplicar_bonificacion_rubro(filas, datos)
+        bono = round(ranking.BONO_RUBRO * (0.80 - 0.70), 4)
+        self.assertEqual(filas[1]["score_bruto"], round(0.70 + bono, 4))
+        self.assertEqual(filas[1]["ajustes"]["rubro"], {"educacion_superior": ["Universidad ESAN"], "bono": bono})
+        self.assertEqual(filas[0]["score_bruto"], 0.80)
+        # Al reutilizar la fila se descuenta la bonificación anterior antes de volver a aplicarla
+        ranking.quitar_bonificacion_rubro(filas[1])
+        self.assertEqual((filas[1]["score_bruto"], filas[1]["ajustes"]), (0.70, None))
 
     def test_porcentajes_suman_100(self):
         self.assertEqual(ranking._porcentajes([50, 50, 50]), [34, 33, 33])

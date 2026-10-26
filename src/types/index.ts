@@ -100,6 +100,8 @@ export interface EmbeddingMatch {
   backend: 'e5' | 'tfidf';
   criteriaVersion: string;
   evaluatedAt: string;
+  /** Empresas de educación superior del CV que sumaron la bonificación por rubro (scraping/ranking.py). */
+  higherEducation?: string[];
 }
 
 export interface Application {

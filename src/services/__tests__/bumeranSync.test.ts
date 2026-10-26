@@ -110,7 +110,10 @@ describe('avisos de Bumeran', () => {
     const app = state.applications.find((a) => a.candidateId === ana.id && a.jobPostingId === job.id)!;
     expect(Object.keys(results)).toEqual([app.id]);
     expect(results[app.id]).toMatchObject({ score: 1, ranking: 1, backend: 'e5', criteriaVersion: job.criteriaVersion,
-      requirementSims: { r1: 1, r2: null }, requirementEvidence: { r1: 'Exp[1] Asistente', r2: '' } });
+      requirementSims: { r1: 1, r2: null }, requirementEvidence: { r1: 'Exp[1] Asistente', r2: '' } });    expect(results[app.id].higherEducation).toBeUndefined();
+    const conRubro = rankingToMatches(job, state.applications, state.candidates,
+      [fila('APRUEBA111', { ajustes: { rubro: { educacion_superior: ['Universidad ESAN'], bono: 0.01 } } })]);
+    expect(conRubro[app.id].higherEducation).toEqual(['Universidad ESAN']);
   });
 
   it('resume la última revisión de Bumeran con lo que trajo cada corrida', () => {

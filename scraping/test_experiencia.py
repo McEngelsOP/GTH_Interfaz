@@ -65,6 +65,14 @@ class TestExperiencia(unittest.TestCase):
         self.assertIn("2.0 años de experiencia relacionada equivalente", filas[0]["explicacion_bruta"])
         self.assertEqual(filas[0]["ajustes"]["experiencia"]["2 años de experiencia"]["anios"], 2.0)
 
+    def test_empresas_de_educacion_superior(self):
+        datos = {"Exp[1] Empresa": "Universidad Peruana de Ciencias Aplicadas (UPC)", "Exp[2] Empresa": "Colegio San Silvestre",
+                 "Exp[3] Empresa": "CERTUS", "Exp[4] Empresa": "Banco de Crédito", "Exp[5] Empresa": "ESAN-Graduate School of Business"}
+        self.assertEqual(ex.empresas_educacion_superior(datos),
+                         ["Universidad Peruana de Ciencias Aplicadas (UPC)", "CERTUS", "ESAN-Graduate School of Business"])
+        self.assertEqual(ex.empresas_educacion_superior({"Exp[1] Empresa": "Innova Teaching School"}), [])
+        self.assertEqual(ex.empresas_educacion_superior({"Exp[1] Empresa": "Centro de Salud Mental Comunitario Universitario"}), [])
+
     def test_solo_cuenta_experiencia_relacionada(self):
         datos = {**exp(1, "Analista de cobranzas", "2022-10-01", "2024-09-30"),      # 2 años, relacionada
                  **exp(2, "Mesero", "2024-10-01", "2026-09-30")}                    # 2 años, no relacionada

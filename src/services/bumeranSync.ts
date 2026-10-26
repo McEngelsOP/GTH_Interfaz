@@ -33,6 +33,8 @@ export type RankingRow = {
   /** Similitud original por requisito, antes de reescalar dentro del aviso. */
   req_sims_bruto?: (number | null)[] | null;
   score_bruto?: number | null;
+  /** Regla de prácticas y bonificación por rubro (educación superior) con que se calculó el puntaje. */
+  ajustes?: { rubro?: { educacion_superior?: string[]; bono?: number } } | null;
 };
 
 export const isBumeranJob = (job: JobPosting | undefined) => !!job?.bumeran;
@@ -194,7 +196,7 @@ export async function fetchRanking(client: SupabaseClient, avisoId: string, crit
   const rows: RankingRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await client.from('ranking_embeddings')
-      .select('id_postulante, criterios_version, backend, ranking, score, score_bruto, req_sims, req_sims_bruto, req_fragmentos, explicacion, calculado_at')
+      .select('id_postulante, criterios_version, backend, ranking, score, score_bruto, req_sims, req_sims_bruto, req_fragmentos, explicacion, calculado_at, ajustes')
       .eq('aviso_id', avisoId).eq('criterios_version', criteriaVersion).order('ranking').range(from, from + 999);
     if (error) throw new Error(error.message);
     rows.push(...((data || []) as RankingRow[]));
@@ -218,6 +220,7 @@ export function rankingToMatches(job: JobPosting, applications: Application[], c
       requirementSims: Object.fromEntries(job.criteria.map((c, k) => [c.id, row.req_sims?.[k] ?? null])),
       requirementEvidence: Object.fromEntries(job.criteria.map((c, k) => [c.id, row.req_fragmentos?.[k] || ''])),
       criteriaVersion: job.criteriaVersion, evaluatedAt: row.calculado_at || new Date().toISOString(),
+      ...(row.ajustes?.rubro?.educacion_superior?.length ? { higherEducation: row.ajustes.rubro.educacion_superior } : {}),
     };
   }
   return results;

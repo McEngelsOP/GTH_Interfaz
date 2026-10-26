@@ -114,6 +114,24 @@ def anios_equivalentes(datos, hoy=None, relacionadas=None):
     return laboral + practica / 2, laboral, practica
 
 
+# Rubro (criterio de Andrea): experiencia en educación superior, el sector de ESAN. Se reconoce por el nombre de la
+# empresa: el campo Industria «Educación» también incluye colegios y rindió peor contra la elección de GTH (25/10).
+EDUCACION_SUPERIOR = re.compile(
+    r"\b(?:universidad|university)\b|instituto (?:superior|de educacion superior)|escuela (?:de posgrado|superior)|graduate school|"
+    r"\b(?:upc|usil|pucp|esan|utp|idat|certus|tecsup|senati|toulouse|cibertec|isil|zegel|ucal|ucsur|upn|ucv|usmp)\b")
+
+
+def empresas_educacion_superior(datos):
+    """Empresas de educación superior (universidades, institutos superiores, escuelas de posgrado) del CV, sin repetir."""
+    out = []
+    for k, v in (datos or {}).items():
+        campo = campo_laboral(k)
+        empresa = str(v or "").strip()
+        if campo and campo[1] == "Empresa" and empresa and EDUCACION_SUPERIOR.search(normalizar(empresa)) and empresa not in out:
+            out.append(empresa)
+    return out
+
+
 def describir(total, laboral, practica):
     texto = f"{total:.1f} años de experiencia relacionada equivalente: {laboral:.1f} laborales"
     return texto + (f" y {practica:.1f} de práctica profesional, que cuentan la mitad" if practica else "")
