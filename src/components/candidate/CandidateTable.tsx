@@ -35,13 +35,14 @@ import {
   FileUser,
   Pencil,
   History,
+  LoaderCircle,
 } from 'lucide-react';
 import { isEligibleForTopN, puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import type { SueldoAviso } from '../../services/useSueldoAviso.ts';
 import { evaluarAjusteSalarial } from '../../services/salarios.ts';
-import { IndicadorSueldo } from './IndicadorSueldo.tsx';
+import { ESTADOS_SUELDO, IndicadorSueldo } from './IndicadorSueldo.tsx';
 
 interface CandidateTableProps {
   sueldo: SueldoAviso;
@@ -301,6 +302,7 @@ export function CandidateTable({
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score ↓</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Puntaje</th>
+              <th scope="col" style={{ padding: '0.6rem', width: '76px', minWidth: '76px' }}>Sueldo</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '145px' }}>Comentarios</th>
               <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'center' }}>Acciones</th>
             </tr>
@@ -308,7 +310,7 @@ export function CandidateTable({
           <tbody>
             {paginatedApplications.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
+                <td colSpan={9} style={{ padding: '3rem 1rem', textAlign: 'center' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <FileText size={32} style={{ color: 'var(--text-muted)' }} />
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
@@ -328,6 +330,7 @@ export function CandidateTable({
                 const rowRank = posicion.get(app.id) ?? (validPage - 1) * pageSize + index + 1;
                 const enTop = topIds?.has(app.id) ?? false;
                 const cellPadding = '0.6rem 0.6rem';
+                const ajusteSueldo = activeJob ? evaluarAjusteSalarial(sueldo.criterio, app, activeJob) : 'pendiente';
 
                 return (
                   <tr
@@ -380,15 +383,6 @@ export function CandidateTable({
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
                           {cand?.currentTitle} · <strong>{cand?.currentCompany}</strong>
                         </span>
-                        <Button variant="ghost" size="sm" className="candidate-salary-button"
-                          style={{ whiteSpace: 'normal', alignSelf: 'flex-start', marginTop: '.35rem', padding: '.25rem .5rem' }}
-                          onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${cand?.name || 'candidato'}`}>
-                          {sueldo.cargando ? 'Sueldo · consultando…' : sueldo.error ? 'Sueldo no disponible' : (() => {
-                            const estado = activeJob ? evaluarAjusteSalarial(sueldo.criterio, app, activeJob) : 'pendiente';
-                            const etiqueta = { dentro: 'Dentro', supera: 'Supera', manejable: 'Manejable', pendiente: 'Sin comparar' }[estado];
-                            return <><IndicadorSueldo estado={estado} compacto /><span>Sueldo · {etiqueta}</span></>;
-                          })()}
-                        </Button>
                         {trayectoria.aviso === activeJob?.bumeran?.avisoId && trayectoria.rows[cand?.importedProfile?.externalId || '']?.estado === 'patron_detectado' && <button
                           type="button" className="trayectoria-alert focus-ring" onClick={() => openCandidateDrawer(app, 'trayectoria')}
                           aria-label={`Revisar trayectoria de ${cand?.name}`}>Revisar trayectoria</button>}
@@ -422,6 +416,16 @@ export function CandidateTable({
                           Ver puntaje
                         </Button>
                       ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>—</span>}
+                    </td>
+
+                    <td style={{ padding: cellPadding }}>
+                      <Button variant="ghost" size="sm" className="candidate-salary-button"
+                        style={{ padding: '.5rem', minWidth: '34px' }}
+                        icon={sueldo.cargando
+                          ? <LoaderCircle size={16} className="spin" role="img" aria-label="Consultando sueldo" aria-hidden={false} />
+                          : <IndicadorSueldo estado={ajusteSueldo} compacto />}
+                        title={sueldo.cargando ? 'Consultando sueldo' : sueldo.error ? 'Sueldo no disponible. Abrir para reintentar.' : ESTADOS_SUELDO[ajusteSueldo].detalle}
+                        onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${cand?.name || 'candidato'}`} />
                     </td>
 
                     <td style={{ padding: cellPadding }}>

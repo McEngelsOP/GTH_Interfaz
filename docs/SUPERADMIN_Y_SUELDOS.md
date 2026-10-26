@@ -10,7 +10,7 @@ La entrega `GTH_ETAPA_I_PROYECTO_COMPLETO.zip` parte del proyecto de octubre 5. 
 - La cuenta superadministradora no puede eliminarse, desactivarse ni cambiarse de nivel desde la interfaz o la API. No se habilita un alta web de superadministradores.
 - Eliminar una cuenta retira sus permisos y realiza un borrado lógico en Supabase Auth. Así se conservan las referencias de las decisiones previas; la cuenta desaparece del listado de usuarios de GTHC.
 
-En **Candidatos y ranking**, el botón **Sueldo** aparece junto a **Requisitos y pesos** y **Criterios y pesos**. Cada candidato tiene un acceso salarial debajo de su nombre, con su estado visible antes de abrirlo. El comparador gráfico también muestra el indicador y permite abrir la comparación. La ficha de perfil ya no incluye la pestaña Sueldo.
+En **Candidatos y ranking**, el botón **Sueldo** aparece junto a **Requisitos y pesos** y **Criterios y pesos**. La tabla tiene una columna independiente **Sueldo**, entre Puntaje y Comentarios, con un icono centrado por candidato. Al pulsarlo se abre la comparación salarial; su descripción queda disponible mediante el título y la etiqueta accesible. El nombre del candidato conserva únicamente sus datos. El comparador gráfico también muestra el indicador y permite abrir la comparación. La ficha de perfil ya no incluye la pestaña Sueldo.
 
 Se usan importes mensuales en PEN. La comparación muestra oferta, pretensión, diferencia en soles y, si supera la oferta, el porcentaje de exceso. El selector de postulante permite revisar otra postulación del mismo aviso. El indicador usa un icono distinto y texto para cada estado:
 

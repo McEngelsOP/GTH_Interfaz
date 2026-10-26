@@ -139,6 +139,12 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
   await expect(panel.getByText('Supera el presupuesto', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
   const sueldoAna = page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true });
+  await expect(page.getByRole('columnheader', { name: 'Sueldo', exact: true })).toHaveCount(1);
+  const filaAna = page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Ana Prueba', exact: true }) });
+  await expect(filaAna.getByRole('cell')).toHaveCount(9);
+  await expect(filaAna.getByRole('cell').nth(2).getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toHaveCount(0);
+  await expect(filaAna.getByRole('cell').nth(6).getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toHaveCount(1);
+  await expect(sueldoAna).toHaveText('');
   await expect(sueldoAna.getByRole('img', { name: 'Pretensión superior al presupuesto', exact: true })).toBeVisible();
   const lecturasAntes = ctx.lecturas();
   await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
@@ -156,8 +162,8 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
   await expect(sueldoAna.getByRole('img', { name: 'Pretensión superior al presupuesto', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Guardar criterio', exact: true }).click();
   await expect(dialog.getByText('Criterio guardado para este aviso.', { exact: true })).toBeVisible();
-  await expect(sueldoAna).toContainText('Manejable');
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Bruno Prueba', exact: true })).toContainText('Supera');
+  await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver sueldo de Bruno Prueba', exact: true }).getByRole('img', { name: 'Pretensión superior al presupuesto' })).toBeVisible();
   expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 3000 }, { aviso_id: aviso.aviso_id, modo_sueldo: 'manejable' }]);
   // Una lectura por aviso, no una por fila o por indicador.
   expect(ctx.lecturas()).toBe(lecturasAntes);
@@ -167,7 +173,7 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
   await expect(page.getByRole('tab', { name: 'Perfil', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();
-  await expect(sueldoAna).toContainText('Manejable');
+  await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
   await sueldoAna.click();
   await expect(page.getByRole('dialog', { name: 'Sueldo', exact: true }).getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('3000');
   await page.keyboard.press('Escape');
@@ -177,7 +183,7 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
   for (const [width, theme] of [[1440, 'light'], [390, 'dark']] as const) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
-    await expect(sueldoAna).toContainText('Manejable');
+    await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.impeccable/review/ranking-${width}.png`, fullPage: true, animations: 'disabled' });
     if (width === 390) {
@@ -211,7 +217,7 @@ test('criterio estricto por defecto, manejable solo tras guardar, indicadores y 
 test('migración de modo ausente conserva la comparación estricta y explica cómo habilitar el selector', async ({ page }) => {
   const ctx = await preparar(page); ctx.sinModo();
   await page.goto('/#view=mejores_candidatos');
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toContainText('Sueldo · Dentro');
+  await expect(page.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).getByRole('img', { name: 'Pretensión dentro del presupuesto' })).toBeVisible();
   await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('estricto');
