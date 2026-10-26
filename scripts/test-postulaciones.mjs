@@ -37,6 +37,8 @@ try {
   const user = async (n) => { await db.exec('set role authenticated'); await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid(n)]); };
   const history = async (aviso='A', id='ana-a') => (await db.query('select * from public.gth_historial_postulaciones($1,$2)',[aviso,id])).rows;
   const base = async (f={},pagina=1,tamano=50,resumen=true) => (await db.query('select public.gth_base_centralizada($1,$2,$3,$4) as data',[JSON.stringify(f),pagina,tamano,resumen])).rows[0].data;
+  await db.exec(`insert into public.cvs(aviso_id,card_id,documento,drive_url,estado)
+    values('C','privado','123','https://drive.google.com/file/d/privado/view','descargado');`);
   await user('1');
   assert.deepEqual((await history()).map((r)=>r.aviso_id),['C','A'], 'correo con DNI contradictorios no une las personas');
   assert.equal((await history())[1].score,null,'un puntaje de criterios antiguos no se presenta como vigente');
@@ -66,6 +68,9 @@ try {
   assert.deepEqual(h.map((r)=>r.aviso_id),['A','B'],'general no recibe avisos confidenciales');
   assert.equal((await db.query("select total from public.gth_resumen_postulaciones('A',array['ana-a'])")).rows[0].total,2,'contador tampoco revela su existencia');
   assert.deepEqual(await history('C','ana-c'),[],'no se puede consultar desde una identidad oculta');
+  assert.equal((await base({varios:true})).total,0);
+  assert.ok((await base()).personas.every((p) => p.cv.enlace !== 'https://drive.google.com/file/d/privado/view'),
+    'un CV de un aviso confidencial no se incorpora a una persona visible');
   assert.ok(!(await base()).opciones.avisos.some(([id])=>id==='C'),'filtros tampoco revelan avisos ocultos');
   await db.exec('reset role');
   await db.query("update public.gth_perfiles set avisos=array['A'] where user_id=$1",[uid('2')]);
@@ -77,9 +82,26 @@ try {
   await db.exec('reset role');
   await db.exec(`insert into public.postulaciones(aviso_id,clave,id_postulante,nombre,fecha_postulacion,datos_json)
     select 'D','bulk-'||i,'bulk-'||i,'Persona '||i,'2026-01-01','{}'::jsonb from generate_series(1,4200) i; analyze;`);
+  await db.exec(`update public.postulaciones set documento = clave, email = clave || '@example.test',
+    datos_json = jsonb_build_object('Ciudad','Lima','Est[1] Nivel','Universitario','Est[1] Titulo','Administración',
+      'Idiomas','Inglés - Avanzado','Resumen',repeat('experiencia ',200)) where clave like 'bulk-%';
+    insert into public.cvs(aviso_id,card_id,documento,email,estado,drive_url)
+      select aviso_id,clave,case when right(clave,1) = '2' then null else documento end,upper(email),
+        case when clave like '%0' then 'sin_adjunto' else 'descargado' end,
+        case when clave like '%0' then null else 'https://drive.google.com/file/d/' || clave || '/view' end
+      from public.postulaciones where clave like 'bulk-%'; analyze;`);
   await user('1');
+  const cv = async (clave) => (await db.query('select cv_url,sin_cv from public.v_base_postulantes where id_postulante=$1',[clave])).rows;
+  assert.equal((await cv('bulk-1'))[0].cv_url,'https://drive.google.com/file/d/bulk-1/view','CV por documento');
+  assert.equal((await cv('bulk-2'))[0].cv_url,'https://drive.google.com/file/d/bulk-2/view','CV por correo con mayúsculas');
+  assert.equal((await cv('bulk-10'))[0].sin_cv,true,'sin adjunto se conserva');
+  await db.exec('reset role');
+  await db.exec(`insert into public.cvs(aviso_id,card_id,documento,estado) values('D','duplicado','bulk-1','sin_adjunto');`);
+  await user('1');
+  assert.equal((await cv('bulk-1')).length,1,'CV duplicado no duplica al postulante');
+  assert.equal((await cv('bulk-1'))[0].sin_cv,true,'conserva sin adjunto y el enlace disponible');
   const started=performance.now();
   const bulk=await base({},1,50);
   assert.equal(bulk.personas.length,50);assert.ok(bulk.total>=4200);
-  console.log(`PASS: identidad, historial, recurrencia, puntajes, fechas, filtros, paginación y RLS. 4200+ filas: ${Math.round(performance.now()-started)} ms; respuesta: ${JSON.stringify(bulk).length} bytes.`);
+  console.log(`PASS: identidad, historial, recurrencia, puntajes, fechas, filtros, paginación y RLS. 4200+ postulaciones y CV: ${Math.round(performance.now()-started)} ms; respuesta: ${JSON.stringify(bulk).length} bytes.`);
 } catch (error) { console.error(error.message); process.exitCode=1; } finally { await db.close(); }
