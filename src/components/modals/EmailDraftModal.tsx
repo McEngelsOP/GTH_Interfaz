@@ -9,6 +9,7 @@ import { useApp } from '../../context/AppContext.tsx';
 import { enviarCorreos } from '../../services/correo.ts';
 import { supabase } from '../../services/supabase.ts';
 import { workflowCandidateId, workflowJobId } from '../../services/sharedWorkflow.ts';
+import { correoVigente } from '../../services/candidateContact.ts';
 
 interface EmailDraftModalProps {
   isOpen: boolean;
@@ -35,7 +36,8 @@ export function EmailDraftModal({
   job,
   onSaveDraft,
 }: EmailDraftModalProps) {
-  const [to, setTo] = useState(candidate.email || '');
+  // Mismo correo que Multitest y el agradecimiento: el de la fila más reciente del CSV
+  const [to, setTo] = useState(correoVigente(candidate));
   const [cc, setCc] = useState('');
   const [templateType, setTemplateType] = useState<'personal' | 'avance' | 'cierre' | 'entrevista'>('avance');
   const [lang, setLang] = useState<'es' | 'en'>('es');
@@ -50,7 +52,7 @@ export function EmailDraftModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    setTo(candidate.email || '');
+    setTo(correoVigente(candidate));
     const candName = candidate.name;
     const jobTitle = job.title;
 
@@ -208,7 +210,7 @@ export function EmailDraftModal({
             }}
             placeholder="correo@ejemplo.com"
             error={emailError}
-            helperText={!candidate.email ? 'El candidato no registró correo (campo editable)' : undefined}
+            helperText={!correoVigente(candidate) ? 'El candidato no registró correo (campo editable)' : undefined}
           />
           <Input
             label="Copia (CC opcional)"

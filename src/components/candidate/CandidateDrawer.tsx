@@ -35,6 +35,7 @@ import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../../services/
 import { perfilBumeran } from '../../services/perfilBumeran.ts';
 import { cvPersonal } from '../../services/bumeranSync.ts';
 import { ComparacionSalarial } from './ComparacionSalarial.tsx';
+import { correoVigente } from '../../services/candidateContact.ts';
 
 export function CandidateDrawer() {
   const {
@@ -162,10 +163,10 @@ export function CandidateDrawer() {
 
             {/* Información de contacto honesta (solo si existe) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              {candidate.email ? (
+              {correoVigente(candidate) ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <Mail size={13} style={{ color: 'var(--text-muted)' }} />
-                  {candidate.email}
+                  {correoVigente(candidate)}
                 </span>
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
