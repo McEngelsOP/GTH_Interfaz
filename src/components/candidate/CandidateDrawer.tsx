@@ -34,7 +34,7 @@ import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import { embeddingVigente, idsTopN, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { perfilBumeran } from '../../services/perfilBumeran.ts';
 import { cvPersonal } from '../../services/bumeranSync.ts';
-import { ComparacionSalarial } from './ComparacionSalarial.tsx';
+import { ComparacionSalarial, SemaforoSueldo } from './ComparacionSalarial.tsx';
 import { correoVigente } from '../../services/candidateContact.ts';
 
 export function CandidateDrawer() {
@@ -93,9 +93,9 @@ export function CandidateDrawer() {
   const drawerTabs = [
     { id: 'perfil', label: 'Perfil' },
     { id: 'puntaje', label: 'Puntaje' },
-    { id: 'sueldo', label: 'Sueldo' },
-    { id: 'trayectoria', label: 'Trayectoria',
+    { id: 'trayectoria', label: 'Rotación laboral',
       icon: <SemaforoDePostulante aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} /> },
+    { id: 'sueldo', label: 'Sueldo', icon: <SemaforoSueldo job={currentJob} app={app} /> },
     { id: 'postulaciones', label: 'Postulaciones' },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];

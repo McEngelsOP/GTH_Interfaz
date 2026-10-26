@@ -7,6 +7,35 @@ import { esSuperadmin, usePerfil } from '../../services/permisos.ts';
 import { cargarSueldoOfertado, guardarSueldoOfertado, compararSueldo, formatearSueldo, sueldoValido } from '../../services/salarios.ts';
 import type { Application, JobPosting } from '../../types/index.ts';
 import { workflowJobId } from '../../services/sharedWorkflow.ts';
+import { Semaforo, type ColorSemaforo } from '../common/Semaforo.tsx';
+
+type Comparacion = ReturnType<typeof compararSueldo>;
+const COLOR: Record<Comparacion, ColorSemaforo> = { dentro: 'verde', supera: 'rojo', pendiente: 'amarillo' };
+const TEXTO: Record<Comparacion, string> = {
+  dentro: 'Pretensión dentro del presupuesto', supera: 'Pretensión superior al presupuesto', pendiente: 'Comparación pendiente',
+};
+/** Avisa a la pestaña «Sueldo» que cambió la oferta de un aviso, para actualizar su semáforo. */
+const eventosSueldo = new EventTarget();
+
+/** Semáforo de la pestaña «Sueldo»: verde si lo pretendido es igual o menor que lo ofertado, rojo si es mayor y
+ *  amarillo si falta alguno de los dos. */
+export function SemaforoSueldo({ job, app }: { job: JobPosting; app: Application }) {
+  const [oferta, setOferta] = useState<number | null | undefined>(undefined);   // undefined: consultando o sin acceso
+  const aviso = workflowJobId(job);
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+    let vigente = true;
+    const cargar = () => cargarSueldoOfertado(client, aviso).then((m) => { if (vigente) setOferta(m); }, () => { if (vigente) setOferta(undefined); });
+    void cargar();
+    const alGuardar = (e: Event) => { if ((e as CustomEvent<string>).detail === aviso) void cargar(); };
+    eventosSueldo.addEventListener('guardado', alGuardar);
+    return () => { vigente = false; eventosSueldo.removeEventListener('guardado', alGuardar); };
+  }, [aviso]);
+  if (oferta === undefined) return null;
+  const comparacion = compararSueldo(oferta, sueldoValido(app.expectedSalary) ? app.expectedSalary : null);
+  return <Semaforo color={COLOR[comparacion]} texto={TEXTO[comparacion]} />;
+}
 
 export function ComparacionSalarial({ job, app }: { job: JobPosting; app: Application }) {
   const puedeEditar = esSuperadmin(usePerfil());
@@ -39,11 +68,15 @@ export function ComparacionSalarial({ job, app }: { job: JobPosting; app: Applic
       const guardado = await guardarSueldoOfertado(supabase, workflowJobId(job), monto);
       setOferta(guardado); setBorrador(guardado === null ? '' : String(guardado));
       setMensaje('Oferta guardada para este aviso.');
+      eventosSueldo.dispatchEvent(new CustomEvent('guardado', { detail: workflowJobId(job) }));
     } catch (e) { setError((e as Error).message); }
     finally { setEstado('listo'); }
   };
   return <section aria-label="Comparación salarial" style={{ paddingBlock: '1rem', marginBlock: '1rem', borderBlock: '1px solid var(--border-subtle)' }}>
-    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Comparación salarial mensual</h3>
+    <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+      Comparación salarial mensual
+      {estado !== 'cargando' && estado !== 'error' && <Semaforo color={COLOR[comparacion]} texto={TEXTO[comparacion]} size={17} />}
+    </h3>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: '1rem', marginTop: '.75rem' }}>
       <div>
         <p style={{ fontSize: '.875rem', color: 'var(--text-secondary)' }}>Sueldo ofertado</p>

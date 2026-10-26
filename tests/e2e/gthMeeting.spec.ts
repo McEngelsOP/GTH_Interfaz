@@ -211,7 +211,7 @@ test('ficha abre en Perfil y tabla centra cabeceras y controles', async ({ page 
   const drawer = page.getByRole('dialog');
   await expect(drawer.getByRole('tab', { name: 'Perfil', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(drawer.getByRole('tab', { name: 'Historial', exact: true })).toHaveCount(0);
-  expect(await drawer.getByRole('tab').allTextContents()).toEqual(['Perfil', 'Puntaje', 'Sueldo', 'Trayectoria', 'Postulaciones']);
+  expect(await drawer.getByRole('tab').allTextContents()).toEqual(['Perfil', 'Puntaje', 'Rotación laboral', 'Sueldo', 'Postulaciones']);
   await drawer.getByRole('tab', { name: 'Puntaje', exact: true }).click();
   await expect(drawer.getByRole('tab', { name: 'Puntaje', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.setViewportSize({ width: 390, height: 844 });

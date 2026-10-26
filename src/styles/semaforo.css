@@ -1,0 +1,5 @@
+.semaforo { flex-shrink: 0; }
+.semaforo-verde { color: var(--status-verified-text); }
+.semaforo-rojo { color: var(--status-failed-text); }
+.semaforo-amarillo { color: #CA8A04; }   /* amarillo legible en claro; el ámbar del tema tira a marrón */
+[data-theme='dark'] .semaforo-amarillo { color: #FACC15; }

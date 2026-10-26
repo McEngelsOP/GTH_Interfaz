@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
+import { Semaforo } from '../common/Semaforo.tsx';
 import { Badge } from '../common/Badge.tsx';
 import { Button } from '../common/Button.tsx';
 import { supabase } from '../../services/supabase.ts';
@@ -7,15 +7,10 @@ import { cargarDetalleTrayectoria, cargarRevisionesTrayectoria, ESTADOS_TRAYECTO
   semaforoTrayectoria, TEXTO_SEMAFORO, type DetalleTrayectoria, type EstadoTrayectoria, type RevisionTrayectoria, type RevisionRegistrada } from '../../services/trayectoria.ts';
 import '../../styles/trayectoria.css';
 
-const ICONO_SEMAFORO = { verde: CheckCircle2, rojo: AlertCircle, amarillo: HelpCircle };
-
-/** Verde sin riesgo, rojo con cambios frecuentes, amarillo si no se pudo concluir. Lleva su texto para lectores de
- *  pantalla, así que no depende solo del color. */
+/** Verde sin riesgo, rojo con cambios frecuentes, amarillo si no se pudo concluir. */
 export function SemaforoTrayectoria({ estado, size = 15 }: { estado?: EstadoTrayectoria; size?: number }) {
   const color = semaforoTrayectoria(estado);
-  const Icono = ICONO_SEMAFORO[color];
-  return <Icono size={size} className={`trayectoria-semaforo trayectoria-semaforo-${color}`} role="img"
-    aria-label={TEXTO_SEMAFORO[color]} aria-hidden={false} />;
+  return <Semaforo color={color} texto={TEXTO_SEMAFORO[color]} size={size} />;
 }
 
 /** Semáforo de la trayectoria de un postulante del aviso abierto (para la pestaña del perfil). */

@@ -62,8 +62,8 @@ test('aviso, evidencia y revisión conservan ranking; escritorio y móvil', asyn
   await alert.click();
   const panel = page.getByRole('region', { name: 'Cambios entre empleadores' });
   // «Revisar trayectoria» abre el perfil directamente en su pestaña, sin repetir la experiencia laboral.
-  await expect(page.getByRole('tab', { name: /Trayectoria/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('tab', { name: /Trayectoria/ }).getByRole('img', { name: 'Con riesgo: cambios frecuentes' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /Rotación laboral/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Rotación laboral/ }).getByRole('img', { name: 'Con riesgo: cambios frecuentes' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Experiencia laboral', exact: true })).toHaveCount(0);
   await expect(panel.getByText('Se detectaron 3 transiciones en un intervalo de 6 meses.', { exact: true })).toBeVisible();
   await expect(panel.getByText(/Criterio:/)).toBeHidden();
@@ -111,7 +111,7 @@ test('fechas válidas no se atribuyen a datos faltantes por modalidad', async ({
   await page.goto('/#view=mejores_candidatos');
   await expect(page.getByRole('button', { name: 'Revisar trayectoria de Ana Prueba' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
-  await page.getByRole('tab', { name: /Trayectoria/ }).click();
+  await page.getByRole('tab', { name: /Rotación laboral/ }).click();
   const panel = page.getByRole('region', { name: 'Cambios entre empleadores' });
   await expect(panel.getByText('Sin patrón en los datos evaluables', { exact: true })).toBeVisible();
   await expect(panel.getByRole('img', { name: 'Sin riesgo' })).toBeVisible();
@@ -136,7 +136,7 @@ test('modalidad desconocida no se presenta como patrón confirmado', async ({ pa
   await page.goto('/#view=mejores_candidatos');
   await expect(page.getByRole('button', { name: 'Revisar trayectoria de Ana Prueba' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
-  await page.getByRole('tab', { name: /Trayectoria/ }).click();
+  await page.getByRole('tab', { name: /Rotación laboral/ }).click();
   const panel = page.getByRole('region', { name: 'Cambios entre empleadores' });
   await expect(panel.getByText('No concluyente', { exact: true })).toBeVisible();
   await expect(panel.getByRole('img', { name: 'No se pudo concluir' })).toBeVisible();
@@ -150,7 +150,7 @@ test('migración ausente mantiene accesibles candidatos y ranking', async ({ pag
   await preparar(page, true);
   await page.goto('/#view=mejores_candidatos');
   await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
-  await page.getByRole('tab', { name: /Trayectoria/ }).click();
+  await page.getByRole('tab', { name: /Rotación laboral/ }).click();
   const panel = page.getByRole('region', { name: 'Cambios entre empleadores' });
   await expect(panel.getByRole('alert')).toContainText('migración');
   await expect(panel.getByRole('button', { name: 'Actualizar análisis' })).toBeEnabled();
@@ -162,7 +162,7 @@ test('resume el dato pendiente y permite cancelar o reintentar sin duplicar la e
   const ctx = await preparar(page, false, incompleto);
   await page.goto('/#view=mejores_candidatos');
   await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
-  await page.getByRole('tab', { name: /Trayectoria/ }).click();
+  await page.getByRole('tab', { name: /Rotación laboral/ }).click();
   const panel = page.getByRole('region', { name: 'Cambios entre empleadores' });
   await expect(panel.getByText('Falta confirmar la fecha de fin en Empresa actual.', { exact: true })).toBeVisible();
   await expect(page.getByText('Funciones de Empresa actual.', { exact: true })).toHaveCount(0);
