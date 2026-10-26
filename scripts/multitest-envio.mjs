@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { chromium } from 'playwright';
 
 const URL_LOGIN = 'https://apps.multitestresources.com/es/auth/login';
+const SMART = /smartevaluation\.multitestresources\.com/;
 const CARPETA = join('automatizacion', 'multitest');
 const SESION = join(CARPETA, '.sesion.json');
 
@@ -34,16 +35,24 @@ async function ingresar(page) {
     await page.getByRole('textbox', { name: 'Mi contraseña' }).fill(process.env.MULTITEST_CLAVE);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   }
-  // Tras ingresar se elige el producto Smart Evaluation (otro dominio) y, en su pantalla de opciones, la empresa (logo)
+  // Tras ingresar se elige el producto Smart Evaluation (otro dominio) y, en su pantalla de opciones, la empresa (logo).
+  // Según la versión de Multitest, Smart Evaluation se abre en la misma pestaña o en una nueva: se sigue la que abra.
   const smart = page.getByText('Smart Evaluation Descubre las');
   if (await visible(smart, 10000)) {
+    const mismaPestana = page.waitForURL(SMART, { timeout: 30000 }).then(() => page);
+    const pestanaNueva = page.context().waitForEvent('page', { timeout: 30000 })
+      .then(async (nueva) => { await nueva.waitForURL(SMART, { timeout: 30000 }); return nueva; });
     await smart.click();
-    await page.waitForURL(/smartevaluation\.multitestresources\.com/, { timeout: 30000 });
+    const destino = await Promise.any([mismaPestana, pestanaNueva])
+      .catch(() => { throw new Error('Smart Evaluation no se abrió ni en esta pestaña ni en una nueva'); });
+    if (destino !== page) { await page.close(); page = destino; }
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
   }
   if (page.url().includes('/login/opciones')) {
     await page.getByRole('img', { name: 'Logo' }).first().click();
     await page.waitForLoadState('networkidle').catch(() => {});
   }
+  return page;
 }
 
 async function abrirPreparacion(page, proceso) {
@@ -103,10 +112,10 @@ const captura = (page, nombre) => page.screenshot({ path: join(CARPETA, `${nombr
 const porProceso = Map.groupBy(registros, (r) => r.proceso);
 let n = 0, primera = true;
 for (const [proceso, grupo] of porProceso) {
-  const page = await context.newPage();
+  let page = await context.newPage();
   const agregados = [];
   try {
-    await ingresar(page);
+    page = await ingresar(page);   // puede seguir en otra pestaña (Smart Evaluation)
     if (primera) { await context.storageState({ path: SESION }); primera = false; }   // las siguientes corridas entran sin login
     await abrirPreparacion(page, proceso);
   } catch (e) {
