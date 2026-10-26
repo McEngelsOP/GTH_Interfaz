@@ -21,6 +21,7 @@ test.beforeEach(async ({ page }) => {
 test('la paleta y las filas cambian al mismo ritmo sin destello ni reinicio', async ({ page }) => {
   await page.goto('/#view=mejores_candidatos');
   await expect(page.getByRole('button', { name: 'Ana Prueba', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ana Prueba', exact: true })).toHaveCSS('color', 'rgb(0, 0, 0)');
   for (const direction of ['dark', 'light']) {
     const frames = await page.evaluate(async () => {
       const row = document.querySelector('tbody tr')!;
@@ -54,6 +55,15 @@ test('la paleta y las filas cambian al mismo ritmo sin destello ni reinicio', as
       expect(direction === 'dark' ? luminance[i] - luminance[i - 1] : luminance[i - 1] - luminance[i]).toBeLessThan(3);
     }
     await expect(page.locator('html')).not.toHaveClass(/theme-transition/);
+    await expect(page.getByRole('button', { name: 'Ana Prueba', exact: true })).toHaveCSS('color', direction === 'dark' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)');
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      if (width === 390) await expect(page.locator('.sidebar-shell')).toBeHidden();
+      await expect(page.getByRole('button', { name: /^(Cómoda|Compacta)$/ })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Ana Prueba', exact: true }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: test.info().outputPath(`ranking-${direction}-${width}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
   }
 });
 
@@ -94,12 +104,12 @@ test('cambios rápidos de tema respetan la última elección en escritorio y mó
   }
 });
 
-test('secciones y pestañas animan el cambio sin perder búsqueda, densidad ni selección', async ({ page }) => {
+test('secciones y pestañas animan el cambio sin perder búsqueda ni selección', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/#view=mejores_candidatos');
   const search = page.getByPlaceholder('Buscar por nombre, puesto u organización...');
   await search.fill('Ana');
-  await page.getByRole('button', { name: 'Compacta', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^(Cómoda|Compacta)$/ })).toHaveCount(0);
   await page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Ana Prueba', exact: true }) }).getByRole('checkbox').check();
   const motion = await page.evaluate(async () => {
     const tabs = document.querySelector('[role="tablist"]')!;
@@ -114,7 +124,7 @@ test('secciones y pestañas animan el cambio sin perder búsqueda, densidad ni s
   expect(motion.indicator).toBeGreaterThan(0);
   await expect(search).toHaveValue('Ana');
   await expect(page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Ana Prueba', exact: true }) }).getByRole('checkbox')).toBeChecked();
-  await expect(page.locator('.candidate-ranking-table')).toHaveCSS('font-size', '12.48px');
+  await expect(page.locator('.candidate-ranking-table')).toHaveCSS('font-size', '13px');
   await page.getByRole('tab', { name: /^Top-N/ }).focus();
   await page.keyboard.press('End');
   await expect(page.getByRole('tab', { name: /^Todos/ })).toBeFocused();
@@ -151,7 +161,7 @@ test('pestañas del perfil y sus indicadores se adaptan a móvil sin desplazar t
   expect(motion).toBeGreaterThan(0);
   await expect(dialog.getByText('Similitud del perfil con cada requisito del aviso (0-100 dentro del aviso) y la parte del perfil que la respalda.')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await dialog.getByRole('tab', { name: 'Por qué este puntaje', exact: true }).focus();
+  await dialog.getByRole('tab', { name: 'Puntaje', exact: true }).focus();
   await page.keyboard.press('Home');
   await expect(dialog.getByRole('tab', { name: 'Perfil', exact: true })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

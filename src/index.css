@@ -24,6 +24,7 @@
 
   /* Textos y contrastes */
   --text-primary: #263243;
+  --candidate-name-color: #000000;
   --text-secondary: #596373;
   --text-muted: #848E9C;
   --text-inverse: #FFFFFF;
@@ -104,6 +105,7 @@
   --bg-hover: #2F3644;
 
   --text-primary: #F3F4F6;
+  --candidate-name-color: #FFFFFF;
   --text-secondary: #A0A9B8;
   --text-muted: #6B7688;
   --text-inverse: #14171C;

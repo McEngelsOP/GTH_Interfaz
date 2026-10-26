@@ -96,7 +96,6 @@ export function CandidateTable({
   useEffect(() => { setSearchQuery(''); setCurrentPage(1); setExplicacion(null); setCommentFor(null); }, [activeJob?.id]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -141,7 +140,7 @@ export function CandidateTable({
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const validPage = Math.min(currentPage, totalPages);
   const tableRef = useRef<HTMLDivElement>(null);
-  useContentMotion(tableRef, `${motionKey}:${density}:${validPage}`);
+  useContentMotion(tableRef, `${motionKey}:${validPage}`);
 
   const paginatedApplications = useMemo(() => {
     const start = (validPage - 1) * pageSize;
@@ -243,50 +242,8 @@ export function CandidateTable({
 
         </div>
 
-        {/* Densidad, Exportar y Paginación */}
+        {/* Recuento de resultados */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              backgroundColor: 'var(--bg-base)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '2px',
-              border: '1px solid var(--border-default)',
-            }}
-          >
-            <button
-              onClick={() => setDensity('comfortable')}
-              style={{
-                border: 'none',
-                background: density === 'comfortable' ? 'var(--bg-surface)' : 'transparent',
-                color: density === 'comfortable' ? 'var(--primary-red)' : 'var(--text-muted)',
-                fontWeight: density === 'comfortable' ? 600 : 500,
-                fontSize: '0.75rem',
-                padding: '0.3rem 0.6rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              Cómoda
-            </button>
-            <button
-              onClick={() => setDensity('compact')}
-              style={{
-                border: 'none',
-                background: density === 'compact' ? 'var(--bg-surface)' : 'transparent',
-                color: density === 'compact' ? 'var(--primary-red)' : 'var(--text-muted)',
-                fontWeight: density === 'compact' ? 600 : 500,
-                fontSize: '0.75rem',
-                padding: '0.3rem 0.6rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              Compacta
-            </button>
-          </div>
-
           <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
             Mostrando <strong>{totalItems}</strong> candidatos
           </span>
@@ -309,7 +266,7 @@ export function CandidateTable({
             width: '100%',
             borderCollapse: 'collapse',
             textAlign: 'left',
-            fontSize: density === 'compact' ? '0.78rem' : '0.8125rem',
+            fontSize: '0.8125rem',
           }}
         >
           <thead>
@@ -363,7 +320,7 @@ export function CandidateTable({
                 const eligibility = isEligibleForTopN(app, selectedMethod);
                 const rowRank = posicion.get(app.id) ?? (validPage - 1) * pageSize + index + 1;
                 const enTop = topIds?.has(app.id) ?? false;
-                const cellPadding = density === 'compact' ? '0.4rem 0.6rem' : '0.6rem 0.6rem';
+                const cellPadding = '0.6rem 0.6rem';
 
                 return (
                   <tr
@@ -407,7 +364,7 @@ export function CandidateTable({
                             textAlign: 'left',
                             padding: 0,
                             fontWeight: 600,
-                            color: 'var(--primary-red)',
+                            color: 'var(--candidate-name-color)',
                             fontSize: '0.875rem',
                           }}
                         >
