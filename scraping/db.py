@@ -296,7 +296,9 @@ class BD:
             "SELECT clave, id_postulante FROM postulaciones WHERE aviso_id=?", (aviso_id,))}
         existentes = set(ids)
         usados = {v for v in ids.values() if v}
-        self.cx.execute(self._sql("UPDATE postulaciones SET en_ultimo_csv=0 WHERE aviso_id=?"), (aviso_id,))
+        # Los postulantes de prueba (ID «prueba-…», creados a mano en Supabase) no vienen en el CSV: se conservan
+        self.cx.execute(self._sql("UPDATE postulaciones SET en_ultimo_csv=0 WHERE aviso_id=? "
+                                  "AND (id_postulante IS NULL OR id_postulante NOT LIKE 'prueba-%')"), (aviso_id,))
         nuevos = 0
         vistos = set()
         sql = self._sql(
