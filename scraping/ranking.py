@@ -234,7 +234,7 @@ def paso_ranking(bd, aviso: dict, forzar=False):
     guardado = {} if forzar else bd.ranking_guardado(aviso_id, version)
     claves = {p["clave"] for p in postulantes}
     if guardado and set(guardado) == claves and all(f.get("backend") == "e5" for f in guardado.values()):
-        marcar_criterios()   # al día: no hace falta cargar el modelo (el servidor revisa cada 5 min)
+        marcar_criterios()   # al día: no hace falta cargar el modelo (el servidor revisa cada 30 min)
         log.info("Ranking al día (%d postulantes, criterios %s)", len(postulantes), version)
         return 0
     emb = _modelo()

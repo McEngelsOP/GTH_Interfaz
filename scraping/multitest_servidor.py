@@ -6,14 +6,14 @@ La web deja los pedidos en Supabase y este proceso:
     Chrome) y confirma en gth_acciones a los candidatos agregados y libera a los que fallaron, aunque la web esté cerrada;
   - «Recalcular puntaje» (Requisitos y pesos, tabla ranking_recalculos): recalcula el ranking e5 del aviso con los
     requisitos y pesos guardados (scraping/ranking.py) y lo deja en ranking_embeddings;
-  - cada 5 minutos revisa Bumeran (python -m scraping.run --rapido, con la ventana de Chrome: sin ventana Bumeran lo
+  - cada 30 minutos revisa Bumeran (python -m scraping.run --rapido, con la ventana de Chrome: sin ventana Bumeran lo
     bloquea): lee la lista de avisos y solo entra a los nuevos o con postulantes nuevos (CSV, oferta, ranking y CV en
     PDF). El detalle queda en data\\scraper.log.
 
 Uso (desde la raíz del repo, o doble clic en scraping\\iniciar_servidor_gth.bat):
   python -m scraping.multitest_servidor                 Chrome de Multitest sin ventana
   python -m scraping.multitest_servidor --ventana       Chrome de Multitest visible (para ver qué hace)
-  python -m scraping.multitest_servidor --sin-scraping  sin la revisión de Bumeran cada 5 minutos
+  python -m scraping.multitest_servidor --sin-scraping  sin la revisión de Bumeran cada 30 minutos
 Requiere SUPABASE_DB_URL en scraping\\.env y MULTITEST_USUARIO / MULTITEST_CLAVE en .env.local.
 """
 import argparse
@@ -39,7 +39,7 @@ SERVICIO = "multitest"
 CADA_LATIDO = 15        # segundos; la web considera apagado al servidor tras 90 s sin latido
 CADA_REVISION = 5
 LIMITE_ENVIO = 30 * 60  # un envío que tarde más se corta
-CADA_SCRAPING = 5 * 60  # pausa entre el fin de una revisión de Bumeran y el inicio de la siguiente
+CADA_SCRAPING = 30 * 60  # pausa entre el fin de una revisión de Bumeran y el inicio de la siguiente
 LIMITE_SCRAPING = 45 * 60   # una revisión que tarde más (p. ej. Bumeran pide captcha y nadie lo resuelve) se corta
 
 
@@ -184,7 +184,7 @@ def revisar_bumeran():
 
 
 def scraping_periodico():
-    """Hilo aparte: revisa Bumeran cada 5 minutos mientras el servidor esté prendido."""
+    """Hilo aparte: revisa Bumeran cada 30 minutos mientras el servidor esté prendido."""
     while True:
         try:
             revisar_bumeran()
@@ -211,7 +211,7 @@ def latidos():
 def main(argv=None):
     p = argparse.ArgumentParser(description="Servidor de GTH: envíos a Multitest, recálculo de puntaje y revisión de Bumeran")
     p.add_argument("--ventana", action="store_true", help="muestra Chrome mientras trabaja")
-    p.add_argument("--sin-scraping", action="store_true", help="no revisa Bumeran cada 5 minutos")
+    p.add_argument("--sin-scraping", action="store_true", help="no revisa Bumeran cada 30 minutos")
     args = p.parse_args(argv)
     configurar_log()
     if BD().motor != "supabase":
@@ -220,7 +220,7 @@ def main(argv=None):
     if not args.sin_scraping:
         threading.Thread(target=scraping_periodico, daemon=True).start()
     log.info("Servidor de GTH (Multitest, recálculo de puntaje%s) encendido en %s. Ctrl+C para apagarlo.",
-             "" if args.sin_scraping else " y revisión de Bumeran cada 5 min", socket.gethostname())
+             "" if args.sin_scraping else " y revisión de Bumeran cada 30 min", socket.gethostname())
     bd = None
     while True:
         try:

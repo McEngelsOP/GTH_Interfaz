@@ -66,7 +66,7 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
             <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)' }}>Actualización de datos</h1>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
               Cuándo se revisó Bumeran por última vez, qué datos nuevos trajo y el estado de cada aviso.
-              La revisión de Bumeran se hace automáticamente <strong>cada 5 minutos</strong> mientras el servidor de GTH (laptop) está prendido.
+              La revisión de Bumeran se hace automáticamente <strong>cada 30 minutos</strong> mientras el servidor de GTH (laptop) está prendido.
             </p>
           </div>
         </div>
@@ -102,7 +102,7 @@ export function ActualizacionDatosView({ sync }: { sync: Sync }) {
             </div>
             <p style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', fontSize: '0.84rem', color: 'var(--text-primary)' }}>
               <Clock size={15} style={{ color: 'var(--text-muted)' }} />
-              Cada <strong>5 minutos</strong> mientras el servidor de GTH está prendido
+              Cada <strong>30 minutos</strong> mientras el servidor de GTH está prendido
             </p>
             {ultima ? <>
               <div>

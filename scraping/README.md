@@ -82,7 +82,7 @@ calcularla). Ese valor reemplaza la similitud e5 del requisito, dentro de su ran
 posgrado suma una bonificación de 0.25 × (percentil 90 − percentil 10) de los puntajes del aviso. Queda en
 `ranking_embeddings.ajustes.rubro` y la web la muestra en «Por qué este puntaje».
 
-**Revisión de Bumeran cada 5 minutos**: el servidor corre `python -m scraping.run --rapido` en un proceso
+**Revisión de Bumeran cada 30 minutos**: el servidor corre `python -m scraping.run --rapido` en un proceso
 aparte, con la ventana de Chrome (sin ventana, Bumeran bloquea el acceso). Lee la lista de avisos y solo entra a los nuevos o con postulantes nuevos (CSV, oferta, ranking y CV en PDF).
 El detalle queda en `data\scraper.log`. Con `--sin-scraping` el servidor no revisa Bumeran.
 

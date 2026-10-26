@@ -26,6 +26,39 @@ function leerEnvLocal() {
 
 const visible = (locator, timeout = 5000) => locator.waitFor({ state: 'visible', timeout }).then(() => true, () => false);
 
+/** Espera a que Smart Evaluation cargue en esta pestaña o en una nueva; devuelve esa pestaña o null. */
+async function esperarSmart(page, timeout) {
+  const mismaPestana = page.waitForURL(SMART, { timeout }).then(() => page);
+  const pestanaNueva = page.context().waitForEvent('page', { timeout })
+    .then(async (nueva) => { await nueva.waitForURL(SMART, { timeout }); return nueva; });
+  return Promise.any([mismaPestana, pestanaNueva]).catch(() => null);
+}
+
+/** En el lanzador «¿Qué vamos a usar hoy?» abre Smart Evaluation. Multitest cambió su lanzador (25/10): se prueba el
+ *  enlace, el título, el logo y la tarjeta; si nada abre, guarda la página en lanzador.html para revisarla. */
+async function abrirSmartEvaluation(page) {
+  const enlace = await page.locator('a[href*="smartevaluation"]').first().getAttribute('href', { timeout: 2000 }).catch(() => null);
+  const intentos = [
+    enlace && (() => page.goto(new URL(enlace, page.url()).href)),
+    () => page.getByText('Smart Evaluation', { exact: true }).first().click(),
+    () => page.locator('img[alt*="smart" i], img[src*="smart" i]').first().click(),
+    () => page.getByText('Smart Evaluation Descubre las').click(),
+  ].filter(Boolean);
+  for (const intento of intentos) {
+    const destino = esperarSmart(page, 12000);
+    if (await intento().then(() => true, () => false)) {
+      const abierta = await destino;
+      if (abierta) {
+        if (abierta !== page) await page.close();
+        await abierta.waitForLoadState('domcontentloaded').catch(() => {});
+        return abierta;
+      }
+    }
+  }
+  writeFileSync(join(CARPETA, 'lanzador.html'), await page.content().catch(() => ''));
+  throw new Error('Smart Evaluation no se abrió desde el lanzador de Multitest (ver automatizacion/multitest/lanzador.html)');
+}
+
 async function ingresar(page) {
   await page.goto(URL_LOGIN);
   const usuario = page.getByRole('textbox', { name: 'user@mail.com' });
@@ -36,18 +69,7 @@ async function ingresar(page) {
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   }
   // Tras ingresar se elige el producto Smart Evaluation (otro dominio) y, en su pantalla de opciones, la empresa (logo).
-  // Según la versión de Multitest, Smart Evaluation se abre en la misma pestaña o en una nueva: se sigue la que abra.
-  const smart = page.getByText('Smart Evaluation Descubre las');
-  if (await visible(smart, 10000)) {
-    const mismaPestana = page.waitForURL(SMART, { timeout: 30000 }).then(() => page);
-    const pestanaNueva = page.context().waitForEvent('page', { timeout: 30000 })
-      .then(async (nueva) => { await nueva.waitForURL(SMART, { timeout: 30000 }); return nueva; });
-    await smart.click();
-    const destino = await Promise.any([mismaPestana, pestanaNueva])
-      .catch(() => { throw new Error('Smart Evaluation no se abrió ni en esta pestaña ni en una nueva'); });
-    if (destino !== page) { await page.close(); page = destino; }
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
-  }
+  if (await visible(page.getByText('¿Qué vamos a usar hoy?'), 10000)) page = await abrirSmartEvaluation(page);
   if (page.url().includes('/login/opciones')) {
     await page.getByRole('img', { name: 'Logo' }).first().click();
     await page.waitForLoadState('networkidle').catch(() => {});
