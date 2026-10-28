@@ -102,6 +102,11 @@ export interface EmbeddingMatch {
   evaluatedAt: string;
   /** Empresas de educación superior del CV que sumaron la bonificación por rubro (scraping/ranking.py). */
   higherEducation?: string[];
+  /** Demás criterios de «Criterios y pesos» que movieron el puntaje (scraping/ranking.py, columna ajustes). */
+  companyTier?: { tier: string; empresa: string };
+  highTurnover?: boolean;
+  overqualified?: string[];
+  salaryDiscarded?: { pretension: number; oferta: number };
 }
 
 export interface Application {
@@ -200,7 +205,7 @@ export interface ProfileTemplate {
 
 export interface AppStateData {
   /** Comentarios locales por convocatoria y postulante; no se sincronizan con Supabase. */
-  comentariosInternos?: Record<string, { texto: string; at: string }>;
+  comentariosInternos?: Record<string, { texto: string; at: string; bandera?: 'roja' | 'verde' | null }>;
   jobPostings: JobPosting[];
   candidates: Candidate[];
   applications: Application[];

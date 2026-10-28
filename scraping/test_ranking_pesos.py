@@ -21,12 +21,20 @@ class BDFalsa:
     def __init__(self):
         self.a = {"aviso_id": "A1", "titulo": "Analista", "detalle_texto": OFERTA, "criterios": None, "criterios_version": None}
         self.requisitos, self.filas, self.version = [], {}, None
+        self.criterios, self.sueldo, self.rotacion = None, None, []
         self.postulantes = [{"clave": c, "id_postulante": c.lower(), "datos_json": {"Exp[1] Puesto": "Analista"}}
                             for c in ("P1", "P2")]
 
     def consultar(self, sql, params=()):
+        if "gth_trayectoria_analisis" in sql:
+            return self.rotacion
+        if "FROM postulaciones" in sql:   # otros avisos a los que postuló (ranking.otros_avisos)
+            return []
         assert "gth_aviso_requisitos" in sql
         return self.requisitos
+
+    def uno(self, sql, params=()):
+        return self.criterios if "gth_aviso_criterios" in sql else self.sueldo
 
     def aviso(self, aviso_id):
         return dict(self.a)
@@ -80,7 +88,7 @@ class TestRankingPesos(unittest.TestCase):
 
     def test_sin_requisitos_guardados_usa_la_oferta(self):
         criterios, version = ranking.criterios_efectivos(self.bd, self.bd.a)
-        self.assertEqual(version, f"Bumeran {_hash_corto('Experiencia en cobranzas|Manejo de Excel#' + ranking.RUBRO_VERSION)}")
+        self.assertEqual(version, f"Bumeran {_hash_corto('Experiencia en cobranzas|Manejo de Excel#' + ranking.RUBRO_VERSION + '#' + ranking.REGLAS_GTH_VERSION)}")
         self.assertEqual([c["label"] for c in criterios], ["Experiencia en cobranzas", "Manejo de Excel"])
 
     def test_pesos_iguales_no_cambian_la_version(self):
@@ -94,7 +102,7 @@ class TestRankingPesos(unittest.TestCase):
         ranking.aplicar_bonificacion_rubro(filas, datos)
         bono = round(ranking.BONO_RUBRO * (0.80 - 0.70), 4)
         self.assertEqual(filas[1]["score_bruto"], round(0.70 + bono, 4))
-        self.assertEqual(filas[1]["ajustes"]["rubro"], {"educacion_superior": ["Universidad ESAN"], "bono": bono})
+        self.assertEqual(filas[1]["ajustes"]["rubro"], {"educacion_superior": ["Universidad ESAN"], "bono": bono, "delta": bono})
         self.assertEqual(filas[0]["score_bruto"], 0.80)
         # Al reutilizar la fila se descuenta la bonificación anterior antes de volver a aplicarla
         ranking.quitar_bonificacion_rubro(filas[1])

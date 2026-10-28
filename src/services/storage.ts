@@ -56,7 +56,7 @@ export function parseStoredState(raw: string): AppStateData | null {
       !data.interviewRecords.every((r) => strings(r, ['applicationId', 'title', 'scheduledAt', 'locationOrLink', 'status', 'createdAt']))) return null;
     if (data.comentariosInternos !== undefined) {
       data.comentariosInternos = object(data.comentariosInternos)
-        ? Object.fromEntries(Object.entries(data.comentariosInternos).filter(([key, note]) => key.length <= 500 && object(note) && typeof note.texto === 'string' && note.texto.length <= 4000 && typeof note.at === 'string' && Number.isFinite(Date.parse(note.at))))
+        ? Object.fromEntries(Object.entries(data.comentariosInternos).filter(([key, note]) => key.length <= 500 && object(note) && typeof note.texto === 'string' && note.texto.length <= 4000 && (note.bandera == null || note.bandera === 'roja' || note.bandera === 'verde') && typeof note.at === 'string' && Number.isFinite(Date.parse(note.at))))
         : {};
     }
     data.activeJobPostingId = jobs.has(data.activeJobPostingId) ? data.activeJobPostingId : (data.jobPostings[0]?.id || '');

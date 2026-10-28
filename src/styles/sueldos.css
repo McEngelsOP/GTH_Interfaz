@@ -34,3 +34,20 @@
   .ranking-criteria-actions > button, .candidate-salary-button { min-height: 44px !important; }
   .candidate-salary-button { min-width: 44px !important; }
 }
+.sueldo-simple { display: flex; flex-direction: column; gap: 1.1rem; }
+.sueldo-simple .sueldo-ayuda { font-size: .75rem; }
+.sueldo-celda { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.sueldo-sin-monto { color: #CA8A04; }
+[data-theme='dark'] .sueldo-sin-monto { color: #FACC15; }
+.comentario-celda { display: flex; flex-direction: column; align-items: center; gap: .1rem; }
+.comentario-ver { border: 0; background: transparent; padding: .1rem .25rem; color: var(--text-secondary); font: inherit; font-size: .75rem; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
+.comentario-ver:hover { color: var(--text-primary); }
+.comentario-ver { display: inline-flex; align-items: center; gap: .25rem; }
+.comentario-bandera { flex-shrink: 0; vertical-align: -2px; }
+.comentario-bandera--roja { color: var(--status-failed-text); }
+.comentario-bandera--verde { color: var(--status-verified-text); }
+.comentario-bandera-texto { display: flex; align-items: center; gap: .35rem; margin-bottom: .6rem; font-size: .8125rem; font-weight: 600; color: var(--text-secondary); }
+.comentario-banderas { display: flex; gap: .5rem; margin-bottom: .8rem; }
+.comentario-bandera-opcion { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .7rem; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--text-secondary); font: inherit; font-size: .8125rem; cursor: pointer; }
+.comentario-bandera-opcion--roja[aria-pressed="true"] { color: var(--status-failed-text); border-color: var(--status-failed-border); background: var(--status-failed-bg); }
+.comentario-bandera-opcion--verde[aria-pressed="true"] { color: var(--status-verified-text); border-color: var(--status-verified-border); background: var(--status-verified-bg); }

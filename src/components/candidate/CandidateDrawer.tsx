@@ -3,6 +3,7 @@ import { SemaforoDePostulante, TrayectoriaPanel } from './TrayectoriaPanel.tsx';
 import { WhatsAppButton } from './WhatsAppButton.tsx';
 import React, { useEffect, useState } from 'react';
 import { PostulacionesPanel } from './PostulacionesPanel.tsx';
+import { PreguntasAviso } from './PreguntasAviso.tsx';
 import { useApp } from '../../context/AppContext.tsx';
 import { Drawer } from '../common/Drawer.tsx';
 import { Button } from '../common/Button.tsx';
@@ -95,6 +96,7 @@ export function CandidateDrawer() {
     { id: 'trayectoria', label: 'Rotación laboral',
       icon: <SemaforoDePostulante aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} /> },
     { id: 'postulaciones', label: 'Postulaciones' },
+    { id: 'preguntas', label: 'Preguntas' },
     ...(candidate.potentialOpportunities?.length ? [{ id: 'oportunidades', label: 'Otras oportunidades' }] : []),
   ];
 
@@ -232,6 +234,7 @@ export function CandidateDrawer() {
 
         <MotionRegion motionKey={activeTab} className="candidate-tab-content" style={{ marginTop: '1.25rem' }}>
           {activeTab === 'postulaciones' && <PostulacionesPanel key={app.id} candidate={candidate} job={currentJob} />}
+          {activeTab === 'preguntas' && <PreguntasAviso candidate={candidate} />}
           {activeTab === 'trayectoria' && (
             <TrayectoriaPanel key={app.id} aviso={currentJob.bumeran?.avisoId} postulante={candidate.importedProfile?.externalId} />
           )}

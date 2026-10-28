@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AppStateData, Candidate, JobPosting } from '../types/index.ts';
 import { supabase } from './supabase.ts';
-import { COMMENT_MAX_LENGTH, internalCommentKey } from './internalComments.ts';
+import { COMMENT_MAX_LENGTH, internalCommentKey, type Bandera } from './internalComments.ts';
 
 type Notes = NonNullable<AppStateData['comentariosInternos']>;
 
@@ -13,25 +13,26 @@ export async function loadSharedComments(client: SupabaseClient, aviso: string):
   // Paginar evita perder notas cuando el aviso supera el límite de la API.
   for (let start = 0; ; start += 500) {
     const result = await client.from('comentarios_internos')
-      .select('id_postulante, texto, actualizado_at').eq('aviso_id', aviso)
+      .select('id_postulante, texto, bandera, actualizado_at').eq('aviso_id', aviso)
       .order('id_postulante').range(start, start + 499);
     if (result.error) throw result.error;
     for (const row of result.data || []) {
-      notes[JSON.stringify([aviso, row.id_postulante])] = { texto: row.texto, at: row.actualizado_at };
+      notes[JSON.stringify([aviso, row.id_postulante])] = { texto: row.texto, at: row.actualizado_at, bandera: row.bandera };
     }
     if ((result.data?.length || 0) < 500) break;
   }
   return notes;
 }
 
-export async function persistSharedComment(client: SupabaseClient, job: JobPosting, candidate: Candidate, value: string, hadNote: boolean) {
+export async function persistSharedComment(client: SupabaseClient, job: JobPosting, candidate: Candidate, value: string, hadNote: boolean,
+  bandera: Bandera | null = null) {
   const texto = value.trim().slice(0, COMMENT_MAX_LENGTH);
   const aviso = job.bumeran?.avisoId || job.id;
   const id = candidate.importedProfile?.externalId || candidate.id;
-  const result = texto
-    ? await client.from('comentarios_internos').upsert({ aviso_id: aviso, id_postulante: id, texto }, { onConflict: 'aviso_id,id_postulante' }).select('texto, actualizado_at').single()
+  const result = texto || bandera
+    ? await client.from('comentarios_internos').upsert({ aviso_id: aviso, id_postulante: id, texto, bandera }, { onConflict: 'aviso_id,id_postulante' }).select('texto, actualizado_at').single()
     : await client.from('comentarios_internos').delete().eq('aviso_id', aviso).eq('id_postulante', id).select('id_postulante');
-  if (result.error || (!texto && (!Array.isArray(result.data) || !result.data.length) && hadNote)) {
+  if (result.error || (!texto && !bandera && (!Array.isArray(result.data) || !result.data.length) && hadNote)) {
     throw new Error('Verifica tu sesión y los permisos de comentarios en Supabase.');
   }
 }
@@ -65,10 +66,10 @@ export function useSharedComments(job: JobPosting | undefined) {
     return () => { ++request.current; window.clearInterval(timer); window.removeEventListener('focus', onFocus); };
   }, [reload, aviso]);
 
-  const save = async (candidate: Candidate, value: string) => {
+  const save = async (candidate: Candidate, value: string, bandera: Bandera | null = null) => {
     if (!supabase || !job || !aviso) throw new Error('No hay conexión a Supabase.');
     ++request.current;
-    await persistSharedComment(supabase, job, candidate, value, !!snapshot.notes[internalCommentKey(job, candidate)]);
+    await persistSharedComment(supabase, job, candidate, value, !!snapshot.notes[internalCommentKey(job, candidate)], bandera);
     await reload();
   };
   return { enabled: !!supabase, notes: snapshot.aviso === aviso ? snapshot.notes : {}, loading, error, reload, save };

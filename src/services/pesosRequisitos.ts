@@ -84,6 +84,19 @@ export async function ultimoRecalculo(client: SupabaseClient, aviso: string): Pr
   return (data as Recalculo | null) ?? null;
 }
 
+/** True si hay ediciones de Requisitos y pesos, Criterios y pesos o Sueldo (gth_aviso_calibracion) posteriores al último
+ *  recálculo exitoso del aviso: solo entonces tiene sentido «Recalcular puntaje». */
+export async function hayCambiosSinRecalcular(client: SupabaseClient, aviso: string): Promise<boolean> {
+  const [editado, recalculado] = await Promise.all([
+    client.from('gth_aviso_calibracion').select('editado_at').eq('aviso_id', aviso).maybeSingle(),
+    client.from('ranking_recalculos').select('terminado_at').eq('aviso_id', aviso).eq('estado', 'ok')
+      .order('terminado_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (editado.error || recalculado.error) throw new Error('No se pudo comprobar si hay cambios por recalcular.');
+  if (!editado.data?.editado_at) return false;
+  return !recalculado.data?.terminado_at || new Date(editado.data.editado_at) > new Date(recalculado.data.terminado_at);
+}
+
 export async function encolarRecalculo(client: SupabaseClient, aviso: string): Promise<number> {
   const { data, error } = await client.from('ranking_recalculos').insert({ aviso_id: aviso }).select('id').single();
   if (error || !data) throw new Error('No se pudo dejar el recálculo en la cola del servidor.');

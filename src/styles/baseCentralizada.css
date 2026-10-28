@@ -24,3 +24,9 @@
   .base-filtros-acciones { width: 100%; }
   .base-filtros-acciones > button:first-child { flex: 1; }
 }
+
+/* Comentarios internos de una persona en todos sus avisos (columna «Comentarios») */
+.base-comentarios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .75rem; }
+.base-comentarios li { padding: .7rem .85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-base); }
+.base-comentarios__cabecera { display: flex; justify-content: space-between; gap: .75rem; align-items: baseline; margin-bottom: .35rem; font-size: .84rem; color: var(--text-primary); }
+.base-comentarios__cabecera small { color: var(--text-muted); white-space: nowrap; }

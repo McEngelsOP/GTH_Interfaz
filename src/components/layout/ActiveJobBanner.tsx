@@ -121,11 +121,11 @@ export function ActiveJobBanner({ aside, conDetalle = false, sueldo, onSueldo }:
             </Button>
           )}
           {conDetalle && sueldo && <Button variant="outline" size="sm" icon={<SlidersHorizontal size={14} />}
-            onClick={() => setCriteriosAbierto(true)} title="Configurar el criterio salarial de esta convocatoria">
+            onClick={() => setCriteriosAbierto(true)} title="Ajustar los criterios de clasificación de esta convocatoria">
             Criterios y pesos
           </Button>}
           {conDetalle && onSueldo && <Button variant="secondary" size="sm" icon={<Wallet size={14} />}
-            onClick={onSueldo} title="Consultar sueldos pretendidos y la oferta del aviso">Sueldo</Button>}
+            onClick={onSueldo} title="Sueldo ofertado del aviso y criterio salarial">Sueldo</Button>}
         </div>
       </div>
 
@@ -180,8 +180,7 @@ export function ActiveJobBanner({ aside, conDetalle = false, sueldo, onSueldo }:
         </details>
       )}
       {conDetalle && <PesosRequisitosModal isOpen={pesosAbierto} onClose={() => setPesosAbierto(false)} job={activeJob} />}
-      {conDetalle && criteriosAbierto && sueldo && <CriteriosPesosModal key={activeJob.id} job={activeJob} sueldo={sueldo}
-        onClose={() => { if (!sueldo.guardando) setCriteriosAbierto(false); }} />}
+      {conDetalle && criteriosAbierto && <CriteriosPesosModal key={activeJob.id} job={activeJob} onClose={() => setCriteriosAbierto(false)} />}
     </div>
   );
 }

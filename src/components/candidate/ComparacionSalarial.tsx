@@ -44,7 +44,7 @@ export function ComparacionSalarial({ job, app, sueldo }: { job: JobPosting; app
       </span>}
     </div>
     {comparacion === 'manejable' && <p className="sueldo-ayuda">Perfil con similitud alta (puntaje vigente de 0,70 o más). Revisar la diferencia y negociar antes de aprobar el sueldo.</p>}
-    {criterio && <p className="sueldo-ayuda">Criterio guardado: <strong>{criterio.modo === 'estricto' ? 'Estricto' : 'Manejable'}</strong>. Se configura en «Criterios y pesos».</p>}
+    {criterio && <p className="sueldo-ayuda">Criterio guardado: <strong>{criterio.modo === 'estricto' ? 'Estricto' : 'Manejable'}</strong>. Se configura en «Sueldo».</p>}
     {puedeEditar && criterio && !cargando && <form onSubmit={guardar} className="sueldo-oferta-form">
       <Input label="Oferta mensual del aviso (S/)" type="number" min="0.01" max="1000000" step="0.01" style={{ fontSize: '1rem' }}
         value={borrador} onChange={e => { setBorrador(e.target.value); setMensaje(''); setError(''); }} disabled={guardando} placeholder="No registrada" />

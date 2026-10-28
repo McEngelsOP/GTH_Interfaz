@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { avisoToJob } from '../../src/services/bumeranSync.ts';
 import { INITIAL_APP_STATE } from '../../src/data/initialData.ts';
 import { instalarSupabaseFicticio } from '../fixtures/supabaseMock.ts';
-import { mkdir } from 'node:fs/promises';
 const yoId = '00000000-0000-0000-0000-000000000001';
 const adminId = '00000000-0000-0000-0000-000000000002';
 const aviso = { aviso_id: 'salarios-prueba', titulo: 'Analista de prueba', publicado_el: '2026-10-01', recibidos: 1,
@@ -25,6 +24,7 @@ async function preparar(page: Page, nivel = 'superadmin', sinOferta = false, mul
   let fallar = false;
   let sinMigracion = false;
   const guardados: Record<string, unknown>[] = [];
+  const criteriosGuardados: Record<string, unknown>[] = [];
   await page.route('https://gth-test.supabase.co/rest/v1/**', async route => {
     const url = new URL(route.request().url()); const table = url.pathname.split('/').at(-1);
     if (table === 'gth_perfiles') return route.fulfill({ json: url.searchParams.has('user_id') ? perfiles[0] : perfiles });
@@ -40,8 +40,13 @@ async function preparar(page: Page, nivel = 'superadmin', sinOferta = false, mul
       } else lecturasSueldo++;
       return route.fulfill({ json: oferta === null && !guardados.length ? null : { monto: oferta, modo_sueldo: modo } });
     }
+    if (table === 'gth_aviso_criterios') {
+      if (route.request().method() === 'POST') { criteriosGuardados.push(route.request().postDataJSON()); return route.fulfill({ status: 201, json: [] }); }
+      return route.fulfill({ json: null });
+    }
     if (table === 'v_postulaciones') return route.fulfill({ json: [
-      { id_postulante: 'ana', datos_json: { Nombre: 'Ana', Apellido: 'Prueba', 'E-Mail': 'ana@example.test', 'Sueldo pretendido': 'S/ 3,500' } },
+      { id_postulante: 'ana', datos_json: { Nombre: 'Ana', Apellido: 'Prueba', 'E-Mail': 'ana@example.test', 'Sueldo pretendido': 'S/ 3,500',
+        '¿Tienes portafolio? Adjunta el link': 'Mi portafolio: https://behance.net/ana-prueba' } },
       ...(multiples ? [{ id_postulante: 'bruno', datos_json: { Nombre: 'Bruno', Apellido: 'Prueba', 'E-Mail': 'bruno@example.test', 'Sueldo pretendido': 'S/ 5,000' } }] : []),
     ] });
     if (table === 'ranking_embeddings') return route.fulfill({ json: [
@@ -56,52 +61,74 @@ async function preparar(page: Page, nivel = 'superadmin', sinOferta = false, mul
     if (body.accion === 'crear') return route.fulfill({ json: { email: body.email, clave: 'Clave-2345-Temporal' } });
     return route.fulfill({ json: { usuarios: [] } });
   });
-  return { guardados, lecturas: () => lecturasSueldo, rechazar: () => { fallar = true; }, sinMigracion: () => { sinMigracion = true; }, sinModo: () => { sinModo = true; } };
+  return { guardados, criteriosGuardados, lecturas: () => lecturasSueldo, rechazar: () => { fallar = true; }, sinMigracion: () => { sinMigracion = true; }, sinModo: () => { sinModo = true; } };
 }
-async function abrir(page: Page) {
+async function abrirSueldo(page: Page) {
   await page.goto('/#view=mejores_candidatos');
-  await page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true }).click();
-  return page.getByRole('region', { name: 'Comparación salarial', exact: true });
+  await page.getByRole('button', { name: 'Sueldo', exact: true }).click();
+  return page.getByRole('dialog', { name: 'Sueldo', exact: true });
 }
-test('oferta compartida, igualdad verde, superior rojo, fallo y recarga; escritorio y móvil', async ({ page }) => {
+const celdaAna = (page: Page) => page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true });
+
+test('sueldo pretendido en el ranking y oferta en «Sueldo»: verde, rojo y Estricto descarta', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  const ctx = await preparar(page);
-  let panel = await abrir(page);
-  await expect(panel.getByText('Dentro del presupuesto', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).getByRole('img', { name: 'Pretensión dentro del presupuesto' })).toBeVisible();
-  const input = panel.getByLabel('Oferta mensual del aviso (S/)');
-  await expect(input).toHaveValue('4000');
-  await input.fill('3500'); await panel.getByRole('button', { name: 'Guardar oferta' }).click();
-  await expect(panel.getByText('Oferta guardada para este aviso.', { exact: true })).toBeVisible();
-  await expect(panel.getByText('Dentro del presupuesto', { exact: true })).toBeVisible();
-  await input.fill('3000'); await panel.getByRole('button', { name: 'Guardar oferta' }).click();
-  await expect(panel.getByText('Supera el presupuesto', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).getByRole('img', { name: 'Pretensión superior al presupuesto' })).toBeVisible();
-  await panel.screenshot({ path: 'test-results/sueldo-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 }); await panel.scrollIntoViewIfNeeded();
-  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-  await panel.screenshot({ path: 'test-results/sueldo-mobile.png' });
-  ctx.rechazar(); await input.fill('5000'); await panel.getByRole('button', { name: 'Guardar oferta' }).click();
-  await expect(panel.getByRole('alert')).toContainText('No se guardó');
-  await expect(panel.getByText('Supera el presupuesto', { exact: true })).toBeVisible();
-  await page.reload(); await page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true }).click();
-  panel = page.getByRole('region', { name: 'Comparación salarial', exact: true });
-  await expect(panel.getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('3000');
-  expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 3500 }, { aviso_id: aviso.aviso_id, monto: 3000 }]);
+  const ctx = await preparar(page, 'superadmin', true);
+  const dialog = await abrirSueldo(page);
+  // Sin oferta, la columna muestra el monto que pidió el postulante, sin estado
+  await expect(page.getByRole('columnheader', { name: 'Sueldo pretendido', exact: true })).toHaveCount(1);
+  await expect(celdaAna(page)).toContainText('3,500');
+  await expect(celdaAna(page).getByRole('img')).toHaveCount(0);
+  const oferta = dialog.getByLabel('Sueldo ofertado mensual (S/)');
+  await expect(oferta).toHaveValue('');
+  await expect(dialog.getByLabel('Criterio salarial')).toHaveValue('estricto');
+  await expect(dialog.getByText(/se descarta/)).toBeVisible();
+  await oferta.fill('4000'); await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(celdaAna(page).getByRole('img', { name: 'Pretensión dentro del presupuesto' })).toBeVisible();
+  await oferta.fill('3000'); await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(celdaAna(page).getByRole('img', { name: 'Pretensión superior al presupuesto' })).toBeVisible();
+  // El recálculo corre en la laptop de GTH: sin su latido, el botón queda deshabilitado
+  await expect(dialog.getByRole('button', { name: 'Recalcular puntaje' })).toBeDisabled();
+  await expect(dialog.getByText(/Servidor apagado/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 4000 }, { aviso_id: aviso.aviso_id, monto: 3000 }]);
   expect(errors).toEqual([]);
 });
-test('administrador consulta sin editar y no recibe controles para crear o eliminar admins', async ({ page }) => {
+
+test('manejable se guarda en «Sueldo» y marca para negociar a quien tiene puntaje alto', async ({ page }) => {
+  const ctx = await preparar(page, 'superadmin', false, true);
+  const dialog = await abrirSueldo(page);
+  await dialog.getByLabel('Sueldo ofertado mensual (S/)').fill('3000');
+  await dialog.getByLabel('Criterio salarial').selectOption('manejable');
+  await expect(dialog.getByText(/se marca para negociar/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(celdaAna(page).getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver sueldo de Bruno Prueba', exact: true }).getByRole('img', { name: 'Pretensión superior al presupuesto' })).toBeVisible();
+  expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 3000 }, { aviso_id: aviso.aviso_id, modo_sueldo: 'manejable' }]);
+  await page.keyboard.press('Escape');
+  // El comparador conserva la comparación por postulante
+  await page.getByRole('checkbox', { name: 'Seleccionar Ana Prueba', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Seleccionar Bruno Prueba', exact: true }).check();
+  await page.getByRole('button', { name: 'Comparador', exact: true }).click();
+  const card = page.getByRole('article', { name: 'Ficha de Ana Prueba', exact: true });
+  await card.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).click();
+  await expect(page.getByRole('dialog', { name: 'Sueldo', exact: true }).getByLabel('Postulante')).toContainText('Ana Prueba');
+});
+
+test('administrador consulta el sueldo sin editar y no recibe controles para crear o eliminar admins', async ({ page }) => {
   await preparar(page, 'maestro');
-  const panel = await abrir(page);
-  await expect(panel.getByText('Dentro del presupuesto', { exact: true })).toBeVisible();
-  await expect(panel.locator('input')).toHaveCount(0);
+  const dialog = await abrirSueldo(page);
+  await expect(dialog.getByLabel('Sueldo ofertado mensual (S/)')).toHaveValue('4000');
+  await expect(dialog.getByLabel('Sueldo ofertado mensual (S/)')).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Guardar', exact: true })).toHaveCount(0);
   await page.goto('/#view=usuarios_permisos');
   await page.getByRole('button', { name: 'Nueva cuenta', exact: true }).click();
   await expect(page.getByRole('dialog').getByLabel('Nivel')).toHaveCount(1);
   await expect(page.getByRole('dialog').getByLabel('Nivel').locator('option')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Eliminar', exact: true })).toHaveCount(0);
 });
-test('superadministradora crea admins, elimina con confirmación y mantiene su cuenta protegida', async ({ page }) => {
+
+test('superadministradora crea admins, ve «Enviar credenciales al correo» y mantiene su cuenta protegida', async ({ page }) => {
   await preparar(page);
   await page.goto('/#view=usuarios_permisos');
   await expect(page.getByText('Superadministradora', { exact: true })).toBeVisible();
@@ -113,129 +140,49 @@ test('superadministradora crea admins, elimina con confirmación y mantiene su c
   await dialog.getByRole('textbox', { name: /Correo/ }).fill('nuevo@example.test');
   await dialog.getByRole('button', { name: 'Crear cuenta', exact: true }).click();
   await expect(page.getByText('Clave-2345-Temporal', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar credenciales al correo', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Listo', exact: true }).click();
   await page.getByRole('row').filter({ hasText: 'Administrador de prueba' }).getByRole('button', { name: 'Eliminar', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Eliminar cuenta', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Administrador de prueba' })).toHaveCount(0);
-  await page.screenshot({ path: 'test-results/superadmin-desktop.png' });
-});
-test('oferta ausente o migración faltante no usa los importes antiguos del navegador', async ({ page }) => {
-  const ctx = await preparar(page, 'superadmin', true);
-  let panel = await abrir(page);
-  await expect(panel.getByText('Sin comparar', { exact: true })).toBeVisible();
-  await expect(panel.getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('');
-  ctx.sinMigracion(); await page.reload(); await page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true }).click();
-  panel = page.getByRole('region', { name: 'Comparación salarial', exact: true });
-  await expect(panel.getByRole('alert')).toContainText('migración');
-  await expect(panel.getByText('Sin comparar', { exact: true })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Guardar oferta' })).toHaveCount(0);
 });
 
-test('criterio estricto por defecto, manejable solo tras guardar, indicadores y detalle fuera del perfil', async ({ page }) => {
-  const ctx = await preparar(page, 'superadmin', false, true);
-  const panel = await abrir(page);
-  await panel.getByLabel('Oferta mensual del aviso (S/)').fill('3000');
-  await panel.getByRole('button', { name: 'Guardar oferta' }).click();
-  await expect(panel.getByText('Supera el presupuesto', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
-  const sueldoAna = page.getByRole('button', { name: 'Ver sueldo de Ana Prueba', exact: true });
-  await expect(page.getByRole('columnheader', { name: 'Sueldo', exact: true })).toHaveCount(1);
-  const filaAna = page.getByRole('row').filter({ has: page.getByRole('button', { name: 'Ana Prueba', exact: true }) });
-  await expect(filaAna.getByRole('cell')).toHaveCount(9);
-  await expect(filaAna.getByRole('cell').nth(2).getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toHaveCount(0);
-  await expect(filaAna.getByRole('cell').nth(6).getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toHaveCount(1);
-  await expect(sueldoAna).toHaveText('');
-  await expect(sueldoAna.getByRole('img', { name: 'Pretensión superior al presupuesto', exact: true })).toBeVisible();
-  const lecturasAntes = ctx.lecturas();
-  await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Criterios y pesos', exact: true });
-  await expect(dialog.getByRole('list', { name: 'Criterios de clasificación' }).getByRole('listitem')).toHaveText([
-    'Experiencia laboral', 'Alta rotación laboral', 'Rubro o sector de experiencia',
-    'Análisis de sobrecalificación', 'Categorización de empresas por escala y complejidad',
-  ]);
-  await expect(dialog.getByText('Pesos de los requisitos', { exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Ver pesos', exact: true })).toHaveCount(0);
-  await expect(dialog.locator('#modo-sueldo-ayuda')).toHaveCount(0);
-  await expect(dialog.getByLabel('Indicadores salariales')).toHaveCount(0);
-  await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('estricto');
-  await dialog.getByLabel('Sueldo', { exact: true }).selectOption('manejable');
-  await expect(sueldoAna.getByRole('img', { name: 'Pretensión superior al presupuesto', exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Guardar criterio', exact: true }).click();
-  await expect(dialog.getByText('Criterio guardado para este aviso.', { exact: true })).toBeVisible();
-  await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Bruno Prueba', exact: true }).getByRole('img', { name: 'Pretensión superior al presupuesto' })).toBeVisible();
-  expect(ctx.guardados).toEqual([{ aviso_id: aviso.aviso_id, monto: 3000 }, { aviso_id: aviso.aviso_id, modo_sueldo: 'manejable' }]);
-  // Una lectura por aviso, no una por fila o por indicador.
-  expect(ctx.lecturas()).toBe(lecturasAntes);
-  await dialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
-  await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
-  await expect(page.getByRole('tab', { name: /Sueldo/ })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'Perfil', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await page.reload();
-  await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
-  await sueldoAna.click();
-  await expect(page.getByRole('dialog', { name: 'Sueldo', exact: true }).getByLabel('Oferta mensual del aviso (S/)')).toHaveValue('3000');
-  await page.keyboard.press('Escape');
-
-  await mkdir('.impeccable/review', { recursive: true });
-  // Primera inspección conjunta de los controles y estados, con los dos tamaños y temas.
-  for (const [width, theme] of [[1440, 'light'], [390, 'dark']] as const) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
-    await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
-    await expect(sueldoAna.getByRole('img', { name: /Negociación pendiente/ })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: `.impeccable/review/ranking-${width}.png`, fullPage: true, animations: 'disabled' });
-    if (width === 390) {
-      await sueldoAna.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: '.impeccable/review/ranking-candidato-mobile.png', animations: 'disabled' });
-    }
-    await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
-    await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('manejable');
-    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await page.screenshot({ path: `.impeccable/review/criterios-${width}.png`, animations: 'disabled' });
-    await page.keyboard.press('Escape');
-    await sueldoAna.click();
-    await expect(page.getByRole('dialog', { name: 'Sueldo', exact: true }).getByText('Manejable · revisar', { exact: true })).toBeVisible();
-    await page.screenshot({ path: `.impeccable/review/sueldo-${width}.png`, animations: 'disabled' });
-    await page.keyboard.press('Escape');
-  }
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('checkbox', { name: 'Seleccionar Ana Prueba', exact: true }).check();
-  await page.getByRole('checkbox', { name: 'Seleccionar Bruno Prueba', exact: true }).check();
-  await page.getByRole('button', { name: 'Comparador', exact: true }).click();
-  const card = page.getByRole('article', { name: 'Ficha de Ana Prueba', exact: true });
-  await expect(card.getByRole('button', { name: 'Ver sueldo de Ana Prueba' })).toContainText('Manejable');
-  await page.screenshot({ path: '.impeccable/review/comparador-desktop.png', animations: 'disabled', fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await card.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: '.impeccable/review/comparador-mobile.png', animations: 'disabled' });
-  await card.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).click();
-  await expect(page.getByRole('dialog', { name: 'Sueldo', exact: true }).getByLabel('Postulante')).toContainText('Ana Prueba');
+test('migración faltante: «Sueldo» avisa y no guarda; la columna sigue mostrando lo pretendido', async ({ page }) => {
+  const ctx = await preparar(page, 'superadmin', true); ctx.sinMigracion();
+  const dialog = await abrirSueldo(page);
+  await expect(dialog.getByRole('alert')).toContainText('migración');
+  await expect(dialog.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  await expect(celdaAna(page)).toContainText('3,500');
 });
 
-test('migración de modo ausente conserva la comparación estricta y explica cómo habilitar el selector', async ({ page }) => {
-  const ctx = await preparar(page); ctx.sinModo();
-  await page.goto('/#view=mejores_candidatos');
-  await expect(page.getByRole('button', { name: 'Ver sueldo de Ana Prueba' }).getByRole('img', { name: 'Pretensión dentro del presupuesto' })).toBeVisible();
-  await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('estricto');
-  await expect(dialog.getByLabel('Sueldo', { exact: true })).toBeDisabled();
-  await expect(dialog.getByRole('alert')).toContainText('Falta aplicar la migración');
-  await expect(dialog.getByRole('button', { name: 'Guardar criterio' })).toBeDisabled();
-});
-
-test('fallo al guardar el modo conserva estricto y el administrador solo consulta', async ({ page }) => {
+test('«Criterios y pesos»: experiencia en 100, bonos en puntos del score, herramientas en % y la rotación como penalización', async ({ page }) => {
   const ctx = await preparar(page);
   await page.goto('/#view=mejores_candidatos');
   await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Sueldo', { exact: true })).toBeEnabled();
-  await dialog.getByLabel('Sueldo', { exact: true }).selectOption('manejable'); ctx.rechazar();
-  await dialog.getByRole('button', { name: 'Guardar criterio', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('No se guardó el criterio');
-  await page.reload();
-  await page.getByRole('button', { name: 'Criterios y pesos', exact: true }).click();
-  await expect(dialog.getByLabel('Sueldo', { exact: true })).toHaveValue('estricto');
+  const dialog = page.getByRole('dialog', { name: 'Criterios y pesos', exact: true });
+  await expect(dialog.getByRole('listitem')).toHaveCount(5);
+  await expect(dialog.getByLabel('Control de intensidad de Experiencia laboral')).toHaveValue('100');
+  // Sin score_bruto en el ranking se usa la escala de un aviso típico (FACTOR_TIPICO = 0,56)
+  await expect(dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia')).toHaveValue('0.14');
+  await expect(dialog.getByLabel('Bonificación por experiencia de Categorización de empresas por escala y complejidad')).toHaveValue('0.07');
+  await expect(dialog.getByLabel('Peso de Análisis de sobrecalificación')).toHaveValue('50');
+  await expect(dialog.getByLabel('Control de intensidad de Rubro o sector de experiencia')).toHaveCount(0);
+  await expect(dialog.getByLabel('Penalización por Alta rotación laboral')).toHaveValue('0.5');
+  await expect(dialog.getByLabel('Criterio salarial')).toHaveCount(0);   // el sueldo vive en «Sueldo»
+  await dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia').fill('0.224');   // = intensidad 80
+  await expect(dialog.getByRole('button', { name: 'Recalcular puntaje' })).toBeDisabled();   // primero guardar
+  await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect.poll(() => ctx.criteriosGuardados.length).toBe(1);
+  expect(ctx.criteriosGuardados[0]).toMatchObject({ aviso_id: aviso.aviso_id, rubro: 80, experiencia: 100, rotacion: 0.5 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+});
+
+test('«Preguntas» del perfil muestra las preguntas del aviso y sus enlaces', async ({ page }) => {
+  await preparar(page);
+  await page.goto('/#view=mejores_candidatos');
+  await page.getByRole('button', { name: 'Ana Prueba', exact: true }).click();
+  await page.getByRole('tab', { name: 'Preguntas', exact: true }).click();
+  await expect(page.getByText('¿Tienes portafolio? Adjunta el link', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'https://behance.net/ana-prueba' })).toHaveAttribute('href', 'https://behance.net/ana-prueba');
 });

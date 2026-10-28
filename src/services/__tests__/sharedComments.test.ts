@@ -41,7 +41,7 @@ describe('comentarios compartidos', () => {
     const { client, calls } = clientWith([{ data: { texto: 'Nota', actualizado_at: '2026-10-15' } }]);
     await persistSharedComment(client, job, candidate, '  Nota  ', false);
     expect(calls.find(([method]) => method === 'upsert')?.[1]).toEqual([
-      { aviso_id: 'QA-1410', id_postulante: 'qa-external-0', texto: 'Nota' }, { onConflict: 'aviso_id,id_postulante' },
+      { aviso_id: 'QA-1410', id_postulante: 'qa-external-0', texto: 'Nota', bandera: null }, { onConflict: 'aviso_id,id_postulante' },
     ]);
   });
   it('propaga un guardado rechazado y detecta borrados bloqueados por RLS', async () => {

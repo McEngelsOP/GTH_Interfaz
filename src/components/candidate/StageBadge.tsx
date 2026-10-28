@@ -11,12 +11,19 @@ import {
   XCircle,
 } from 'lucide-react';
 
+const CORTO: Partial<Record<Stage, string>> = {
+  postulado: 'Postul.', preseleccionado: 'Presel.', en_entrevista: 'Entrev.', en_evaluacion: 'Evaluac.',
+  en_oferta: 'Oferta', contratado: 'Contrat.', no_continua: 'No cont.',
+};
+
 interface StageBadgeProps {
   stage: Stage;
   size?: 'sm' | 'md';
+  /** Etiqueta abreviada y más pequeña (columna Etapa del ranking); el nombre completo queda en el title */
+  corto?: boolean;
 }
 
-export function StageBadge({ stage, size = 'md' }: StageBadgeProps) {
+export function StageBadge({ stage, size = 'md', corto = false }: StageBadgeProps) {
   const stageConfig: Record<
     Stage,
     { label: string; variant: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple'; icon: React.ReactNode }
@@ -60,6 +67,13 @@ export function StageBadge({ stage, size = 'md' }: StageBadgeProps) {
 
   const config = stageConfig[stage] || stageConfig.postulado;
 
+  if (corto) {
+    return (
+      <Badge variant={config.variant} size="xs" title={config.label}>
+        {CORTO[stage] ?? config.label}
+      </Badge>
+    );
+  }
   return (
     <Badge variant={config.variant} size={size} icon={config.icon}>
       {config.label}

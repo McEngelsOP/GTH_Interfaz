@@ -447,14 +447,14 @@ table tbody tr:hover {
 /* Candidatos y ranking: candidatos activos y Top-N a la derecha del aviso; exportación compacta */
 .ranking-actions { display: flex; flex-direction: column; gap: .5rem; min-width: 0; max-width: 100%; }
 .ranking-resumen { display: flex; gap: .75rem; align-items: stretch; justify-content: center; flex-wrap: wrap; }
-.ranking-dato { display: flex; flex: 1 1 140px; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .25rem; min-width: 0; padding: .6rem .85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-base); }
+.ranking-dato { display: flex; flex: 1 1 140px; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .2rem; min-width: 0; padding: .4rem .85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-base); }
 .ranking-dato > span { font-size: .75rem; color: var(--text-secondary); font-weight: 500; }
 .ranking-dato > strong { font-size: 1.35rem; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
 .ranking-dato > small { font-size: .7rem; color: var(--text-secondary); }
 .topn-control { display: flex; align-items: center; justify-content: center; gap: .25rem; flex-wrap: wrap; }
 .topn-stepper { display: inline-flex; align-items: center; gap: .25rem; flex-shrink: 0; }
-.topn-control button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--text-primary); cursor: pointer; }
-.topn-control input { width: 52px; min-height: 32px; text-align: center; font-weight: 700; font-size: .95rem; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-primary); padding: .1rem 0; }
+.topn-control button { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-surface); color: var(--text-primary); cursor: pointer; }
+.topn-control input { width: 48px; min-height: 28px; text-align: center; font-weight: 700; font-size: .95rem; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-primary); padding: .1rem 0; }
 @media (max-width: 768px) {
   .ranking-actions { width: 100%; }
 }

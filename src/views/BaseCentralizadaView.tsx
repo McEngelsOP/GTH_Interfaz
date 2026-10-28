@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Database, FileSpreadsheet, FileUser, RefreshCw, Search, Users, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Database, FileSpreadsheet, FileUser, MessageSquare, RefreshCw, Search, Users, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { Input } from '../components/common/Input.tsx';
 import { Select } from '../components/common/Select.tsx';
 import '../styles/baseCentralizada.css';
 import { Button } from '../components/common/Button.tsx';
 import { VisorCV } from '../components/candidate/VisorCV.tsx';
+import { Modal } from '../components/common/Modal.tsx';
+import { IconoBandera, NOMBRE_BANDERA } from '../components/modals/InternalCommentModal.tsx';
 import { supabase } from '../services/supabase.ts';
 import { fechaHora } from '../services/bumeranSync.ts';
 import {
-  fetchBasePagina, fetchBaseExportacion, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS, OpcionesBase, ResumenBase,
+  comentariosDePersonas, ComentarioBase, fetchBasePagina, fetchBaseExportacion, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS, OpcionesBase, ResumenBase,
 } from '../services/baseCentralizada.ts';
 
 const POR_PAGINA = 50;
@@ -60,6 +62,16 @@ export function BaseCentralizadaView() {
   const poner = (cambio: Partial<FiltrosBase>) => { setFiltros((f) => ({ ...f, ...cambio })); setPagina(1); };
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   const visibles = personas;
+  // Comentarios internos de las personas de la página (con su bandera), para la columna «Comentarios»
+  const [comentarios, setComentarios] = useState<Map<string, ComentarioBase[]>>(new Map());
+  const [comentariosDe, setComentariosDe] = useState<Persona | null>(null);
+  useEffect(() => {
+    if (!supabase || !personas.length) { setComentarios(new Map()); return; }
+    let vigente = true;
+    comentariosDePersonas(supabase, personas.map((p) => p.id))
+      .then((m) => { if (vigente) setComentarios(m); }, () => { if (vigente) setComentarios(new Map()); });
+    return () => { vigente = false; };
+  }, [personas]);
   const { avisos, areas, ciudades, idiomas } = opciones;
   const postulaciones = resumen.postulaciones;
   const hayFiltros = JSON.stringify(filtros) !== JSON.stringify(SIN_FILTROS);
@@ -199,7 +211,7 @@ export function BaseCentralizadaView() {
       <div style={{ overflowX: 'auto', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
         <table className="base-tabla" aria-label="Postulantes de la base centralizada" aria-busy={estado.cargando}>
           <thead>
-            <tr>{['Postulante', 'Experiencia reciente', 'Estudios', 'Idiomas', 'Ciudad', 'Avisos a los que postuló', 'Última postulación', ''].map((h) => <th key={h}>{h}</th>)}</tr>
+            <tr>{['Postulante', 'Experiencia reciente', 'Estudios', 'Idiomas', 'Ciudad', 'Avisos a los que postuló', 'Última postulación', 'Comentarios', ''].map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {visibles.map((p) => (
@@ -219,6 +231,14 @@ export function BaseCentralizadaView() {
                   </div>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>{p.ultimaPostulacion ? fechaHora(p.ultimaPostulacion) : '—'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {(comentarios.get(p.id) || []).length
+                    ? <Button variant="ghost" size="sm" icon={<MessageSquare size={14} />} onClick={() => setComentariosDe(p)}
+                        title="Ver los comentarios internos de esta persona en todos sus avisos">
+                        Ver comentarios ({comentarios.get(p.id)!.length}) <IconoBandera bandera={comentarios.get(p.id)!.find((c) => c.bandera)?.bandera} />
+                      </Button>
+                    : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                </td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap', width: '1%' }}>
                   <Button variant="ghost" size="sm" icon={<FileUser size={14} />} onClick={() => setCvDe(p)}
                     style={p.cv.estado === 'disponible' ? undefined : { color: 'var(--text-muted)' }}
@@ -228,7 +248,7 @@ export function BaseCentralizadaView() {
                 </td>
               </tr>
             ))}
-            {!visibles.length && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+            {!visibles.length && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               {estado.cargando ? 'Cargando la base de postulantes…' : estado.error ? 'No se pudieron cargar los resultados. Usa Actualizar para reintentar.' : resumen.personas ? 'Ningún postulante coincide con los filtros.' : 'Todavía no hay postulantes.'}
             </td></tr>}
           </tbody>
@@ -242,6 +262,21 @@ export function BaseCentralizadaView() {
       </div>
 
       <VisorCV nombre={cvDe?.nombre || null} cv={cvDe?.cv || null} onClose={() => setCvDe(null)} />
+      {comentariosDe && <Modal isOpen onClose={() => setComentariosDe(null)} title="Comentarios internos" subtitle={comentariosDe.nombre} maxWidth="560px"
+        footer={<Button variant="ghost" onClick={() => setComentariosDe(null)}>Cerrar</Button>}>
+        <ul className="base-comentarios">
+          {(comentarios.get(comentariosDe.id) || []).map((c) => (
+            <li key={c.avisoId}>
+              <div className="base-comentarios__cabecera">
+                <strong>{comentariosDe.avisos.find((a) => a.id === c.avisoId)?.titulo || c.avisoId}</strong>
+                <small>{fechaHora(c.at)}</small>
+              </div>
+              {c.bandera && <p className="comentario-bandera-texto"><IconoBandera bandera={c.bandera} /> {NOMBRE_BANDERA[c.bandera]}</p>}
+              {c.texto && <p style={{ whiteSpace: 'pre-wrap', fontSize: '.875rem', lineHeight: 1.5, color: 'var(--text-primary)', overflowWrap: 'anywhere' }}>{c.texto}</p>}
+            </li>
+          ))}
+        </ul>
+      </Modal>}
     </div>
   );
 }

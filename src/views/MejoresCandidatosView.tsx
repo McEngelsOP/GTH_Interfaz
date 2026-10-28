@@ -232,9 +232,7 @@ export function MejoresCandidatosView() {
   return (
     <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
       {/* Aviso; a su derecha, candidatos activos y Top-N. Debajo, el aviso completo en un desplegable */}
-      {sueldoAbierto && <SueldoModal key={activeJob.id} job={activeJob} applications={ordenadas}
-        candidates={appState.candidates} applicationId={sueldoAbierto.applicationId} sueldo={sueldo}
-        onClose={() => { if (!sueldo.guardando) setSueldoAbierto(null); }} />}
+      {sueldoAbierto && <SueldoModal key={activeJob.id} job={activeJob} sueldo={sueldo} onClose={() => setSueldoAbierto(null)} />}
       <ActiveJobBanner conDetalle sueldo={sueldo} onSueldo={() => setSueldoAbierto({ applicationId: null })} aside={
         <div className="ranking-actions">
         <div className="ranking-resumen">
@@ -244,7 +242,6 @@ export function MejoresCandidatosView() {
           </div>
           <div className="ranking-dato" title="Los N primeros del ranking más los que marques con estrella. Se resaltan en la tabla; al resto se le envía el correo de agradecimiento.">
             <span>Top-N</span>
-            <strong className="tabular-nums" aria-label="Total en el Top-N">{topIds.size}</strong>
             <div className="topn-control">
               <small>primeros</small>
               <span className="topn-stepper">
@@ -391,6 +388,7 @@ export function MejoresCandidatosView() {
         enRevision={enRevision}
         topIds={topIds}
         topPorPosicion={topPorPosicion}
+        sinBuscador={activeTab === 'revisados'}
         ordenRanking={ordenadas}
         selectedMethod={appState.selectedMethod}
         onOpenReleaseModal={handleOpenReleaseModal}

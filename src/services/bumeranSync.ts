@@ -34,7 +34,13 @@ export type RankingRow = {
   req_sims_bruto?: (number | null)[] | null;
   score_bruto?: number | null;
   /** Regla de prácticas y bonificación por rubro (educación superior) con que se calculó el puntaje. */
-  ajustes?: { rubro?: { educacion_superior?: string[]; bono?: number } } | null;
+  ajustes?: {
+    rubro?: { educacion_superior?: string[]; bono?: number };
+    escala?: { tier: string; empresa: string };
+    rotacion?: { penalizacion: number };
+    sueldo?: { descartado: boolean; pretension: number; oferta: number };
+    niveles?: Record<string, { detalle: string; sobrecalificado: boolean }>;
+  } | null;
 };
 
 export const isBumeranJob = (job: JobPosting | undefined) => !!job?.bumeran;
@@ -221,6 +227,13 @@ export function rankingToMatches(job: JobPosting, applications: Application[], c
       requirementEvidence: Object.fromEntries(job.criteria.map((c, k) => [c.id, row.req_fragmentos?.[k] || ''])),
       criteriaVersion: job.criteriaVersion, evaluatedAt: row.calculado_at || new Date().toISOString(),
       ...(row.ajustes?.rubro?.educacion_superior?.length ? { higherEducation: row.ajustes.rubro.educacion_superior } : {}),
+      ...(row.ajustes?.escala ? { companyTier: { tier: row.ajustes.escala.tier, empresa: row.ajustes.escala.empresa } } : {}),
+      ...(row.ajustes?.rotacion ? { highTurnover: true } : {}),
+      ...(row.ajustes?.sueldo?.descartado ? { salaryDiscarded: { pretension: row.ajustes.sueldo.pretension, oferta: row.ajustes.sueldo.oferta } } : {}),
+      ...(() => {
+        const sobre = Object.values(row.ajustes?.niveles || {}).filter((n) => n.sobrecalificado).map((n) => n.detalle);
+        return sobre.length ? { overqualified: sobre } : {};
+      })(),
     };
   }
   return results;

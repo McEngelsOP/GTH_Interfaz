@@ -27,6 +27,28 @@ export const ORDEN_NIVEL = ['Doctorado', 'Master', 'Posgrado', 'Universitario', 
 export const NIVELES_IDIOMA = ['Básico', 'Intermedio', 'Avanzado', 'Nativo'];
 const rangoNivel = (n: string | null) => { const i = ORDEN_NIVEL.indexOf(n || ''); return i < 0 ? ORDEN_NIVEL.length : i; };
 
+export type ComentarioBase = { avisoId: string; texto: string; bandera: 'roja' | 'verde' | null; at: string };
+
+/** Comentarios internos (con su bandera) de cada persona en todos sus avisos, del más reciente al más antiguo. Los
+ *  comentarios se guardan por aviso e ID postulante de Bumeran; la vista de la base da ese ID de cada persona. */
+export async function comentariosDePersonas(client: SupabaseClient, personaIds: string[]): Promise<Map<string, ComentarioBase[]>> {
+  const out = new Map<string, ComentarioBase[]>();
+  if (!personaIds.length) return out;
+  const filas = await client.from('v_base_postulantes').select('persona_id, aviso_id, id_postulante').in('persona_id', personaIds);
+  if (filas.error) throw new Error(filas.error.message);
+  const persona = new Map((filas.data || []).filter((f) => f.id_postulante).map((f) => [`${f.aviso_id}|${f.id_postulante}`, f.persona_id as string]));
+  const ids = [...new Set((filas.data || []).map((f) => f.id_postulante).filter(Boolean))];
+  if (!ids.length) return out;
+  const notas = await client.from('comentarios_internos').select('aviso_id, id_postulante, texto, bandera, actualizado_at')
+    .in('id_postulante', ids).order('actualizado_at', { ascending: false });
+  if (notas.error) throw new Error(notas.error.message);
+  for (const n of notas.data || []) {
+    const id = persona.get(`${n.aviso_id}|${n.id_postulante}`);
+    if (id) out.set(id, [...(out.get(id) || []), { avisoId: n.aviso_id, texto: n.texto, bandera: n.bandera, at: n.actualizado_at }]);
+  }
+  return out;
+}
+
 export async function fetchBase(client: SupabaseClient, signal?: AbortSignal): Promise<FilaBase[]> {
   const filas: FilaBase[] = [];
   for (let from = 0; ; from += 1000) {

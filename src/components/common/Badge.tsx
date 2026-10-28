@@ -3,9 +3,10 @@ import React, { ReactNode } from 'react';
 export interface BadgeProps {
   children: ReactNode;
   variant?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
   icon?: ReactNode;
   className?: string;
+  title?: string;
 }
 
 export function Badge({
@@ -14,6 +15,7 @@ export function Badge({
   size = 'md',
   icon,
   className = '',
+  title,
 }: BadgeProps) {
   const baseStyles: React.CSSProperties = {
     display: 'inline-flex',
@@ -27,6 +29,11 @@ export function Badge({
   };
 
   const sizeStyles: Record<string, React.CSSProperties> = {
+    xs: {
+      padding: '0.15rem 0.4rem',
+      fontSize: '0.6875rem',
+      gap: '0.25rem',
+    },
     sm: {
       padding: '0.2rem 0.5rem',
       fontSize: '0.75rem',
@@ -83,6 +90,7 @@ export function Badge({
         ...variantStyles[variant],
       }}
       className={className}
+      title={title}
     >
       {icon && <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>}
       <span>{children}</span>

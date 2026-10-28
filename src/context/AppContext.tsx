@@ -117,7 +117,7 @@ interface AppContextValue {
   handleReleaseApplications: (ids: string[], reason: string) => Promise<boolean>;
   workflow: { ready: boolean; error: string; actions: SharedAction[]; userId: string; reload: () => Promise<void> };
   handleAddNote: (appId: string, noteText: string) => void;
-  handleSaveInternalComment: (appId: string, text: string) => void;
+  handleSaveInternalComment: (appId: string, text: string, bandera?: 'roja' | 'verde' | null) => void;
   handleScheduleInterview: (
     appId: string,
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
@@ -456,8 +456,8 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
 
   // Añadir nota
-  const handleSaveInternalComment = (appId: string, text: string) => {
-    setAppState((prev) => updateInternalComment(prev, appId, text));
+  const handleSaveInternalComment = (appId: string, text: string, bandera: 'roja' | 'verde' | null = null) => {
+    setAppState((prev) => updateInternalComment(prev, appId, text, bandera));
   };
 
   const handleAddNote = (appId: string, noteText: string) => {

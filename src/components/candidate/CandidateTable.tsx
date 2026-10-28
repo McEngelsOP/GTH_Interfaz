@@ -5,7 +5,8 @@ import { useContentMotion } from '../common/MotionRegion.tsx';
 import { useApp } from '../../context/AppContext.tsx';
 import { Application, Candidate, EvaluationMethod } from '../../types/index.ts';
 import { StageDecisionModal } from '../modals/StageDecisionModal.tsx';
-import { InternalCommentModal } from '../modals/InternalCommentModal.tsx';
+import { IconoBandera, InternalCommentModal, NOMBRE_BANDERA } from '../modals/InternalCommentModal.tsx';
+import { Modal } from '../common/Modal.tsx';
 import { useSharedComments } from '../../services/sharedComments.ts';
 import '../../styles/candidateTable.css';
 import { internalCommentKey } from '../../services/internalComments.ts';
@@ -16,6 +17,7 @@ import { VisorCV } from './VisorCV.tsx';
 import { cvPersonal, timeAgo } from '../../services/bumeranSync.ts';
 import { useResumenPostulaciones } from '../../services/postulaciones.ts';
 import '../../styles/postulaciones.css';
+import { useAvanceMultiple } from '../../services/avanceMultiple.ts';
 import type { useEnRevision } from '../../services/enRevision.ts';
 import { Button } from '../common/Button.tsx';
 import { Badge } from '../common/Badge.tsx';
@@ -35,14 +37,14 @@ import {
   FileUser,
   Pencil,
   History,
-  LoaderCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { isEligibleForTopN, puedeAvanzar } from '../../services/recruitmentRules.ts';
 import { embeddingVigente, ordenarPorEmbeddings } from '../../services/rankingEmbeddings.ts';
 import { formatEmbeddingScore } from '../../services/embeddingMatching.ts';
 import type { SueldoAviso } from '../../services/useSueldoAviso.ts';
-import { evaluarAjusteSalarial } from '../../services/salarios.ts';
-import { ESTADOS_SUELDO, IndicadorSueldo } from './IndicadorSueldo.tsx';
+import { evaluarAjusteSalarial, sueldoValido } from '../../services/salarios.ts';
+import { CeldaSueldo, ESTADOS_SUELDO } from './IndicadorSueldo.tsx';
 
 interface CandidateTableProps {
   sueldo: SueldoAviso;
@@ -59,6 +61,8 @@ interface CandidateTableProps {
   ordenRanking?: Application[];
   /** Los que están en el Top-N solo por su posición (la estrella no los quita: se baja el número de primeros). */
   topPorPosicion?: Set<string>;
+  /** Oculta el buscador (pestaña Revisados). */
+  sinBuscador?: boolean;
 }
 
 export function CandidateTable({
@@ -73,6 +77,7 @@ export function CandidateTable({
   topIds,
   ordenRanking,
   topPorPosicion,
+  sinBuscador = false,
 }: CandidateTableProps) {
   const {
     appState,
@@ -100,6 +105,7 @@ export function CandidateTable({
   const [revertTarget, setRevertTarget] = useState<Application | null>(null);
   const [explicacion, setExplicacion] = useState<Application | null>(null);
   const [commentFor, setCommentFor] = useState<Application | null>(null);
+  const [verComentario, setVerComentario] = useState<{ nombre: string; texto: string; bandera?: 'roja' | 'verde' | null; app: Application } | null>(null);
   const [cvDe, setCvDe] = useState<Candidate | null>(null);
   useEffect(() => { setSearchQuery(''); setCurrentPage(1); setExplicacion(null); setCommentFor(null); }, [activeJob?.id]);
 
@@ -121,7 +127,7 @@ export function CandidateTable({
       if (!cand) return false;
 
       // Búsqueda
-      if (searchQuery.trim()) {
+      if (!sinBuscador && searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesName = cand.name.toLowerCase().includes(query);
         const matchesTitle = cand.currentTitle.toLowerCase().includes(query);
@@ -131,7 +137,7 @@ export function CandidateTable({
 
       return true;
     });
-  }, [applications, candidateMap, searchQuery]);
+  }, [applications, candidateMap, searchQuery, sinBuscador]);
 
   // Score de embeddings vigente para los criterios actuales de la convocatoria.
   const embeddingOf = (app: Application) => embeddingVigente(app, activeJob);
@@ -155,6 +161,16 @@ export function CandidateTable({
     return sortedApplications.slice(start, start + pageSize);
   }, [sortedApplications, validPage, pageSize]);
   const recurrence = useResumenPostulaciones(activeJob, paginatedApplications, candidateMap);
+  // Postulantes que avanzan (Preseleccionado o En entrevista) en 2 o más avisos: alerta junto a la etapa
+  const avanceMultiple = useAvanceMultiple(paginatedApplications, candidateMap);
+  const mensajeAvance = (id: string | undefined) => {
+    const avances = id ? avanceMultiple[id] : undefined;
+    if (!avances) return null;
+    const nombre = (aviso: string) => aviso === (activeJob?.bumeran?.avisoId || activeJob?.id) ? 'este aviso'
+      : appState.jobPostings.find((j) => (j.bumeran?.avisoId || j.id) === aviso)?.title || `aviso ${aviso}`;
+    return `Avanza en ${new Set(avances.map((a) => a.avisoId)).size} procesos a la vez: ${avances
+      .map((a) => `${nombre(a.avisoId)} (${a.etapa === 'en_entrevista' ? 'En entrevista' : 'Preseleccionado'})`).join(', ')}.`;
+  };
 
   // Selección en la página actual
   const allCurrentPageSelected =
@@ -190,10 +206,17 @@ export function CandidateTable({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
       {commentFor && commentCandidate && activeJob && <InternalCommentModal key={commentFor.id}
         name={commentCandidate.name} initialText={comments?.[internalCommentKey(activeJob, commentCandidate)]?.texto || ''} shared={sharedComments.enabled}
-        onSave={async (text) => {
-          if (sharedComments.enabled) await sharedComments.save(commentCandidate, text);
-          else handleSaveInternalComment(commentFor.id, text);
+        initialFlag={comments?.[internalCommentKey(activeJob, commentCandidate)]?.bandera ?? null}
+        onSave={async (text, flag) => {
+          if (sharedComments.enabled) await sharedComments.save(commentCandidate, text, flag);
+          else handleSaveInternalComment(commentFor.id, text, flag);
         }} onClose={() => setCommentFor(null)} />}
+      {verComentario && <Modal isOpen onClose={() => setVerComentario(null)} title="Comentario" subtitle={verComentario.nombre} maxWidth="520px"
+        footer={<><Button variant="ghost" onClick={() => setVerComentario(null)}>Cerrar</Button>
+          <Button variant="secondary" icon={<Pencil size={14} />} onClick={() => { setCommentFor(verComentario.app); setVerComentario(null); }}>Editar</Button></>}>
+        {verComentario.bandera && <p className="comentario-bandera-texto"><IconoBandera bandera={verComentario.bandera} /> {NOMBRE_BANDERA[verComentario.bandera]}</p>}
+        <p style={{ whiteSpace: 'pre-wrap', fontSize: '.9rem', lineHeight: 1.55, color: 'var(--text-primary)', overflowWrap: 'anywhere' }}>{verComentario.texto}</p>
+      </Modal>}
       {sharedComments.error && <div role="alert" style={{ color: 'var(--status-failed-text)', fontSize: '.8125rem' }}>
         No se pudieron cargar los comentarios compartidos. {sharedComments.error} <Button variant="ghost" size="sm" onClick={() => void sharedComments.reload()}>Reintentar</Button>
       </div>}
@@ -215,7 +238,7 @@ export function CandidateTable({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: '260px' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '340px' }}>
+          {!sinBuscador && <div style={{ position: 'relative', flex: 1, maxWidth: '340px' }}>
             <Search
               size={16}
               style={{
@@ -246,7 +269,7 @@ export function CandidateTable({
                 outline: 'none',
               }}
             />
-          </div>
+          </div>}
 
         </div>
 
@@ -288,7 +311,7 @@ export function CandidateTable({
                 letterSpacing: '0.04em',
               }}
             >
-              <th style={{ width: '36px', padding: '0.6rem 0.6rem' }}>
+              <th style={{ width: '32px', padding: '0.5rem 0.4rem' }}>
                 <input
                   type="checkbox"
                   checked={allCurrentPageSelected}
@@ -297,14 +320,14 @@ export function CandidateTable({
                   style={{ cursor: 'pointer', accentColor: 'var(--primary-red)' }}
                 />
               </th>
-              <th style={{ width: '40px', padding: '0.6rem 0.4rem' }}>#</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px' }}>Candidato</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '100px' }}>Etapa</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '80px' }} aria-sort="descending">Score ↓</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '110px' }}>Puntaje</th>
-              <th scope="col" style={{ padding: '0.6rem', width: '76px', minWidth: '76px' }}>Sueldo</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '145px' }}>Comentarios</th>
-              <th style={{ padding: '0.6rem 0.6rem', minWidth: '170px', textAlign: 'center' }}>Acciones</th>
+              <th style={{ width: '32px', padding: '0.5rem 0.3rem' }}>#</th>
+              <th style={{ padding: '0.5rem', minWidth: '160px' }}>Candidato</th>
+              <th style={{ padding: '0.5rem', width: '84px' }}>Etapa</th>
+              <th style={{ padding: '0.5rem', minWidth: '60px' }} aria-sort="descending">Score ↓</th>
+              <th style={{ padding: '0.5rem', minWidth: '100px' }}>Puntaje</th>
+              <th scope="col" style={{ padding: '0.5rem', minWidth: '96px' }}>Sueldo pretendido</th>
+              <th style={{ padding: '0.5rem', minWidth: '100px' }}>Comentarios</th>
+              <th style={{ padding: '0.5rem', width: '200px', textAlign: 'center' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -329,7 +352,7 @@ export function CandidateTable({
                 const eligibility = isEligibleForTopN(app, selectedMethod);
                 const rowRank = posicion.get(app.id) ?? (validPage - 1) * pageSize + index + 1;
                 const enTop = topIds?.has(app.id) ?? false;
-                const cellPadding = '0.6rem 0.6rem';
+                const cellPadding = '0.55rem 0.5rem';
                 const ajusteSueldo = activeJob ? evaluarAjusteSalarial(sueldo.criterio, app, activeJob) : 'pendiente';
 
                 return (
@@ -396,7 +419,13 @@ export function CandidateTable({
 
                     {/* Etapa actual */}
                     <td style={{ padding: cellPadding }}>
-                      <StageBadge stage={app.stage} size="sm" />
+                      {(() => {
+                        const aviso = mensajeAvance(cand?.importedProfile?.externalId);
+                        return <span className="etapa-celda">
+                          <StageBadge stage={app.stage} corto />
+                          {aviso && <span className="etapa-alerta" role="img" aria-label={aviso} title={aviso}><AlertTriangle size={14} /></span>}
+                        </span>;
+                      })()}
                     </td>
 
 
@@ -419,28 +448,37 @@ export function CandidateTable({
                     </td>
 
                     <td style={{ padding: cellPadding }}>
-                      <Button variant="ghost" size="sm" className="candidate-salary-button"
-                        style={{ padding: '.5rem', minWidth: '34px' }}
-                        icon={sueldo.cargando
-                          ? <LoaderCircle size={16} className="spin" role="img" aria-label="Consultando sueldo" aria-hidden={false} />
-                          : <IndicadorSueldo estado={ajusteSueldo} compacto />}
-                        title={sueldo.cargando ? 'Consultando sueldo' : sueldo.error ? 'Sueldo no disponible. Abrir para reintentar.' : ESTADOS_SUELDO[ajusteSueldo].detalle}
-                        onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${cand?.name || 'candidato'}`} />
+                      <Button variant="ghost" size="sm" className="candidate-salary-button" style={{ padding: '.5rem', minWidth: '34px' }}
+                        title={sueldo.cargando ? 'Consultando sueldo' : sueldo.error ? 'Sueldo no disponible. Abrir para reintentar.'
+                          : sueldo.criterio?.monto != null ? ESTADOS_SUELDO[ajusteSueldo].detalle : 'Sueldo pretendido que indicó el postulante'}
+                        onClick={() => onSueldo(app)} aria-label={`Ver sueldo de ${cand?.name || 'candidato'}`}>
+                        <CeldaSueldo pretension={sueldoValido(app.expectedSalary) ? app.expectedSalary : null}
+                          hayOferta={sueldo.criterio?.monto != null} estado={ajusteSueldo} cargando={sueldo.cargando} />
+                      </Button>
                     </td>
 
                     <td style={{ padding: cellPadding }}>
                       {cand && activeJob && (() => {
-                        const note = comments?.[internalCommentKey(activeJob, cand)]?.texto;
-                        return <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setCommentFor(app)}
-                          disabled={sharedComments.loading || !!sharedComments.error} aria-label={`Editar comentario de ${cand.name}`} title={note || 'Agregar comentario interno'} style={{ maxWidth: '180px' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sharedComments.loading ? 'Cargando…' : note ? note.slice(0, 40) + (note.length > 40 ? '…' : '') : 'Agregar'}</span>
-                        </Button>;
+                        const entrada = comments?.[internalCommentKey(activeJob, cand)];
+                        const note = entrada?.texto;
+                        const tiene = !!(note || entrada?.bandera);
+                        return <div className="comentario-celda">
+                          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setCommentFor(app)}
+                            disabled={sharedComments.loading || !!sharedComments.error} aria-label={`${tiene ? 'Editar' : 'Agregar'} comentario de ${cand.name}`}
+                            title={tiene ? 'Editar el comentario interno' : 'Agregar comentario interno'}>
+                            {sharedComments.loading ? 'Cargando…' : tiene ? 'Editar' : 'Agregar'}
+                          </Button>
+                          {tiene && <button type="button" className="comentario-ver focus-ring" onClick={() => setVerComentario({ nombre: cand.name, texto: note || '', bandera: entrada?.bandera, app })}
+                            aria-label={`Ver comentario de ${cand.name}`}><IconoBandera bandera={entrada?.bandera} /> Ver comentario</button>}
+                        </div>;
                       })()}
                     </td>
 
                     {/* Acciones por fila */}
                     <td style={{ padding: cellPadding, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', flexWrap: 'nowrap' }}>
+                      {/* Dos filas (Ver perfil y Ver CV; debajo los íconos) para que la tabla entre sin desplazarse a los lados */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.1rem', flexWrap: 'nowrap' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -462,7 +500,8 @@ export function CandidateTable({
                             </Button>
                           );
                         })()}
-
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', flexWrap: 'nowrap' }}>
                         {cand && activeJob && <WhatsAppButton candidate={cand} jobTitle={activeJob.title} compact />}
 
                         {/* Estrella: en el Top-N (llena) o fuera (vacía). Al marcarla, entra al Top-N y el contador sube */}
@@ -496,6 +535,7 @@ export function CandidateTable({
                             title="Liberar postulación (No continúa)"
                           />
                         )}
+                      </div>
                       </div>
                     </td>
                   </tr>

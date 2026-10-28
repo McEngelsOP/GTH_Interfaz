@@ -24,3 +24,15 @@
   .postulaciones-lista li { flex-direction: column; gap: .75rem; }
   .postulaciones-score { flex: auto; flex-direction: row; align-items: baseline; gap: .75rem; text-align: left; }
 }
+/* Pestaña «Preguntas» del perfil: preguntas del aviso en Bumeran y respuestas tal cual */
+.preguntas-aviso { display: flex; flex-direction: column; gap: .9rem; margin: 0; }
+.preguntas-aviso > div { padding-bottom: .9rem; border-bottom: 1px solid var(--border-subtle); }
+.preguntas-aviso > div:last-child { border-bottom: 0; }
+.preguntas-aviso dt { font-size: .84rem; font-weight: 600; color: var(--text-primary); line-height: 1.45; }
+.preguntas-aviso dd { margin: .3rem 0 0; font-size: .875rem; color: var(--text-secondary); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preguntas-aviso a { color: var(--primary-red); text-decoration: underline; text-underline-offset: .2em; }
+.preguntas-aviso .vacio, .candidate-drawer-tabs ~ div .vacio { color: var(--text-muted); font-style: italic; }
+
+/* Etapa del ranking con alerta si el postulante avanza en 2 o más avisos */
+.etapa-celda { display: inline-flex; align-items: center; gap: .3rem; }
+.etapa-alerta { display: inline-flex; color: var(--status-partial-text); cursor: help; }

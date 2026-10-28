@@ -32,7 +32,7 @@ import { formatEmbeddingScore } from '../services/embeddingMatching.ts';
 import { argumentosPorRequisito, colorPct, perfilBumeran } from '../services/perfilBumeran.ts';
 import { Application, Candidate } from '../types/index.ts';
 import { useSueldoAviso } from '../services/useSueldoAviso.ts';
-import { SueldoModal } from '../components/modals/SueldoModal.tsx';
+import { ComparacionSueldoModal } from '../components/modals/ComparacionSueldoModal.tsx';
 
 export function ComparadorView() {
   const trayectoria = useTrayectoria();
@@ -113,7 +113,7 @@ export function ComparadorView() {
 
   return (
     <div className="comparison-view" style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', minWidth: 0 }}>
-      {sueldoDe && <SueldoModal key={activeJob.id} job={activeJob} applications={rankingOrdenado} candidates={appState.candidates}
+      {sueldoDe && <ComparacionSueldoModal key={activeJob.id} job={activeJob} applications={rankingOrdenado} candidates={appState.candidates}
         applicationId={sueldoDe} sueldo={sueldo} onClose={() => { if (!sueldo.guardando) setSueldoDe(null); }} />}
       <ActiveJobBanner />
 
