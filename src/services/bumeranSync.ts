@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AppStateData, Application, Candidate, Criterion, EmbeddingMatch, JobCategory, JobPosting } from '../types/index.ts';
 import type { ImportTable } from './candidateImport.ts';
+import { cargarCorreos } from './correosPostulante.ts';
 
 // Avisos y postulantes que el scraper guarda en Supabase (tablas avisos y v_postulaciones).
 // Cada aviso publicado se convierte en una convocatoria BUM-<id> y sus postulantes pasan por el
@@ -194,8 +195,12 @@ export async function fetchPostulantes(client: SupabaseClient, avisoId: string):
       .eq('aviso_id', avisoId).eq('en_ultimo_csv', 1).order('id_postulante').range(from, from + 999);
     if (error) throw new Error(error.message);
     rows.push(...((data || []) as PostulanteRow[]));
-    if (!data || data.length < 1000) return rows;
+    if (!data || data.length < 1000) break;
   }
+  // Correo corregido por el equipo (gth_correos_postulante): reemplaza al del CSV de Bumeran
+  const correos = await cargarCorreos(client, rows.map((r) => r.id_postulante || ''));
+  return correos.size ? rows.map((r) => correos.has(r.id_postulante || '')
+    ? { ...r, datos_json: { ...(r.datos_json || {}), 'E-Mail': correos.get(r.id_postulante || '')! } } : r) : rows;
 }
 
 export async function fetchRanking(client: SupabaseClient, avisoId: string, criteriaVersion: string): Promise<RankingRow[]> {

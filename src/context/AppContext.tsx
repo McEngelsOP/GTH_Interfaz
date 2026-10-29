@@ -17,6 +17,7 @@ import {
 import { supabase } from '../services/supabase.ts';
 import { loadWorkflow, persistStageChanges, workflowCandidateId, type SharedAction } from '../services/sharedWorkflow.ts';
 import { updateInternalComment } from '../services/internalComments.ts';
+import { aplicarCorreo } from '../services/correosPostulante.ts';
 import { loadAppState } from '../services/storage.ts';
 import { borrarEstado, guardarEstado } from '../services/persistence.ts';
 import { advanceApplications, releaseApplication } from '../services/recruitmentRules.ts';
@@ -118,6 +119,8 @@ interface AppContextValue {
   workflow: { ready: boolean; error: string; actions: SharedAction[]; userId: string; reload: () => Promise<void> };
   handleAddNote: (appId: string, noteText: string) => void;
   handleSaveInternalComment: (appId: string, text: string, bandera?: 'roja' | 'verde' | null) => void;
+  /** Correo corregido de un postulante: se aplica a todas sus fichas, en todos sus avisos. */
+  actualizarCorreoPostulante: (idPostulante: string, email: string) => void;
   handleScheduleInterview: (
     appId: string,
     interviewData: { title: string; scheduledAt: string; locationOrLink: string; notes?: string }
@@ -456,6 +459,10 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
   };
 
   // Añadir nota
+  const actualizarCorreoPostulante = (idPostulante: string, email: string) => {
+    setAppState((prev) => aplicarCorreo(prev, idPostulante, email));
+  };
+
   const handleSaveInternalComment = (appId: string, text: string, bandera: 'roja' | 'verde' | null = null) => {
     setAppState((prev) => updateInternalComment(prev, appId, text, bandera));
   };
@@ -756,6 +763,7 @@ export function AppProvider({ children, initialState }: { children: ReactNode; i
     handleReleaseApplications,
     handleAddNote,
     handleSaveInternalComment,
+    actualizarCorreoPostulante,
     handleScheduleInterview,
     handleSaveEmailDraft,
     handleUpdateJobCriteria,

@@ -22,9 +22,11 @@ import {
   Lock,
   Sparkles,
   KeyRound,
+  Building2,
 } from 'lucide-react';
+import { DiccionarioEmpresas } from '../components/common/DiccionarioEmpresas.tsx';
 
-type SettingsTab = 'apariencia' | 'almacenamiento' | 'conectores' | 'gobernanza';
+type SettingsTab = 'apariencia' | 'almacenamiento' | 'conectores' | 'gobernanza' | 'diccionario';
 
 export function AjustesGeneralesView() {
   const {
@@ -97,6 +99,7 @@ export function AjustesGeneralesView() {
     { id: 'almacenamiento', label: 'Persistencia & Respaldo', icon: <Database size={15} />, badgeText: `${telemetry.kb} KB` },
     { id: 'conectores', label: 'Conectores & Servicios', icon: <Cpu size={15} />, badgeText: '3 Activos' },
     { id: 'gobernanza', label: 'Gobernanza & Sistema', icon: <ShieldCheck size={15} /> },
+    { id: 'diccionario', label: 'Diccionario de empresas', icon: <Building2 size={15} /> },
   ];
 
   return (
@@ -894,6 +897,13 @@ export function AjustesGeneralesView() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* PESTAÑA 5: DICCIONARIO DE EMPRESAS (Tier 1 / Tier 1.5 de «Categorización de empresas») */}
+      {activeTab === 'diccionario' && (
+        <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.25rem' }}>
+          <DiccionarioEmpresas />
         </div>
       )}
 

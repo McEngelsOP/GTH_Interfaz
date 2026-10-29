@@ -1,0 +1,17 @@
+/* Diccionario de empresas Tier 1 / Tier 1.5 (Criterios y pesos y Ajustes generales) */
+.diccionario { display: flex; flex-direction: column; gap: .85rem; }
+.diccionario__ayuda { font-size: .8125rem; line-height: 1.5; color: var(--text-secondary); }
+.diccionario__alta { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr) auto; gap: .6rem; align-items: end; }
+.diccionario__bloque { display: flex; flex-direction: column; gap: .7rem; padding: .9rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-base); }
+.diccionario__bloque > h4 { display: flex; align-items: center; gap: .4rem; font-size: .875rem; font-weight: 600; color: var(--text-primary); }
+.diccionario__error { color: var(--status-failed-text); font-size: .84rem; }
+.diccionario__vacio, .diccionario__total { color: var(--text-muted); font-size: .8125rem; }
+.diccionario__lista { display: flex; flex-direction: column; gap: .9rem; max-height: 40vh; overflow-y: auto; padding-right: .25rem; }
+.diccionario__lista h4 { font-size: .8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: .4rem; }
+.diccionario__lista h4 small { color: var(--text-muted); font-weight: 400; }
+.diccionario__lista ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.diccionario__lista li { display: inline-flex; align-items: center; gap: .25rem; }
+.diccionario__nueva { color: var(--status-verified-text); font-size: .7rem; }
+.diccionario__quitar { display: inline-flex; border: 0; background: transparent; color: var(--text-muted); padding: 0 .1rem; cursor: pointer; }
+.diccionario__quitar:hover { color: var(--status-failed-text); }
+@media (max-width: 640px) { .diccionario__alta { grid-template-columns: 1fr 1fr; } }

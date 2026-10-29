@@ -10,7 +10,7 @@ import { IconoBandera, NOMBRE_BANDERA } from '../components/modals/InternalComme
 import { supabase } from '../services/supabase.ts';
 import { fechaHora } from '../services/bumeranSync.ts';
 import {
-  comentariosDePersonas, ComentarioBase, fetchBasePagina, fetchBaseExportacion, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS, OpcionesBase, ResumenBase,
+  comentariosDePersonas, ComentarioBase, conCorreosCorregidos, fetchBasePagina, fetchBaseExportacion, FiltrosBase, NIVELES_IDIOMA, ORDEN_NIVEL, Persona, SIN_FILTROS, OpcionesBase, ResumenBase,
 } from '../services/baseCentralizada.ts';
 
 const POR_PAGINA = 50;
@@ -65,11 +65,15 @@ export function BaseCentralizadaView() {
   // Comentarios internos de las personas de la página (con su bandera), para la columna «Comentarios»
   const [comentarios, setComentarios] = useState<Map<string, ComentarioBase[]>>(new Map());
   const [comentariosDe, setComentariosDe] = useState<Persona | null>(null);
+  const [correos, setCorreos] = useState<Map<string, string>>(new Map());   // correo corregido por persona
   useEffect(() => {
     if (!supabase || !personas.length) { setComentarios(new Map()); return; }
     let vigente = true;
     comentariosDePersonas(supabase, personas.map((p) => p.id))
       .then((m) => { if (vigente) setComentarios(m); }, () => { if (vigente) setComentarios(new Map()); });
+    conCorreosCorregidos(supabase, personas).then((ps) => {
+      if (vigente) setCorreos(new Map(ps.filter((p, i) => p.email !== personas[i].email).map((p) => [p.id, p.email || ''])));
+    }, () => undefined);
     return () => { vigente = false; };
   }, [personas]);
   const { avisos, areas, ciudades, idiomas } = opciones;
@@ -81,7 +85,7 @@ export function BaseCentralizadaView() {
     setExportando(true);
     setErrorExportacion('');
     try {
-      const filtradas = await fetchBaseExportacion(supabase, filtros, compatibilidad.current);
+      const filtradas = await conCorreosCorregidos(supabase, await fetchBaseExportacion(supabase, filtros, compatibilidad.current));
       const { default: writeExcelFile } = await import('write-excel-file/browser');
       const enc = (value: string) => ({ value, fontWeight: 'bold' as const, backgroundColor: '#F3F4F6' });
       const data = [
@@ -211,19 +215,16 @@ export function BaseCentralizadaView() {
       <div style={{ overflowX: 'auto', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
         <table className="base-tabla" aria-label="Postulantes de la base centralizada" aria-busy={estado.cargando}>
           <thead>
-            <tr>{['Postulante', 'Experiencia reciente', 'Estudios', 'Idiomas', 'Ciudad', 'Avisos a los que postuló', 'Última postulación', 'Comentarios', ''].map((h) => <th key={h}>{h}</th>)}</tr>
+            <tr>{['Postulante', 'Experiencia reciente', 'Avisos a los que postuló', 'Última postulación', 'Comentarios', ''].map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {visibles.map((p) => (
               <tr key={p.id}>
                 <td>
                   <strong style={{ color: 'var(--text-primary)' }}>{p.nombre}</strong>
-                  <small>{[p.email, p.telefono].filter(Boolean).join(' · ')}</small>
+                  <small>{[correos.get(p.id) || p.email, p.telefono].filter(Boolean).join(' · ')}</small>
                 </td>
                 <td>{p.puesto || '—'}<small>{[p.empresa, p.areaExperiencia].filter(Boolean).join(' · ')}</small></td>
-                <td>{p.estudio || '—'}<small>{[p.nivelEstudio, p.estadoEstudio, p.institucion].filter(Boolean).join(' · ')}</small></td>
-                <td>{p.idiomas.length ? p.idiomas.map((i) => `${i.idioma}${i.nivel ? ` (${i.nivel})` : ''}`).join(', ') : '—'}</td>
-                <td>{p.ciudad || '—'}</td>
                 <td>
                   <div className="conv-fila-chips" style={{ marginTop: 0 }}>
                     {p.avisos.slice(0, 2).map((a) => <span key={a.id} className="conv-chip" title={a.area || undefined}>{a.titulo}</span>)}
@@ -248,7 +249,7 @@ export function BaseCentralizadaView() {
                 </td>
               </tr>
             ))}
-            {!visibles.length && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+            {!visibles.length && <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               {estado.cargando ? 'Cargando la base de postulantes…' : estado.error ? 'No se pudieron cargar los resultados. Usa Actualizar para reintentar.' : resumen.personas ? 'Ningún postulante coincide con los filtros.' : 'Todavía no hay postulantes.'}
             </td></tr>}
           </tbody>

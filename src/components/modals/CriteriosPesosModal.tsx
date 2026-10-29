@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, Save } from 'lucide-react';
+import { Building2, RefreshCw, Save } from 'lucide-react';
 import type { JobPosting } from '../../types/index.ts';
 import { useApp } from '../../context/AppContext.tsx';
 import { supabase } from '../../services/supabase.ts';
@@ -7,12 +7,13 @@ import { esSuperadmin, usePerfil } from '../../services/permisos.ts';
 import { avisoDeJob } from '../../services/pesosRequisitos.ts';
 import { useRecalculo } from '../../services/useRecalculo.ts';
 import {
-  cargarCriterios, CRITERIOS_BASE, factorScore, FACTOR_TIPICO, guardarCriterios, intensidadDePorcentaje, intensidadDePuntos,
-  limitarLinea, limitarPenalizacion, pesoBaseHerramientas, porcentajeDePeso, puntosDeBono, type CriteriosAviso,
+  cargarCriterios, CRITERIOS_BASE, guardarCriterios, intensidadDePuntos,
+  limitarLinea, limitarPenalizacion, puntosDeBono, type CriteriosAviso,
 } from '../../services/criteriosClasificacion.ts';
 import { CRITERIOS_CLASIFICACION } from '../../config/criteriosClasificacion.ts';
 import { Modal } from '../common/Modal.tsx';
 import { Button } from '../common/Button.tsx';
+import { DiccionarioEmpresasModal } from '../common/DiccionarioEmpresas.tsx';
 
 const campo: React.CSSProperties = {
   width: '64px', padding: '0.25rem 0.4rem', fontSize: '0.875rem', fontWeight: 700, textAlign: 'center',
@@ -27,14 +28,14 @@ function CampoConvertido({ valor, decimales, min, max, step, disabled, label, on
 }) {
   const [texto, setTexto] = useState<string | null>(null);
   return <input type="number" min={min} max={max} step={step} disabled={disabled} aria-label={label}
-    className="focus-ring tabular-nums" style={campo} value={texto ?? valor.toFixed(decimales)}
+    className="focus-ring tabular-nums" style={{ ...campo, width: decimales > 2 ? '84px' : campo.width }} value={texto ?? valor.toFixed(decimales)}
     onChange={(e) => { setTexto(e.target.value); const v = parseFloat(e.target.value); if (Number.isFinite(v)) onCambio(v); }}
     onBlur={() => setTexto(null)} />;
 }
 
 /** Matriz de clasificación de GTHC y la penalización por alta rotación. Rubro y Categorización se muestran como lo que
- *  suman al score de la tabla por experiencia (con la escala de este aviso) y Sobrecalificación como el % del peso de los
- *  requisitos de herramientas; se guarda la intensidad 0-100. Igual que «Requisitos y pesos»: «Guardar» los deja para el
+ *  suman al score de la tabla por experiencia (igual en todos los avisos); Sobrecalificación va de 0 a 100 (50 = peso
+ *  actual de los requisitos de herramientas). Se guarda la intensidad 0-100. Igual que «Requisitos y pesos»: «Guardar» los deja para el
  *  equipo y «Recalcular puntaje» pide al servidor de GTH que rehaga el ranking con ellos. */
 export function CriteriosPesosModal({ job, onClose }: { job: JobPosting; onClose: () => void }) {
   const { showToast } = useApp();
@@ -46,15 +47,7 @@ export function CriteriosPesosModal({ job, onClose }: { job: JobPosting; onClose
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const { servidor, recalculo, recalculando, recalcular, sinCambios, revisarCambios } = useRecalculo(aviso, true);
-  const [factor, setFactor] = useState(FACTOR_TIPICO);
-  const pesoBase = pesoBaseHerramientas(job.title);
-
-  useEffect(() => {   // escala de este aviso para mostrar los bonos en puntos del score de la tabla
-    let vigente = true;
-    void supabase?.from('ranking_embeddings').select('score_bruto').eq('aviso_id', aviso).eq('criterios_version', job.criteriaVersion)
-      .then(({ data }) => { if (vigente && data) setFactor(factorScore(data.map((r) => Number(r.score_bruto)))); });
-    return () => { vigente = false; };
-  }, [aviso, job.criteriaVersion]);
+  const [diccionario, setDiccionario] = useState(false);
 
   useEffect(() => {
     let vigente = true;
@@ -120,19 +113,17 @@ export function CriteriosPesosModal({ job, onClose }: { job: JobPosting; onClose
                     : c.tipo === 'bono'
                     ? <label style={etiqueta}>
                         Suma por experiencia
-                        <CampoConvertido valor={puntosDeBono(valores[c.clave], c.bonoBase!, factor)} decimales={2} min={0}
-                          max={Number(puntosDeBono(100, c.bonoBase!, factor).toFixed(2))} step={0.01} disabled={bloqueado}
+                        <CampoConvertido valor={puntosDeBono(valores[c.clave], c.bonoBase!)} decimales={3} min={0}
+                          max={Number(puntosDeBono(100, c.bonoBase!).toFixed(3))} step={0.005} disabled={bloqueado}
                           label={`Bonificación por experiencia de ${c.nombre}`}
-                          onCambio={(v) => cambiar(c.clave, intensidadDePuntos(v, c.bonoBase!, factor))} />
+                          onCambio={(v) => cambiar(c.clave, intensidadDePuntos(v, c.bonoBase!))} />
                         en el score
                       </label>
                     : c.tipo === 'peso'
                     ? <label style={etiqueta}>
                         Peso del requisito
-                        <CampoConvertido valor={porcentajeDePeso(valores[c.clave], pesoBase)} decimales={0} min={0}
-                          max={porcentajeDePeso(100, pesoBase)} step={10} disabled={bloqueado} label={`Peso de ${c.nombre}`}
-                          onCambio={(v) => cambiar(c.clave, intensidadDePorcentaje(v, pesoBase))} />
-                        %
+                        <input type="number" min={0} max={100} value={valores[c.clave]} disabled={bloqueado} aria-label={`Peso de ${c.nombre}`}
+                          className="focus-ring tabular-nums" style={campo} onChange={(e) => cambiar(c.clave, parseInt(e.target.value, 10))} />
                       </label>
                     : <label style={etiqueta}>
                         Penalización
@@ -140,15 +131,18 @@ export function CriteriosPesosModal({ job, onClose }: { job: JobPosting; onClose
                           className="focus-ring tabular-nums" style={campo} onChange={(e) => cambiar(c.clave, parseFloat(e.target.value))} />
                       </label>}
                 </div>
-                {c.tipo === 'linea' && <input type="range" min={0} max={100} value={valores[c.clave]} disabled={bloqueado}
+                {c.tipo !== 'penalizacion' && <input type="range" min={0} max={100} value={valores[c.clave]} disabled={bloqueado}
                   aria-label={`Control de intensidad de ${c.nombre}`} onChange={(e) => cambiar(c.clave, parseInt(e.target.value, 10))}
                   style={{ width: '100%', accentColor: 'var(--primary-red)', cursor: bloqueado ? 'default' : 'pointer' }} />}
                 <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>{c.ayuda}</small>
+                {c.clave === 'escala_empresa' && <Button variant="ghost" size="sm" icon={<Building2 size={14} />}
+                  style={{ alignSelf: 'flex-start' }} onClick={() => setDiccionario(true)}>Ver diccionario de empresas</Button>}
               </li>
             ))}
           </ol>
         )}
       </div>
+      {diccionario && <DiccionarioEmpresasModal onClose={() => setDiccionario(false)} />}
     </Modal>
   );
 }

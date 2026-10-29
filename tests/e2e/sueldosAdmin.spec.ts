@@ -162,14 +162,14 @@ test('«Criterios y pesos»: experiencia en 100, bonos en puntos del score, herr
   const dialog = page.getByRole('dialog', { name: 'Criterios y pesos', exact: true });
   await expect(dialog.getByRole('listitem')).toHaveCount(5);
   await expect(dialog.getByLabel('Control de intensidad de Experiencia laboral')).toHaveValue('100');
-  // Sin score_bruto en el ranking se usa la escala de un aviso típico (FACTOR_TIPICO = 0,56)
-  await expect(dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia')).toHaveValue('0.14');
-  await expect(dialog.getByLabel('Bonificación por experiencia de Categorización de empresas por escala y complejidad')).toHaveValue('0.07');
-  await expect(dialog.getByLabel('Peso de Análisis de sobrecalificación')).toHaveValue('50');
-  await expect(dialog.getByLabel('Control de intensidad de Rubro o sector de experiencia')).toHaveCount(0);
+  // Score absoluto: rubro +0.025 y empresa +0.0125 por experiencia, en todos los avisos
+  await expect(dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia')).toHaveValue('0.025');
+  await expect(dialog.getByLabel('Bonificación por experiencia de Categorización de empresas por escala y complejidad')).toHaveValue((0.0125).toFixed(3));
+  await expect(dialog.getByLabel('Peso de Análisis de sobrecalificación')).toHaveValue('50');   // 0-100, 50 = peso actual
+  await expect(dialog.getByLabel('Control de intensidad de Rubro o sector de experiencia')).toHaveValue('50');   // barra junto al número
   await expect(dialog.getByLabel('Penalización por Alta rotación laboral')).toHaveValue('0.5');
   await expect(dialog.getByLabel('Criterio salarial')).toHaveCount(0);   // el sueldo vive en «Sueldo»
-  await dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia').fill('0.224');   // = intensidad 80
+  await dialog.getByLabel('Bonificación por experiencia de Rubro o sector de experiencia').fill('0.04');   // = intensidad 80
   await expect(dialog.getByRole('button', { name: 'Recalcular puntaje' })).toBeDisabled();   // primero guardar
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect.poll(() => ctx.criteriosGuardados.length).toBe(1);

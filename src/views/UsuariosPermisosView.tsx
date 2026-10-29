@@ -212,6 +212,7 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
   const [nivel, setNivel] = useState<Nivel>(perfil.nivel);
   const [secciones, setSecciones] = useState<string[] | null>(perfil.secciones);
   const [elegidos, setElegidos] = useState<string[] | null>(perfil.avisos);
+  const [editarDiccionario, setEditarDiccionario] = useState(perfil.editar_diccionario !== false);
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState(false);
   const alternar = (lista: string[], id: string) => lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id];
@@ -221,7 +222,7 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
     if (!supabase) return;
     setGuardando(true);
     try {
-      await guardarPerfil(supabase, perfil.user_id, { nombre: nombre.trim(), ...(propio ? {} : { nivel }), secciones, avisos: elegidos });
+      await guardarPerfil(supabase, perfil.user_id, { nombre: nombre.trim(), ...(propio ? {} : { nivel }), secciones, avisos: elegidos, editar_diccionario: editarDiccionario });
       showToast(`Permisos de ${perfil.email} guardados. Se aplican la próxima vez que actualice la página.`, 'success');
       onGuardado();
     } catch (e) { showToast((e as Error).message, 'error'); }
@@ -236,6 +237,13 @@ function EditarPermisos({ perfil, propio, avisos, onCerrar, onGuardado }: {
         <Input label="Nombre" value={nombre} maxLength={120} onChange={(e) => setNombre(e.target.value)} />
         <Select label="Nivel" options={perfil.nivel === 'superadmin' ? [{ value: 'superadmin', label: 'Superadministradora' }] : esSuperadmin(actor) ? NIVELES : NIVELES.slice(0, 1)} value={nivel} disabled={propio || !esSuperadmin(actor)} onChange={(e) => setNivel(e.target.value as Nivel)}
           helperText={propio ? 'No puedes cambiar el nivel de tu propia cuenta.' : undefined} />
+        <fieldset className="base-filtros-grupo">
+          <legend>Diccionario de empresas</legend>
+          <label className="base-filtros-check">
+            <input type="checkbox" checked={editarDiccionario} onChange={(e) => setEditarDiccionario(e.target.checked)} />
+            Puede agregar o quitar empresas del diccionario Tier 1 / Tier 1.5
+          </label>
+        </fieldset>
         {nivel !== 'general' ? (
           <p style={{ fontSize: '.8125rem', color: 'var(--text-secondary)' }}>Las cuentas administradoras ven todas las secciones y los avisos confidenciales. Solo la superadministradora puede crear o eliminar administradores.</p>
         ) : (<>

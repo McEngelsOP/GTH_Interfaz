@@ -57,7 +57,15 @@ RUBRO_VERSION = "clasif3"
 # Reglas validadas con GTH (28/10/2026, «prueba 8b» en los avisos I, II y III; desde el 28/10 en todos los avisos):
 # experiencia relacionada por palabras, «Interno» y dos prácticas sin tipo (experiencia.py), bono interno por años de
 # sobra (no se muestra en la web), rubro por cada experiencia, posgrado = 100 % en estudios y escala de herramientas.
-REGLAS_GTH_VERSION = "gth8b"
+REGLAS_GTH_VERSION = "gth9b"
+# Score absoluto (29/10/2026, pedido de GTH: 1 solo cuando de verdad se lo merece). Cada requisito vale 0-1 en términos
+# absolutos (reglas de años, herramientas y estudios; los que solo mide e5 con una escala fija para todos los avisos) y
+# cumplirlos todos da SCORE_CUMPLIMIENTO; los extras (bonos y penalizaciones) suman o restan hasta EXTRAS_MAXIMOS. Así 1,00
+# es cumplir todo con los extras al máximo, y el número ya no depende de quién más postuló al aviso.
+SCORE_CUMPLIMIENTO = 0.85
+EXTRAS_MAXIMOS = 0.15
+PUNTOS_POR_DISTANCIA = 0.1     # un bono de BONO_ESCALA (0.25 de la distancia del aviso) suma 0.025 al score
+E5_CERO, E5_UNO = 0.798, 0.882  # escala fija de similitud e5: percentiles 5 y 99 de 23 671 similitudes (29/10/2026)
 RUBRO_RECIENTE = 0.5           # el último trabajo en educación suma esta fracción más de la bonificación de rubro
 PESO_OTROS_AVISOS = 0.5        # postuló a otros avisos de ESAN: hasta esta fracción de BONO_ESCALA (con 3 o más avisos)
 NO_CUMPLE_FORMACION = 0.25     # requisito de formación de quien responde que no cumple: un cuarto del rango del aviso
@@ -147,6 +155,13 @@ def criterios_efectivos(bd, a: dict):
         clave += "#" + experiencia.VERSION
     clave += "#" + RUBRO_VERSION
     clave += "#" + REGLAS_GTH_VERSION
+    # Diccionario de empresas (editable en la web): solo cambia la versión de los avisos con postulantes de una empresa
+    # que se agregó o quitó
+    from . import empresas_peru
+    empresas_peru.cargar(bd)
+    empresas = [v for p in bd.postulantes_para_ranking(a["aviso_id"]) for k, v in (p.get("datos_json") or {}).items()
+                if k.endswith("] Empresa") and v]
+    clave += "#emp" + empresas_peru.huella(empresas)
     # Cambiar «Criterios y pesos» o la oferta en modo Estricto cambia el resultado: la versión los incluye
     clasif = criterios_clasificacion(bd, a["aviso_id"])
     if clasif != CRITERIOS_BASE:
@@ -198,6 +213,11 @@ def _distancia(validas):
     return puntajes[int(.9 * len(puntajes))] - puntajes[int(.1 * len(puntajes))]
 
 
+def _valor_absoluto(fila, k, valor):
+    """Valor 0-1 de un requisito según su regla (años, herramientas, estudios), para el score absoluto."""
+    fila["_abs"] = {**(fila.get("_abs") or {}), k: max(0.0, min(1.0, valor))}
+
+
 def _sumar(fila, clave, delta, **detalle):
     fila["score_bruto"] = round(fila["score_bruto"] + delta, 4)
     fila["ajustes"] = {**(fila.get("ajustes") or {}), clave: {**detalle, "delta": round(delta, 4)}}
@@ -222,7 +242,7 @@ def aplicar_ajustes(filas, datos, criterios=None, rotacion=frozenset(), oferta=N
     c = {**CRITERIOS_BASE, **(criterios or {})}
     validas = [f for f in filas if f["explicacion_bruta"] != SIN_INFORMACION and f.get("score_bruto") is not None]
     if len(validas) < 2:
-        return
+        return None
     distancia = _distancia(validas)
     for f in validas:
         d = datos.get(f["clave"]) or {}
@@ -266,6 +286,7 @@ def aplicar_ajustes(filas, datos, criterios=None, rotacion=frozenset(), oferta=N
             pedido = pretension(datos.get(f["clave"]))
             if pedido is not None and pedido > oferta:   # al final, conservando su orden entre los descartados
                 _sumar(f, "sueldo", -((alto - bajo) + distancia), descartado=True, pretension=pedido, oferta=oferta)
+    return distancia   # escala de los ajustes, para pasarlos a puntos del score absoluto
 
 
 def aplicar_bonificacion_rubro(filas, datos):
@@ -291,10 +312,13 @@ def aplicar_regla_estudios(filas, datos, etiquetas):
             titulo, respuesta = estudios.posgrado_afin(d, afines), estudios.grado_respondido(d, afines)
             if titulo:
                 valor, detalle = hi, f"Posgrado afín: {titulo}"
+                _valor_absoluto(f, k, 1.0)
             elif respuesta and respuesta[0] == "cumple":
                 valor, detalle = hi, f"Respondió: {respuesta[1][:60]}"
+                _valor_absoluto(f, k, 1.0)
             elif respuesta and (sims[k] or 0.0) > lo + NO_CUMPLE_FORMACION * (hi - lo):
                 valor, detalle = lo + NO_CUMPLE_FORMACION * (hi - lo), f"Respondió: {respuesta[1][:60]}"
+                _valor_absoluto(f, k, NO_CUMPLE_FORMACION)
             else:
                 continue
             sims[k] = round(valor, 4)
@@ -322,6 +346,7 @@ def aplicar_regla_niveles(filas, datos, etiquetas, reglas_gth=False):
             sims = f.get("_sims") or list(f["req_sims_bruto"])
             sims[k] = round(lo + valor * (hi - lo), 4)
             f["_sims"] = sims
+            _valor_absoluto(f, k, valor)
             partes = f["explicacion_bruta"].split(" | ")
             partes += [""] * (len(etiquetas) - len(partes))
             partes[k] = f"[{etiquetas[k][:40]}…] -> {detalle} ({valor:.2f})"
@@ -402,6 +427,7 @@ def aplicar_regla_practicas(filas, datos, titulo, etiquetas, pesos, sims_exp=Non
                 f["_extra"] = max(f.get("_extra", 0.0), min(ANIOS_EXTRA_MAXIMO, max(0.0, total - n)))
             lo, hi = rangos[k]
             sims[k] = round(lo + v * (hi - lo), 4)
+            _valor_absoluto(f, k, v)
             partes[k] = f"[{etiquetas[k][:40]}…] -> {experiencia.describir(total, laboral, practica)} ({v:.2f})"
             ajustes[etiquetas[k]] = {"experiencias": {str(i): s for i, s in (propias or {}).items()},
                                      "anios": round(total, 2), "laborales": round(laboral, 2), "practica": round(practica, 2)}
@@ -436,6 +462,38 @@ def _por_requisito(fila, etiquetas):
 def _sin_informacion(backend, n):
     return {"backend": backend, "score_bruto": 0.0, "req_sims_bruto": [None] * n, "req_fragmentos": [""] * n,
             "explicacion_bruta": SIN_INFORMACION, "calculado_at": ahora()}
+
+
+def score_absoluto(filas, pesos, distancia, n):
+    """Ranking con score absoluto (ver SCORE_CUMPLIMIENTO): DataFrame con candidato_id, ranking, score_embeddings,
+    explicacion y req{k}_sim (valor 0-1 de cada requisito). Los descartados por sueldo Estricto van al final con su score
+    dividido entre 100 (conservan su orden); los CV sin información quedan en 0, al final."""
+    import pandas as pd
+    filas_df = []
+    for f in filas:
+        valida = f["explicacion_bruta"] != SIN_INFORMACION and f["req_sims_bruto"]
+        if not valida:
+            filas_df.append({"candidato_id": f["clave"], "score_embeddings": 0.0, "explicacion": f["explicacion_bruta"],
+                             "_vacio": True, "_descartado": False, **{f"req{k + 1}_sim": None for k in range(n)}})
+            continue
+        absolutos = f.get("_abs") or {}
+        v = [absolutos[k] if k in absolutos else max(0.0, min(1.0, ((f["req_sims_bruto"][k] or 0.0) - E5_CERO) / (E5_UNO - E5_CERO)))
+             for k in range(n)]
+        cumple = sum(w * x for w, x in zip(pesos, v)) / (sum(pesos) or 1)
+        aj = f.get("ajustes") or {}
+        bonos = sum(x.get("delta", 0.0) for c, x in aj.items() if c in AJUSTES_SUMADOS and c != "sueldo" and isinstance(x, dict))
+        extras = max(-EXTRAS_MAXIMOS, min(EXTRAS_MAXIMOS, bonos / (distancia or 1) * PUNTOS_POR_DISTANCIA)) if distancia else 0.0
+        score = max(0.0, min(1.0, SCORE_CUMPLIMIENTO * cumple + extras))
+        descartado = bool((aj.get("sueldo") or {}).get("descartado"))
+        partes = f["explicacion_bruta"].split(" | ")
+        for k in range(min(n, len(partes))):
+            partes[k] = re.sub(r"\((-?\d+\.\d+)\)$", f"({v[k]:.2f})", partes[k])
+        filas_df.append({"candidato_id": f["clave"], "score_embeddings": round(score / 100 if descartado else score, 4),
+                         "explicacion": " | ".join(partes), "_vacio": False, "_descartado": descartado,
+                         **{f"req{k + 1}_sim": round(v[k], 3) for k in range(n)}})
+    df = pd.DataFrame(filas_df).sort_values(["_vacio", "_descartado", "score_embeddings"], ascending=[True, True, False], kind="stable")
+    df.insert(1, "ranking", range(1, len(df) + 1))
+    return df.drop(columns=["_vacio", "_descartado"])
 
 
 def paso_ranking(bd, aviso: dict, forzar=False):
@@ -558,8 +616,8 @@ def paso_ranking(bd, aviso: dict, forzar=False):
                        for k, w in enumerate(pesos)]
     if reglas_nivel or reglas_estudios or pesos_ajustados != pesos:
         recalcular_puntajes(filas, pesos_ajustados)
-    aplicar_ajustes(filas, datos, clasif, alta_rotacion(bd, aviso_id), *sueldo_aviso(bd, aviso_id), reglas_gth=reglas_gth,
-                    otros_avisos=otros_avisos(bd, aviso_id, postulantes) if reglas_gth and PESO_OTROS_AVISOS else None)
+    distancia = aplicar_ajustes(filas, datos, clasif, alta_rotacion(bd, aviso_id), *sueldo_aviso(bd, aviso_id), reglas_gth=reglas_gth,
+                                otros_avisos=otros_avisos(bd, aviso_id, postulantes) if reglas_gth and PESO_OTROS_AVISOS else None)
     for f in filas:
         if "_sims" in f:
             f["req_fragmentos"] = _fragmentos(f["explicacion_bruta"], n)
@@ -569,7 +627,9 @@ def paso_ranking(bd, aviso: dict, forzar=False):
                        for f in filas])
     df = df.sort_values("score_embeddings", ascending=False, kind="stable")
     df.insert(1, "ranking", range(1, len(df) + 1))
-    if emb.backend == "e5":
+    if emb.backend == "e5" and reglas_gth:
+        df = score_absoluto(filas, pesos_ajustados, distancia, n)
+    elif emb.backend == "e5":
         df = reescalar_por_aviso(df, n)
     final = {r["candidato_id"]: r for r in df.to_dict("records")}
     for f in filas:

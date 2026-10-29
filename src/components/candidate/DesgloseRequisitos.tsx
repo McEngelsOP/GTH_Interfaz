@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, Building2, GraduationCap, Quote, Repeat, TrendingUp } from 'lucide-react';
 import type { Application, Candidate, JobPosting } from '../../types/index.ts';
 import { argumentosPorRequisito, colorPct } from '../../services/perfilBumeran.ts';
 import { embeddingVigente } from '../../services/rankingEmbeddings.ts';
+import { DiccionarioEmpresasModal } from '../common/DiccionarioEmpresas.tsx';
 
 /** Por cada requisito del aviso: su peso, cuánto se parece el perfil (0-100 dentro del aviso) y la evidencia. */
 export function DesgloseRequisitos({ app, candidate, job }: { app: Application; candidate?: Candidate; job: JobPosting }) {
   const { requisitos } = argumentosPorRequisito(app, candidate, job);
   const emb = embeddingVigente(app, job);
   const educacionSuperior = emb?.higherEducation || [];
+  const [diccionario, setDiccionario] = useState(false);
   const fila: React.CSSProperties = { display: 'flex', gap: '0.4rem', fontSize: '0.84rem', color: 'var(--text-primary)', lineHeight: 1.5 };
   const icono = (color: string): React.CSSProperties => ({ color, flexShrink: 0, marginTop: '0.15rem' });
   return (
@@ -42,7 +44,10 @@ export function DesgloseRequisitos({ app, candidate, job }: { app: Application; 
         </p>
       )}
       {emb?.companyTier && <p style={fila}><Building2 size={15} style={icono('var(--status-verified-text)')} />
-        <span><strong>Empresa {emb.companyTier.tier}:</strong> {emb.companyTier.empresa}. Suma por escala y complejidad de la empresa.</span></p>}
+        <span><strong>Empresa {emb.companyTier.tier}:</strong> {emb.companyTier.empresa}. Suma por escala y complejidad de la empresa.{' '}
+          <button type="button" className="comentario-ver focus-ring" onClick={() => setDiccionario(true)}
+            title="Ver qué empresas cuentan como Tier 1 y Tier 1.5">Ver diccionario</button></span></p>}
+      {diccionario && <DiccionarioEmpresasModal onClose={() => setDiccionario(false)} />}
       {emb?.overqualified && <p style={fila}><TrendingUp size={15} style={icono('var(--text-secondary)')} />
         <span><strong>Sobrecalificado:</strong> {emb.overqualified.join('; ')}. Tiene más nivel del que pide el aviso: validarlo en la entrevista.</span></p>}
       {emb?.highTurnover && <p style={fila}><Repeat size={15} style={icono('var(--status-failed-text)')} />

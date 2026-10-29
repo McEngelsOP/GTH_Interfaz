@@ -4,12 +4,13 @@ import { Button } from '../common/Button.tsx';
 import { Input } from '../common/Input.tsx';
 import { Select } from '../common/Select.tsx';
 import { Candidate, Application, JobPosting } from '../../types/index.ts';
-import { Mail, Eye, Info, Send } from 'lucide-react';
+import { Mail, Eye, Info, Send, Save } from 'lucide-react';
 import { useApp } from '../../context/AppContext.tsx';
 import { enviarCorreos } from '../../services/correo.ts';
 import { supabase } from '../../services/supabase.ts';
 import { workflowCandidateId, workflowJobId } from '../../services/sharedWorkflow.ts';
 import { correoVigente } from '../../services/candidateContact.ts';
+import { correoValido, guardarCorreo } from '../../services/correosPostulante.ts';
 
 interface EmailDraftModalProps {
   isOpen: boolean;
@@ -46,6 +47,18 @@ export function EmailDraftModal({
   const [showPreview, setShowPreview] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [guardandoCorreo, setGuardandoCorreo] = useState(false);
+  const { actualizarCorreoPostulante } = useApp();
+  const guardarDestinatario = async () => {
+    if (!correoValido(to)) { setEmailError('Escribe un correo válido.'); return; }
+    setGuardandoCorreo(true);
+    try {
+      if (supabase) await guardarCorreo(supabase, workflowCandidateId(candidate), to);
+      actualizarCorreoPostulante(workflowCandidateId(candidate), to);
+      showToast(`Correo de ${candidate.name} actualizado en todos sus avisos.`, 'success');
+    } catch (e) { setEmailError((e as Error).message); }
+    finally { setGuardandoCorreo(false); }
+  };
   const { showToast } = useApp();
 
   // Cargar texto según plantilla e idioma
@@ -199,19 +212,27 @@ export function EmailDraftModal({
           </div>
         </div>
 
-        {/* Destinatarios */}
+        {/* Destinatarios. «Guardar» deja el destinatario como correo del postulante en todos sus avisos */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <Input
-            label="Destinatario"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setEmailError('');
-            }}
-            placeholder="correo@ejemplo.com"
-            error={emailError}
-            helperText={!correoVigente(candidate) ? 'El candidato no registró correo (campo editable)' : undefined}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.4rem' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Input
+                label="Destinatario"
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setEmailError('');
+                }}
+                placeholder="correo@ejemplo.com"
+                error={emailError}
+                helperText={!correoVigente(candidate) ? 'El candidato no registró correo (campo editable)' : undefined}
+              />
+            </div>
+            <Button variant="secondary" icon={<Save size={15} />} onClick={() => void guardarDestinatario()}
+              disabled={guardandoCorreo || !correoValido(to) || to.trim().toLowerCase() === correoVigente(candidate).toLowerCase()}
+              title="Guardar este correo para el postulante en todos sus avisos" aria-label="Guardar correo del postulante"
+              style={{ marginBottom: emailError || !correoVigente(candidate) ? '1.35rem' : 0, padding: '0.55rem 0.65rem' }} />
+          </div>
           <Input
             label="Copia (CC opcional)"
             value={cc}

@@ -7,7 +7,7 @@ from unittest import mock
 
 import pandas as pd
 
-from . import ranking
+from . import empresas_peru, ranking
 from .criterios import _hash_corto, criterios_aviso
 
 OFERTA = "Requisitos:\n- Experiencia en cobranzas\n- Manejo de Excel\n"
@@ -28,7 +28,7 @@ class BDFalsa:
     def consultar(self, sql, params=()):
         if "gth_trayectoria_analisis" in sql:
             return self.rotacion
-        if "FROM postulaciones" in sql:   # otros avisos a los que postuló (ranking.otros_avisos)
+        if "FROM postulaciones" in sql or "gth_empresas_diccionario" in sql:   # otros avisos (ranking.otros_avisos), diccionario
             return []
         assert "gth_aviso_requisitos" in sql
         return self.requisitos
@@ -88,7 +88,7 @@ class TestRankingPesos(unittest.TestCase):
 
     def test_sin_requisitos_guardados_usa_la_oferta(self):
         criterios, version = ranking.criterios_efectivos(self.bd, self.bd.a)
-        self.assertEqual(version, f"Bumeran {_hash_corto('Experiencia en cobranzas|Manejo de Excel#' + ranking.RUBRO_VERSION + '#' + ranking.REGLAS_GTH_VERSION)}")
+        self.assertEqual(version, f"Bumeran {_hash_corto('Experiencia en cobranzas|Manejo de Excel#' + ranking.RUBRO_VERSION + '#' + ranking.REGLAS_GTH_VERSION + '#emp' + empresas_peru.huella([]))}")
         self.assertEqual([c["label"] for c in criterios], ["Experiencia en cobranzas", "Manejo de Excel"])
 
     def test_pesos_iguales_no_cambian_la_version(self):

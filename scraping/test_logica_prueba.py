@@ -72,7 +72,8 @@ class TestLogicaPrueba(unittest.TestCase):
                  "P3": exp(1, "Mesero", "2010-01-01", "2025-09-30")}                    # 15 años: tope de 4
         ranking.aplicar_regla_practicas(filas, datos, "Analista de cobranzas", etiquetas, [1, 1], reglas_gth=True)
         self.assertEqual([round(f.get("_extra", 0), 1) for f in filas], [0, 1.5, 4])
-        ranking.aplicar_ajustes(filas, datos, {"rubro": 0, "escala_empresa": 0, "rotacion": 0}, reglas_gth=True)
+        distancia = ranking.aplicar_ajustes(filas, datos, {"rubro": 0, "escala_empresa": 0, "rotacion": 0}, reglas_gth=True)
+        self.assertGreater(distancia, 0)   # el score absoluto la usa para pasar los ajustes a puntos
         self.assertNotIn("anios_extra", filas[0].get("ajustes") or {})
         self.assertIn("anios_extra", filas[1]["ajustes"])
         fila = {**filas[1], "ajustes": dict(filas[1]["ajustes"])}
@@ -104,6 +105,22 @@ class TestLogicaPrueba(unittest.TestCase):
         datos = {"P1": {**exp(1, "Analista de cobranzas", "2015-01-01", "2025-09-30"), "¿Cuántos años de experiencia tienes?": "2 años"}}
         ranking.aplicar_regla_practicas(filas, datos, "Analista de cobranzas", etiquetas, [1, 1], reglas_gth=True)
         self.assertEqual(filas[0]["_extra"], 2)   # declara 2: se cuentan 3 (2 + 1 de margen), no 10
+
+    def test_score_absoluto(self):
+        fila = lambda c, sims, abs_=None, aj=None: {"clave": c, "req_sims_bruto": sims, "explicacion_bruta": "[A…] -> x (0.50) | [B…] -> y (0.50)",
+                                                     "_abs": abs_ or {}, "ajustes": aj or {}}
+        filas = [fila("todo", [0.80, 0.95], {0: 1.0}),                       # años al 100 % y e5 sobre E5_UNO: cumple todo
+                 fila("mitad", [0.80, ranking.E5_CERO + (ranking.E5_UNO - ranking.E5_CERO) / 2], {0: 0.5}),
+                 fila("bono", [0.80, 0.95], {0: 1.0}, {"escala": {"delta": 0.004}}),
+                 fila("caro", [0.80, 0.95], {0: 1.0}, {"sueldo": {"descartado": True, "delta": -1}}),
+                 {"clave": "vacio", "req_sims_bruto": None, "explicacion_bruta": ranking.SIN_INFORMACION}]
+        df = ranking.score_absoluto(filas, [1, 1], 0.02, 2).set_index("candidato_id")
+        self.assertAlmostEqual(df.loc["todo", "score_embeddings"], ranking.SCORE_CUMPLIMIENTO)   # cumplir todo = 0.85, no 1
+        self.assertAlmostEqual(df.loc["mitad", "score_embeddings"], ranking.SCORE_CUMPLIMIENTO * 0.5, 3)
+        self.assertAlmostEqual(df.loc["bono", "score_embeddings"], ranking.SCORE_CUMPLIMIENTO + 0.004 / 0.02 * ranking.PUNTOS_POR_DISTANCIA)
+        self.assertEqual(df["ranking"].idxmax(), "vacio")                 # sin información, al final
+        self.assertGreater(df.loc["caro", "ranking"], df.loc["mitad", "ranking"])   # descartado por sueldo, detrás de los demás
+        self.assertEqual(df.loc["todo", "explicacion"], "[A…] -> x (1.00) | [B…] -> y (1.00)")
 
     def test_ultima_experiencia_en_educacion(self):
         self.assertTrue(ex.ultima_en_educacion({"Exp[1] Empresa": "Universidad de Lima"}))

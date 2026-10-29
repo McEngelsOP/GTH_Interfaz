@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CvPersonal, vistaPreviaDrive } from './bumeranSync.ts';
 import { faltaConsultaPostulaciones } from './supabaseQueries.ts';
+import { cargarCorreos } from './correosPostulante.ts';
 
 // Base centralizada: todos los postulantes de todos los avisos (vista v_base_postulantes). No tiene score porque no
 // se compara contra un aviso. Se lee de Supabase cada vez y no se guarda en el navegador.
@@ -28,6 +29,21 @@ export const NIVELES_IDIOMA = ['Básico', 'Intermedio', 'Avanzado', 'Nativo'];
 const rangoNivel = (n: string | null) => { const i = ORDEN_NIVEL.indexOf(n || ''); return i < 0 ? ORDEN_NIVEL.length : i; };
 
 export type ComentarioBase = { avisoId: string; texto: string; bandera: 'roja' | 'verde' | null; at: string };
+
+/** Personas con el correo corregido por el equipo (gth_correos_postulante, por ID de Bumeran) en lugar del de Bumeran. */
+export async function conCorreosCorregidos(client: SupabaseClient, personas: Persona[]): Promise<Persona[]> {
+  const ids = new Map<string, string>();   // id_postulante -> persona
+  for (let i = 0; i < personas.length; i += 200) {
+    const { data, error } = await client.from('v_base_postulantes').select('persona_id, id_postulante')
+      .in('persona_id', personas.slice(i, i + 200).map((p) => p.id));
+    if (error) return personas;
+    for (const f of data || []) if (f.id_postulante) ids.set(f.id_postulante, f.persona_id);
+  }
+  const correos = await cargarCorreos(client, [...ids.keys()]);
+  if (!correos.size) return personas;
+  const porPersona = new Map([...correos].map(([id, email]) => [ids.get(id)!, email]));
+  return personas.map((p) => porPersona.has(p.id) ? { ...p, email: porPersona.get(p.id)! } : p);
+}
 
 /** Comentarios internos (con su bandera) de cada persona en todos sus avisos, del más reciente al más antiguo. Los
  *  comentarios se guardan por aviso e ID postulante de Bumeran; la vista de la base da ese ID de cada persona. */

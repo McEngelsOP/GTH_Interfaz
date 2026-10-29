@@ -21,6 +21,8 @@ export interface Perfil {
   avisos: string[] | null;      // null = todos los no confidenciales
   debe_cambiar_clave: boolean;
   activo: boolean;
+  /** Puede agregar o quitar empresas del diccionario Tier 1 / 1.5 (todos por defecto). */
+  editar_diccionario?: boolean;
 }
 
 /** Secciones del menú que una cuenta maestra puede dar o quitar a las demás. */
@@ -102,7 +104,7 @@ export async function listarPerfiles(client: SupabaseClient): Promise<Perfil[]> 
   return (data || []) as Perfil[];
 }
 
-export async function guardarPerfil(client: SupabaseClient, userId: string, cambios: Partial<Pick<Perfil, 'nombre' | 'nivel' | 'secciones' | 'avisos'>>) {
+export async function guardarPerfil(client: SupabaseClient, userId: string, cambios: Partial<Pick<Perfil, 'nombre' | 'nivel' | 'secciones' | 'avisos' | 'editar_diccionario'>>) {
   const { error } = await client.from('gth_perfiles').update(cambios).eq('user_id', userId).select('user_id').single();
   if (error) throw new Error(/propio nivel/.test(error.message) ? 'No puedes cambiar tu propio nivel.' : 'No se pudo guardar el cambio.');
 }

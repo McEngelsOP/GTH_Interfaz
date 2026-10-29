@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Candidate } from '../../types/index.ts';
 import {
-  CRITERIOS_BASE, factorScore, FACTOR_TIPICO, intensidadDePorcentaje, intensidadDePuntos, limitarLinea, limitarPenalizacion,
+  CRITERIOS_BASE, intensidadDePorcentaje, intensidadDePuntos, limitarLinea, limitarPenalizacion,
   pesoBaseHerramientas, porcentajeDePeso, puntosDeBono,
 } from '../criteriosClasificacion.ts';
 import { CRITERIOS_CLASIFICACION } from '../../config/criteriosClasificacion.ts';
@@ -16,14 +16,11 @@ describe('criterios y pesos', () => {
     expect([limitarLinea(150), limitarLinea(-3), limitarLinea(NaN), limitarLinea(49.6)]).toEqual([100, 0, 0, 50]);
     expect([limitarPenalizacion(1.4), limitarPenalizacion(-1), limitarPenalizacion(0.456)]).toEqual([1, 0, 0.46]);
   });
-  it('los bonos se muestran en puntos del score de la tabla según la escala del aviso', () => {
-    // 10 puntajes brutos de 0.80 a 0.89: distancia P90-P10 = 0.08, rango = 0.09
-    const factor = factorScore(Array.from({ length: 10 }, (_, i) => 0.8 + i / 100));
-    expect(factor).toBeCloseTo(0.08 / 0.09, 3);
-    expect(factorScore([0.8, 0.9])).toBe(FACTOR_TIPICO);   // muy pocos para estimarla
-    expect(puntosDeBono(50, 0.25, FACTOR_TIPICO)).toBeCloseTo(0.14, 3);
-    expect(intensidadDePuntos(0.14, 0.25, FACTOR_TIPICO)).toBe(50);
-    expect(intensidadDePuntos(5, 0.25, FACTOR_TIPICO)).toBe(100);
+  it('los bonos se muestran en puntos del score absoluto, iguales en todos los avisos', () => {
+    expect(puntosDeBono(50, 0.25)).toBeCloseTo(0.025, 5);    // rubro: +0.025 por experiencia
+    expect(puntosDeBono(50, 0.125)).toBeCloseTo(0.0125, 5);  // empresa Tier 1: +0.0125 por experiencia
+    expect(intensidadDePuntos(0.025, 0.25)).toBe(50);
+    expect(intensidadDePuntos(5, 0.25)).toBe(100);
   });
   it('herramientas: peso de partida 50 % en puestos que no son de tecnología y 100 % en los de tecnología', () => {
     expect(pesoBaseHerramientas('Analista de atención docente')).toBe(0.5);

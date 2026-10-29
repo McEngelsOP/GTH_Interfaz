@@ -7,10 +7,13 @@ Las demás quedan «Por determinar»: el CSV de Bumeran no trae tamaño ni núme
 clasificar solo por el nombre. Por eso no se penaliza a nadie por trabajar en una empresa que no está en la lista: el
 criterio solo suma a quien trabajó en una empresa reconocida.
 
-Cada alias se busca como palabras completas en el nombre normalizado (sin tildes, en minúsculas). Para agregar una
-empresa basta con sumarla a su grupo.
+Cada alias se busca como palabras completas en el nombre normalizado (sin tildes, en minúsculas). Desde el 29/10/2026
+el diccionario vigente está en Supabase (gth_empresas_diccionario) y el equipo lo edita en la web; esta lista es la
+carga inicial (cargar_diccionario.py) y el respaldo si la tabla no responde.
 """
+import hashlib
 import re
+import time
 import unicodedata
 
 TIER_1 = {
@@ -116,6 +119,38 @@ def _patron(aliases):
 
 _TIERS = [("Tier 1", sector, _patron(nombres)) for sector, nombres in TIER_1.items()] + \
          [("Tier 1.5", sector, _patron(nombres)) for sector, nombres in TIER_15.items()]
+_EXACTOS = {tier: {_normalizar(s) for s in siglas} for tier, siglas in EXACTOS.items()}
+_cargado_at = 0.0
+
+
+def cargar(bd, cada=60):
+    """Usa el diccionario de Supabase (gth_empresas_diccionario, editable en la web) en lugar del de este archivo, que
+    queda como respaldo si la tabla no existe o está vacía. Se relee como mucho cada `cada` segundos."""
+    global _TIERS, _EXACTOS, _cargado_at
+    if bd.motor != "supabase" or time.time() - _cargado_at < cada:
+        return
+    try:
+        filas = bd.consultar("SELECT alias, tier, sector, exacto FROM gth_empresas_diccionario")
+    except Exception:
+        return
+    _cargado_at = time.time()
+    if not filas:
+        return
+    grupos, exactos = {}, {"Tier 1": set(), "Tier 1.5": set()}
+    for f in filas:
+        if f["exacto"]:
+            exactos[f["tier"]].add(_normalizar(f["alias"]))
+        else:
+            grupos.setdefault((f["tier"], f["sector"]), []).append(f["alias"])
+    _TIERS = [(t, sector, _patron(nombres)) for (t, sector), nombres in sorted(grupos.items(), key=lambda g: (g[0][0] != "Tier 1", g[0][1]))]
+    _EXACTOS = exactos
+
+
+def huella(empresas):
+    """Resumen de qué empresas del aviso son Tier 1 o 1.5: cambia solo si se agrega o quita una que trabajó alguno de
+    sus postulantes (entra en la versión del ranking del aviso)."""
+    marcadas = sorted({(_normalizar(e), t[0]) for e in empresas if (t := tier_de_empresa(e))})
+    return hashlib.sha1(repr(marcadas).encode()).hexdigest()[:8]
 
 
 SUFIJOS = re.compile(r"\b(?:s\.?a\.?c?\.?|s\.?r\.?l\.?|e\.?i\.?r\.?l\.?|sac|srl|eirl|peru|del peru|corp|group|grupo)\b\.?")
@@ -130,7 +165,7 @@ def tier_de_empresa(nombre):
         if patron.search(texto):
             return tier, sector
     base = " ".join(SUFIJOS.sub(" ", texto).split())
-    for tier, siglas in EXACTOS.items():
+    for tier, siglas in _EXACTOS.items():
         if base in siglas:
             return tier, "Sigla reconocida"
     return None
